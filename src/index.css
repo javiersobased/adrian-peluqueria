@@ -1,0 +1,128 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --marble: #f5f3f0;
+    --marble-soft: #faf9f7;
+    --ink: #0a0a0a;
+    --ink-soft: #1a1a1a;
+    --wood: #8b6f47;
+    --wood-light: #a0826d;
+    --wood-dark: #6b5340;
+  }
+
+  * {
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    font-family: 'Inter', system-ui, sans-serif;
+    background-color: var(--ink);
+    color: var(--marble);
+    overscroll-behavior-y: none;
+  }
+
+  ::selection {
+    background-color: var(--wood);
+    color: var(--marble);
+  }
+}
+
+@layer components {
+  .font-display {
+    font-family: 'Cormorant Garamond', Georgia, serif;
+  }
+
+  .bg-marble {
+    background-color: var(--marble);
+  }
+  .bg-marble-soft {
+    background-color: var(--marble-soft);
+  }
+  .text-marble {
+    color: var(--marble);
+  }
+  .text-ink {
+    color: var(--ink);
+  }
+  .bg-ink {
+    background-color: var(--ink);
+  }
+  .bg-ink-soft {
+    background-color: var(--ink-soft);
+  }
+  .text-wood {
+    color: var(--wood);
+  }
+  .bg-wood {
+    background-color: var(--wood);
+  }
+  .border-wood {
+    border-color: var(--wood);
+  }
+
+  .glass-panel {
+    background: rgba(20, 20, 20, 0.55);
+    backdrop-filter: blur(18px) saturate(140%);
+    -webkit-backdrop-filter: blur(18px) saturate(140%);
+    border: 1px solid rgba(245, 243, 240, 0.08);
+  }
+
+  .glass-light {
+    background: rgba(250, 249, 247, 0.06);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(245, 243, 240, 0.10);
+  }
+
+  .marble-texture {
+    background-image:
+      radial-gradient(at 20% 30%, rgba(139, 111, 71, 0.06) 0px, transparent 50%),
+      radial-gradient(at 80% 70%, rgba(160, 130, 109, 0.05) 0px, transparent 50%);
+  }
+}
+
+@layer utilities {
+  .animate-fade-up {
+    animation: fadeUp 0.6s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+  .animate-fade-in {
+    animation: fadeIn 0.5s ease both;
+  }
+  .animate-scale-in {
+    animation: scaleIn 0.4s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+  .animate-slide-in {
+    animation: slideIn 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+}
+
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(24px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes scaleIn {
+  from { opacity: 0; transform: scale(0.94); }
+  to { opacity: 1; transform: scale(1); }
+}
+@keyframes slideIn {
+  from { opacity: 0; transform: translateX(28px); }
+  to { opacity: 1; transform: translateX(0); }
+}

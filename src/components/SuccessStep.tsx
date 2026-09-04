@@ -34,61 +34,61 @@ export function SuccessStep({ booking, onHome }: SuccessStepProps) {
   return (
     <div className="flex min-h-screen flex-col items-center justify-center px-6 text-center animate-fade-in">
       <div className="relative mb-8">
-        <div className="absolute inset-0 animate-ping rounded-full bg-wood/20" />
-        <div className="relative flex h-24 w-24 items-center justify-center rounded-full bg-wood shadow-2xl shadow-wood/30 animate-scale-in">
-          <CheckIcon className="h-12 w-12 text-marble" />
+        <div className="absolute inset-0 animate-ping rounded-full bg-gold/20" />
+        <div className="relative flex h-24 w-24 items-center justify-center rounded-full gold-gradient luxe-shadow animate-scale-in gold-glow">
+          <CheckIcon className="h-12 w-12 text-black" />
         </div>
       </div>
 
-      <p className="text-xs uppercase tracking-[0.3em] text-wood-light">Reserva confirmada</p>
-      <h2 className="mt-3 font-display text-4xl font-medium text-marble">¡Hasta pronto!</h2>
-      <p className="mt-3 max-w-xs text-sm leading-relaxed text-marble/60">
+      <p className="text-xs font-semibold uppercase tracking-[0.3em] text-gold">Reserva confirmada</p>
+      <h2 className="mt-3 font-display text-4xl font-bold text-white">¡Hasta pronto!</h2>
+      <p className="mt-3 max-w-xs text-sm leading-relaxed text-zinc-400">
         Tu cita ha sido registrada correctamente. Te esperamos en la peluquería a la hora indicada.
       </p>
 
-      <div className="mt-8 w-full max-w-sm rounded-2xl glass-panel p-6 text-left animate-fade-up">
-        <div className="mb-4 border-b border-marble/8 pb-4">
-          <p className="text-[0.65rem] uppercase tracking-wider text-marble/40">Servicio</p>
-          <p className="mt-1 font-display text-xl font-medium text-marble">{booking.service}</p>
+      <div className="mt-8 w-full max-w-sm rounded-3xl glass-panel p-6 text-left animate-fade-up">
+        <div className="mb-4 border-b border-white/5 pb-4">
+          <p className="text-[0.65rem] uppercase tracking-wider text-zinc-500">Servicio</p>
+          <p className="mt-1 font-display text-xl font-bold text-white">{booking.service}</p>
         </div>
 
-        <div className="space-y-3">
+        <div className="space-y-4">
           {barber && (
             <div className="flex items-center gap-3">
               {barber.photo_url ? (
-                <img src={barber.photo_url} alt="" className="h-8 w-8 rounded-full object-cover" />
+                <img src={barber.photo_url} alt="" className="h-9 w-9 rounded-xl object-cover ring-1 ring-white/10" />
               ) : (
-                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-wood to-wood-dark font-display text-xs font-semibold text-marble">
+                <div className="flex h-9 w-9 items-center justify-center rounded-xl gold-gradient font-display text-xs font-bold text-black/80">
                   {barber.initials}
                 </div>
               )}
               <div>
-                <p className="text-[0.65rem] uppercase tracking-wider text-marble/40">Barbero</p>
-                <p className="text-sm text-marble/85">{barber.name}</p>
+                <p className="text-[0.65rem] uppercase tracking-wider text-zinc-500">Barbero</p>
+                <p className="text-sm font-medium text-white">{barber.name}</p>
               </div>
             </div>
           )}
           <div className="flex items-center gap-3">
-            <CalendarIcon className="h-4 w-4 text-wood-light" />
+            <CalendarIcon className="h-4 w-4 text-gold" />
             <div>
-              <p className="text-[0.65rem] uppercase tracking-wider text-marble/40">Fecha</p>
-              <p className="text-sm text-marble/85">{prettyDate(booking.booking_date)}</p>
+              <p className="text-[0.65rem] uppercase tracking-wider text-zinc-500">Fecha</p>
+              <p className="text-sm font-medium text-white">{prettyDate(booking.booking_date)}</p>
             </div>
           </div>
           <div className="flex items-center gap-3">
-            <ClockIcon className="h-4 w-4 text-wood-light" />
+            <ClockIcon className="h-4 w-4 text-gold" />
             <div>
-              <p className="text-[0.65rem] uppercase tracking-wider text-marble/40">Hora</p>
-              <p className="text-sm text-marble/85">{booking.booking_time} h</p>
+              <p className="text-[0.65rem] uppercase tracking-wider text-zinc-500">Hora</p>
+              <p className="text-sm font-medium text-white">{booking.booking_time} h</p>
             </div>
           </div>
           <div className="flex items-center gap-3">
             <div className="flex h-4 w-4 items-center justify-center">
-              <span className="h-1.5 w-1.5 rounded-full bg-wood-light" />
+              <span className="h-1.5 w-1.5 rounded-full bg-gold" />
             </div>
             <div>
-              <p className="text-[0.65rem] uppercase tracking-wider text-marble/40">A nombre de</p>
-              <p className="text-sm text-marble/85">{booking.full_name}</p>
+              <p className="text-[0.65rem] uppercase tracking-wider text-zinc-500">A nombre de</p>
+              <p className="text-sm font-medium text-white">{booking.full_name}</p>
             </div>
           </div>
         </div>
@@ -96,7 +96,7 @@ export function SuccessStep({ booking, onHome }: SuccessStepProps) {
 
       <button
         onClick={onHome}
-        className="mt-10 inline-flex items-center gap-2 rounded-full bg-marble px-7 py-3.5 text-sm font-semibold uppercase tracking-wider text-ink transition-all duration-200 hover:bg-white active:scale-95"
+        className="mt-10 inline-flex items-center gap-2 rounded-full glass-card px-7 py-3.5 text-sm font-bold uppercase tracking-wider text-white transition-all duration-300 hover:border-gold/30 active:scale-95"
       >
         <HomeIcon className="h-4 w-4" />
         Volver al inicio

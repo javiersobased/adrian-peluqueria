@@ -31,7 +31,7 @@ function App() {
   };
 
   return (
-    <div className="relative min-h-screen bg-ink text-marble">
+    <div className="relative min-h-screen bg-ink text-zinc-200">
       <div className="fixed inset-0 -z-20">
         <img
           src="https://images.pexels.com/photos/7195803/pexels-photo-7195803.jpeg?auto=compress&cs=tinysrgb&w=1260&h=1680"
@@ -39,7 +39,7 @@ function App() {
           aria-hidden="true"
           className="h-full w-full object-cover"
         />
-        <div className="absolute inset-0 bg-ink/80" />
+        <div className="absolute inset-0 bg-black/85" />
         <div className="absolute inset-0 backdrop-blur-xl" />
       </div>
 

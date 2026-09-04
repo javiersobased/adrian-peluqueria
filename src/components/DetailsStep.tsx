@@ -42,7 +42,7 @@ export function DetailsStep({ onBack, onSubmit, submitting, error }: DetailsStep
       <StepHeader title="Tus datos" subtitle="Paso 4 de 4" onBack={onBack} />
 
       <form onSubmit={handleSubmit} className="px-5 pb-32">
-        <p className="mb-5 text-sm text-marble/55">
+        <p className="mb-6 text-sm text-zinc-400">
           Necesitamos algunos datos para confirmar tu reserva. Nos pondremos en contacto contigo si fuera necesario.
         </p>
 
@@ -82,21 +82,21 @@ export function DetailsStep({ onBack, onSubmit, submitting, error }: DetailsStep
           />
 
           <div>
-            <label className="mb-1.5 block text-xs font-medium uppercase tracking-wider text-marble/55">
-              Comentarios <span className="text-marble/30 normal-case">(opcional)</span>
+            <label className="mb-1.5 block text-xs font-medium uppercase tracking-wider text-zinc-500">
+              Comentarios <span className="text-zinc-600 normal-case">(opcional)</span>
             </label>
             <textarea
               value={form.comments}
               onChange={(e) => setForm({ ...form, comments: e.target.value })}
               rows={3}
               placeholder="¿Alguna preferencia o indicación para tu cita?"
-              className="w-full resize-none rounded-xl border border-marble/10 bg-marble/[0.04] px-4 py-3 text-sm text-marble placeholder:text-marble/30 transition-colors focus:border-wood/50 focus:bg-marble/[0.06] focus:outline-none"
+              className="w-full resize-none rounded-2xl glass-card px-4 py-3 text-sm text-white placeholder:text-zinc-600 transition-colors focus:border-gold/30 focus:outline-none"
             />
           </div>
         </div>
 
         {error && (
-          <div className="mt-5 rounded-xl border border-red-400/20 bg-red-400/10 px-4 py-3 text-sm text-red-300">
+          <div className="mt-5 rounded-2xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-400">
             {error}
           </div>
         )}
@@ -105,15 +105,15 @@ export function DetailsStep({ onBack, onSubmit, submitting, error }: DetailsStep
           <button
             type="submit"
             disabled={submitting || !isValid}
-            className={`flex w-full items-center justify-center gap-2 rounded-full py-4 text-sm font-semibold uppercase tracking-wider transition-all duration-200 ${
+            className={`flex w-full items-center justify-center gap-2 rounded-full py-4 text-sm font-bold uppercase tracking-wider transition-all duration-300 ${
               isValid && !submitting
-                ? 'bg-marble text-ink hover:bg-white active:scale-[0.98]'
-                : 'bg-marble/10 text-marble/30'
+                ? 'gold-gradient text-black hover:brightness-110 active:scale-[0.98] gold-glow'
+                : 'bg-white/5 text-zinc-600'
             }`}
           >
             {submitting ? (
               <>
-                <span className="h-4 w-4 animate-spin rounded-full border-2 border-ink/30 border-t-ink" />
+                <span className="h-4 w-4 animate-spin rounded-full border-2 border-black/30 border-t-black" />
                 Confirmando...
               </>
             ) : (
@@ -152,15 +152,15 @@ function Field({
 }) {
   return (
     <div>
-      <label className="mb-1.5 block text-xs font-medium uppercase tracking-wider text-marble/55">
+      <label className="mb-1.5 block text-xs font-medium uppercase tracking-wider text-zinc-500">
         {label}
       </label>
       <div
-        className={`flex items-center gap-3 rounded-xl border bg-marble/[0.04] px-4 py-3 transition-colors focus-within:border-wood/50 focus-within:bg-marble/[0.06] ${
-          error ? 'border-red-400/30' : 'border-marble/10'
+        className={`flex items-center gap-3 rounded-2xl glass-card px-4 py-3.5 transition-colors focus-within:border-gold/30 ${
+          error ? 'border-red-500/30' : ''
         }`}
       >
-        <span className="text-marble/40">{icon}</span>
+        <span className="text-zinc-500">{icon}</span>
         <input
           type={type}
           value={value}
@@ -168,10 +168,10 @@ function Field({
           onBlur={onBlur}
           placeholder={placeholder}
           autoComplete={autoComplete}
-          className="w-full bg-transparent text-sm text-marble placeholder:text-marble/30 focus:outline-none"
+          className="w-full bg-transparent text-sm text-white placeholder:text-zinc-600 focus:outline-none"
         />
       </div>
-      {error && <p className="mt-1 text-xs text-red-300">{error}</p>}
+      {error && <p className="mt-1 text-xs text-red-400">{error}</p>}
     </div>
   );
 }

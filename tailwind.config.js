@@ -11,21 +11,34 @@ export default {
         },
         ink: {
           DEFAULT: '#0a0a0a',
-          soft: '#1a1a1a',
-          muted: '#2a2a2a',
+          soft: '#121212',
+          muted: '#1a1a1a',
         },
         wood: {
           DEFAULT: '#8b6f47',
           light: '#a0826d',
           dark: '#6b5340',
         },
+        gold: {
+          DEFAULT: '#d4af37',
+          light: '#e6c84e',
+          dark: '#b8941f',
+          soft: '#d4af3740',
+        },
+        zinc: {
+          850: '#1c1c1e',
+          950: '#0c0c0e',
+        },
       },
       fontFamily: {
-        display: ['"Cormorant Garamond"', 'Georgia', 'serif'],
+        display: ['"Plus Jakarta Sans"', 'Inter', 'system-ui', 'sans-serif'],
         sans: ['Inter', 'system-ui', 'sans-serif'],
       },
       maxWidth: {
         app: '480px',
+      },
+      borderRadius: {
+        '3xl': '1.75rem',
       },
     },
   },

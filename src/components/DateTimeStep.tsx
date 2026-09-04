@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect, useCallback } from 'react';
+import { useMemo, useState, useEffect, useCallback, useRef } from 'react';
 import { StepHeader } from '@/components/ServiceStep';
 import { ChevronLeftIcon, ChevronRightIcon, ClockIcon, CheckIcon } from '@/components/icons';
 import { supabase } from '@/lib/supabase';
@@ -12,6 +12,7 @@ import {
   toISO,
   WEEKDAY_SHORT,
   MONTH_NAMES,
+  MONTH_SHORT,
 } from '@/lib/schedule';
 
 interface DateTimeStepProps {
@@ -20,6 +21,8 @@ interface DateTimeStepProps {
   onContinue: (date: string, time: string) => void;
 }
 
+const DAY_LABELS = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
+
 export function DateTimeStep({ barber, onBack, onContinue }: DateTimeStepProps) {
   const today = useMemo(() => {
     const t = new Date();
@@ -27,7 +30,6 @@ export function DateTimeStep({ barber, onBack, onContinue }: DateTimeStepProps) 
     return t;
   }, []);
 
-  const [viewMonth, setViewMonth] = useState(new Date(today.getFullYear(), today.getMonth(), 1));
   const [selected, setSelected] = useState<Date | null>(null);
   const [selectedTime, setSelectedTime] = useState<string>('');
   const [schedules, setSchedules] = useState<BarberSchedule[]>([]);
@@ -35,6 +37,18 @@ export function DateTimeStep({ barber, onBack, onContinue }: DateTimeStepProps) 
   const [vacations, setVacations] = useState<BarberVacation[]>([]);
   const [bookedSlots, setBookedSlots] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  const dayPills = useMemo(() => {
+    const pills: Date[] = [];
+    const start = new Date(today);
+    for (let i = 0; i < 21; i++) {
+      const d = new Date(start);
+      d.setDate(d.getDate() + i);
+      pills.push(d);
+    }
+    return pills;
+  }, [today]);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -53,6 +67,10 @@ export function DateTimeStep({ barber, onBack, onContinue }: DateTimeStepProps) 
     fetchData();
   }, [fetchData]);
 
+  useEffect(() => {
+    setSelected(today);
+  }, [today]);
+
   const fetchBookedSlots = useCallback(async (date: Date | null) => {
     if (!date) return;
     const iso = toISO(date);
@@ -69,18 +87,6 @@ export function DateTimeStep({ barber, onBack, onContinue }: DateTimeStepProps) 
     fetchBookedSlots(selected);
   }, [selected, fetchBookedSlots]);
 
-  const calendarDays = useMemo(() => {
-    const year = viewMonth.getFullYear();
-    const month = viewMonth.getMonth();
-    const firstDay = new Date(year, month, 1);
-    const startOffset = (firstDay.getDay() + 6) % 7;
-    const daysInMonth = new Date(year, month + 1, 0).getDate();
-    const cells: (Date | null)[] = [];
-    for (let i = 0; i < startOffset; i++) cells.push(null);
-    for (let d = 1; d <= daysInMonth; d++) cells.push(new Date(year, month, d));
-    return cells;
-  }, [viewMonth]);
-
   const scheduleForSelected = useMemo(() => {
     if (!selected) return undefined;
     return schedules.find((s) => s.weekday === selected.getDay());
@@ -94,24 +100,10 @@ export function DateTimeStep({ barber, onBack, onContinue }: DateTimeStepProps) 
   const canContinue = selected && selectedTime;
 
   const handleSelectDay = (d: Date) => {
-    if (!isDayAvailable(d, today, scheduleForSelected, blocks, vacations) && !isDayAvailable(d, today, schedules.find((s) => s.weekday === d.getDay()), blocks, vacations)) return;
-    if (!isDayAvailable(d, today, schedules.find((s) => s.weekday === d.getDay()), blocks, vacations)) return;
+    const daySchedule = schedules.find((s) => s.weekday === d.getDay());
+    if (!isDayAvailable(d, today, daySchedule, blocks, vacations)) return;
     setSelected(d);
     setSelectedTime('');
-  };
-
-  const prevMonth = () => {
-    const prev = new Date(viewMonth);
-    prev.setMonth(prev.getMonth() - 1);
-    if (prev.getFullYear() < today.getFullYear() ||
-        (prev.getFullYear() === today.getFullYear() && prev.getMonth() < today.getMonth())) return;
-    setViewMonth(prev);
-  };
-
-  const nextMonth = () => {
-    const next = new Date(viewMonth);
-    next.setMonth(next.getMonth() + 1);
-    setViewMonth(next);
   };
 
   const prettyDate = (date: Date) =>
@@ -122,48 +114,35 @@ export function DateTimeStep({ barber, onBack, onContinue }: DateTimeStepProps) 
       <StepHeader title="Fecha y hora" subtitle="Paso 3 de 4" onBack={onBack} />
 
       <div className="px-5 pb-32">
-        <div className="mb-4 flex items-center gap-3 rounded-2xl border border-wood/20 bg-wood/10 px-4 py-3">
+        {/* Barber header card */}
+        <div className="mb-5 flex items-center gap-4 rounded-3xl glass-card p-4">
           {barber.photo_url ? (
-            <img src={barber.photo_url} alt={barber.name} className="h-9 w-9 shrink-0 rounded-full object-cover" />
+            <img src={barber.photo_url} alt={barber.name} className="h-14 w-14 shrink-0 rounded-2xl object-cover ring-1 ring-white/10" />
           ) : (
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-wood to-wood-dark font-display text-sm font-semibold text-marble">
+            <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl gold-gradient font-display text-base font-bold text-black/80">
               {barber.initials}
             </div>
           )}
-          <div>
-            <p className="text-sm font-semibold text-marble">Cita con {barber.name}</p>
-            <p className="text-xs text-marble/50">{barber.role}</p>
+          <div className="flex-1">
+            <p className="font-display text-base font-bold text-white">{barber.name}</p>
+            <p className="text-xs text-zinc-400">{barber.role}</p>
           </div>
+          <span className="rounded-full bg-gold/10 px-3 py-1 text-[0.6rem] font-semibold uppercase tracking-wider text-gold">
+            Seleccionado
+          </span>
         </div>
 
         {loading ? (
           <div className="flex justify-center py-16">
-            <span className="h-6 w-6 animate-spin rounded-full border-2 border-marble/20 border-t-wood" />
+            <span className="h-6 w-6 animate-spin rounded-full border-2 border-zinc-700 border-t-gold" />
           </div>
         ) : (
           <>
-            <div className="glass-panel rounded-2xl p-4">
-              <div className="mb-4 flex items-center justify-between">
-                <button onClick={prevMonth} aria-label="Mes anterior" className="flex h-9 w-9 items-center justify-center rounded-full bg-marble/5 text-marble/70 transition-colors hover:bg-marble/10 active:scale-90">
-                  <ChevronLeftIcon className="h-5 w-5" />
-                </button>
-                <p className="font-display text-lg font-medium text-marble">
-                  {MONTH_NAMES[viewMonth.getMonth()]} {viewMonth.getFullYear()}
-                </p>
-                <button onClick={nextMonth} aria-label="Mes siguiente" className="flex h-9 w-9 items-center justify-center rounded-full bg-marble/5 text-marble/70 transition-colors hover:bg-marble/10 active:scale-90">
-                  <ChevronRightIcon className="h-5 w-5" />
-                </button>
-              </div>
-
-              <div className="mb-2 grid grid-cols-7 gap-1">
-                {['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'].map((d) => (
-                  <div key={d} className="text-center text-[0.65rem] font-medium uppercase text-marble/35">{d}</div>
-                ))}
-              </div>
-
-              <div className="grid grid-cols-7 gap-1">
-                {calendarDays.map((d, i) => {
-                  if (!d) return <div key={`e-${i}`} />;
+            {/* Horizontal day pills */}
+            <div className="mb-6">
+              <p className="mb-3 text-[0.65rem] font-semibold uppercase tracking-[0.2em] text-zinc-500">Elige el día</p>
+              <div ref={scrollRef} className="no-scrollbar -mx-5 flex gap-2 overflow-x-auto px-5 pb-1">
+                {dayPills.map((d) => {
                   const daySchedule = schedules.find((s) => s.weekday === d.getDay());
                   const disabled = !isDayAvailable(d, today, daySchedule, blocks, vacations);
                   const isSel = selected && toISO(d) === toISO(selected);
@@ -172,26 +151,31 @@ export function DateTimeStep({ barber, onBack, onContinue }: DateTimeStepProps) 
                       key={toISO(d)}
                       onClick={() => handleSelectDay(d)}
                       disabled={disabled}
-                      className={`flex aspect-square items-center justify-center rounded-xl text-sm transition-all duration-150 ${
+                      className={`flex shrink-0 flex-col items-center justify-center gap-0.5 rounded-2xl px-4 py-3 transition-all duration-200 ${
                         isSel
-                          ? 'bg-wood text-marble font-semibold shadow-lg shadow-wood/20'
+                          ? 'gold-gradient text-black gold-glow'
                           : disabled
-                          ? 'text-marble/20 cursor-not-allowed'
-                          : 'text-marble/80 hover:bg-marble/10 active:scale-90'
+                          ? 'bg-zinc-900/50 text-zinc-700 cursor-not-allowed'
+                          : 'glass-card text-zinc-300 hover:border-gold/20 active:scale-95'
                       }`}
                     >
-                      {d.getDate()}
+                      <span className="text-[0.6rem] font-semibold uppercase tracking-wider opacity-70">
+                        {DAY_LABELS[(d.getDay() + 6) % 7]}
+                      </span>
+                      <span className="font-display text-lg font-bold leading-none">{d.getDate()}</span>
+                      <span className="text-[0.55rem] uppercase opacity-50">{MONTH_SHORT[d.getMonth()]}</span>
                     </button>
                   );
                 })}
               </div>
             </div>
 
+            {/* Time slots */}
             {selected ? (
-              <div className="mt-5 animate-fade-in">
+              <div className="animate-fade-in">
                 <div className="mb-3 flex items-center gap-2">
-                  <ClockIcon className="h-4 w-4 text-wood-light" />
-                  <p className="text-sm text-marble/80">
+                  <ClockIcon className="h-4 w-4 text-gold" />
+                  <p className="text-sm font-medium text-zinc-300">
                     Horas disponibles · <span className="capitalize">{prettyDate(selected)}</span>
                   </p>
                 </div>
@@ -204,15 +188,12 @@ export function DateTimeStep({ barber, onBack, onContinue }: DateTimeStepProps) 
                   <SlotGroup label="Tarde" slots={slots.afternoon} selected={selectedTime} onSelect={setSelectedTime}
                     isAvailable={(s) => isSlotAvailable(s, bookedSlots, slotBlocks, timeRangeBlocks)} />
                 ) : slots.morning.length === 0 ? (
-                  <p className="mt-2 text-xs text-marble/40">No hay horas disponibles este día.</p>
+                  <div className="rounded-2xl glass-card px-5 py-8 text-center">
+                    <p className="text-sm text-zinc-500">No hay horas disponibles este día.</p>
+                  </div>
                 ) : null}
               </div>
-            ) : (
-              <div className="mt-6 rounded-2xl border border-dashed border-marble/10 px-5 py-8 text-center">
-                <ClockIcon className="mx-auto h-7 w-7 text-marble/25" />
-                <p className="mt-2 text-sm text-marble/50">Selecciona un día para ver las horas disponibles.</p>
-              </div>
-            )}
+            ) : null}
           </>
         )}
       </div>
@@ -221,8 +202,8 @@ export function DateTimeStep({ barber, onBack, onContinue }: DateTimeStepProps) 
         <button
           onClick={() => canContinue && onContinue(toISO(selected!), selectedTime)}
           disabled={!canContinue}
-          className={`flex w-full items-center justify-center gap-2 rounded-full py-4 text-sm font-semibold uppercase tracking-wider transition-all duration-200 ${
-            canContinue ? 'bg-marble text-ink hover:bg-white active:scale-[0.98]' : 'bg-marble/10 text-marble/30'
+          className={`flex w-full items-center justify-center gap-2 rounded-full py-4 text-sm font-bold uppercase tracking-wider transition-all duration-300 ${
+            canContinue ? 'gold-gradient text-black hover:brightness-110 active:scale-[0.98] gold-glow' : 'bg-white/5 text-zinc-600'
           }`}
         >
           <CheckIcon className="h-4 w-4" />
@@ -239,8 +220,8 @@ function SlotGroup({
   label: string; slots: string[]; selected: string; onSelect: (s: string) => void; isAvailable: (s: string) => boolean;
 }) {
   return (
-    <div className="mb-4">
-      <p className="mb-2 text-[0.65rem] uppercase tracking-[0.2em] text-marble/40">{label}</p>
+    <div className="mb-5">
+      <p className="mb-2.5 text-[0.65rem] font-semibold uppercase tracking-[0.2em] text-zinc-500">{label}</p>
       <div className="grid grid-cols-4 gap-2">
         {slots.map((slot) => {
           const isSel = selected === slot;
@@ -250,10 +231,10 @@ function SlotGroup({
               key={slot}
               onClick={() => available && onSelect(slot)}
               disabled={!available}
-              className={`rounded-xl py-2.5 text-sm font-medium transition-all duration-150 active:scale-90 ${
-                isSel ? 'bg-wood text-marble shadow-md shadow-wood/20'
-                : available ? 'bg-marble/[0.05] text-marble/75 hover:bg-marble/10'
-                : 'bg-marble/[0.02] text-marble/20 cursor-not-allowed line-through'
+              className={`rounded-2xl py-3 text-sm font-semibold transition-all duration-200 active:scale-90 ${
+                isSel ? 'gold-gradient text-black gold-glow'
+                : available ? 'glass-card text-zinc-300 hover:border-gold/20 hover:text-white'
+                : 'bg-zinc-900/40 text-zinc-700 cursor-not-allowed line-through'
               }`}
             >
               {slot}

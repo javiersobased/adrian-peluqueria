@@ -20,8 +20,8 @@ export function AdminStaff() {
   useEffect(() => { load(); }, [load]);
 
   const handleDelete = async (id: string) => {
-    if (!confirm('¿Dar de baja a este barbero? Se desactivará pero no se borrará.')) return;
-    await supabase.from('barbers').update({ active: false }).eq('id', id);
+    if (!confirm('¿Eliminar este barbero? Esta acción no se puede deshacer.')) return;
+    await supabase.from('barbers').delete().eq('id', id);
     load();
   };
 
@@ -44,7 +44,7 @@ export function AdminStaff() {
 
       <div className="space-y-2.5">
         {barbers.map((b) => (
-          <div key={b.id} className={`flex items-center gap-3 rounded-2xl glass-card p-3.5 transition-colors hover:border-gold/15 ${!b.active ? 'opacity-50' : ''}`}>
+          <div key={b.id} className="flex items-center gap-3 rounded-2xl glass-card p-3.5 transition-colors hover:border-gold/15">
             {b.photo_url ? (
               <img src={b.photo_url} alt={b.name} className="h-12 w-12 shrink-0 rounded-xl object-cover ring-1 ring-white/10" />
             ) : (
@@ -54,18 +54,16 @@ export function AdminStaff() {
             )}
             <div className="flex-1 min-w-0">
               <p className="text-sm font-bold text-white">{b.name}</p>
-              <p className="text-xs text-zinc-500">{b.role}{!b.active ? ' · Inactivo' : ''}</p>
+              <p className="text-xs text-zinc-500">{b.role}</p>
             </div>
             <button onClick={() => { setEditing(b); setCreating(false); }} aria-label="Editar"
               className="flex h-8 w-8 items-center justify-center rounded-full glass-card text-zinc-400 hover:text-white">
               <Pencil className="h-4 w-4" />
             </button>
-            {b.active && (
-              <button onClick={() => handleDelete(b.id)} aria-label="Dar de baja"
-                className="flex h-8 w-8 items-center justify-center rounded-full bg-red-500/10 text-red-400 hover:bg-red-500/20">
-                <Trash2 className="h-4 w-4" />
-              </button>
-            )}
+            <button onClick={() => handleDelete(b.id)} aria-label="Eliminar"
+              className="flex h-8 w-8 items-center justify-center rounded-full bg-red-500/10 text-red-400 hover:bg-red-500/20">
+              <Trash2 className="h-4 w-4" />
+            </button>
           </div>
         ))}
       </div>

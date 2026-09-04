@@ -15,10 +15,7 @@ const ICON_OPTIONS: { id: string; icon: LucideIcon; label: string }[] = [
 ];
 
 const ICON_MAP: Record<string, LucideIcon> = Object.fromEntries(ICON_OPTIONS.map((o) => [o.id, o.icon]));
-
-function getIcon(name: string): LucideIcon {
-  return ICON_MAP[name] ?? Scissors;
-}
+function getIcon(name: string): LucideIcon { return ICON_MAP[name] ?? Scissors; }
 
 export function AdminServices() {
   const [services, setServices] = useState<Service[]>([]);
@@ -47,44 +44,39 @@ export function AdminServices() {
   };
 
   if (loading) {
-    return <div className="flex justify-center py-20"><span className="h-6 w-6 animate-spin rounded-full border-2 border-marble/20 border-t-wood" /></div>;
+    return <div className="flex justify-center py-20"><span className="h-6 w-6 animate-spin rounded-full border-2 border-zinc-700 border-t-gold" /></div>;
   }
 
   return (
-    <div className="space-y-4">
+    <div className="mx-auto max-w-2xl space-y-4">
       <button
         onClick={() => { setCreating(true); setEditing(null); }}
-        className="flex w-full items-center justify-center gap-2 rounded-full bg-marble py-3.5 text-sm font-semibold uppercase tracking-wider text-ink transition-all hover:bg-white active:scale-[0.98]"
+        className="flex w-full items-center justify-center gap-2 rounded-full gold-gradient py-3.5 text-sm font-bold uppercase tracking-wider text-black transition-all hover:brightness-110 active:scale-[0.98] gold-glow"
       >
-        <Plus className="h-4 w-4" />
-        Nuevo servicio
+        <Plus className="h-4 w-4" />Nuevo servicio
       </button>
 
       {(creating || editing) && (
-        <ServiceForm
-          service={editing}
-          onClose={() => { setCreating(false); setEditing(null); }}
-          onSaved={() => { setCreating(false); setEditing(null); load(); }}
-        />
+        <ServiceForm service={editing} onClose={() => { setCreating(false); setEditing(null); }} onSaved={() => { setCreating(false); setEditing(null); load(); }} />
       )}
 
-      <div className="space-y-2">
+      <div className="space-y-2.5">
         {services.map((s) => {
           const Icon = getIcon(s.icon);
           return (
-            <div key={s.id} className={`flex items-center gap-3 rounded-xl border border-marble/8 bg-marble/[0.03] p-3 ${!s.active ? 'opacity-50' : ''}`}>
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-marble/[0.05] text-wood-light">
+            <div key={s.id} className={`flex items-center gap-3 rounded-2xl glass-card p-3.5 transition-colors hover:border-gold/15 ${!s.active ? 'opacity-50' : ''}`}>
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gold/5 text-gold">
                 <Icon className="h-5 w-5" strokeWidth={1.6} />
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold text-marble">{s.name}</p>
-                <p className="text-xs text-marble/45">{s.duration}{s.price > 0 ? ` · ${s.price}€` : ''}</p>
+                <p className="text-sm font-bold text-white">{s.name}</p>
+                <p className="text-xs text-zinc-500">{s.duration}{s.price > 0 ? ` · ${s.price}€` : ''}</p>
               </div>
-              <button onClick={() => handleToggleActive(s)} className="text-xs text-marble/40 hover:text-marble/70">
+              <button onClick={() => handleToggleActive(s)} className="text-xs font-medium text-zinc-500 hover:text-gold">
                 {s.active ? 'Activo' : 'Inactivo'}
               </button>
               <button onClick={() => { setEditing(s); setCreating(false); }} aria-label="Editar"
-                className="flex h-8 w-8 items-center justify-center rounded-full bg-marble/5 text-marble/60 hover:bg-marble/10">
+                className="flex h-8 w-8 items-center justify-center rounded-full glass-card text-zinc-400 hover:text-white">
                 <Pencil className="h-4 w-4" />
               </button>
               <button onClick={() => handleDelete(s.id)} aria-label="Eliminar"
@@ -112,46 +104,40 @@ function ServiceForm({ service, onClose, onSaved }: { service: Service | null; o
     setSaving(true);
     try {
       const payload = { name: name.trim(), price: Number(price) || 0, duration: duration.trim() || '45min', icon };
-      if (service) {
-        await supabase.from('services').update(payload).eq('id', service.id);
-      } else {
-        await supabase.from('services').insert({ ...payload, active: true, sort_order: 99 });
-      }
+      if (service) { await supabase.from('services').update(payload).eq('id', service.id); }
+      else { await supabase.from('services').insert({ ...payload, active: true, sort_order: 99 }); }
       onSaved();
-    } finally {
-      setSaving(false);
-    }
+    } finally { setSaving(false); }
   };
 
   return (
-    <form onSubmit={handleSubmit} className="rounded-2xl border border-wood/20 bg-wood/5 p-4 space-y-4">
+    <form onSubmit={handleSubmit} className="rounded-3xl glass-card p-5 space-y-4">
       <div className="flex items-center justify-between">
-        <p className="text-xs font-semibold uppercase tracking-wider text-wood-light">{service ? 'Editar servicio' : 'Nuevo servicio'}</p>
-        <button type="button" onClick={onClose} className="text-marble/40 hover:text-marble/70"><X className="h-4 w-4" /></button>
+        <p className="text-xs font-semibold uppercase tracking-wider text-gold">{service ? 'Editar servicio' : 'Nuevo servicio'}</p>
+        <button type="button" onClick={onClose} className="text-zinc-500 hover:text-white"><X className="h-4 w-4" /></button>
       </div>
 
       <input type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="Nombre del servicio"
-        className="w-full rounded-xl border border-marble/10 bg-marble/[0.04] px-4 py-3 text-sm text-marble placeholder:text-marble/30 focus:border-wood/50 focus:outline-none" />
+        className="w-full rounded-xl glass-card px-4 py-3 text-sm text-white placeholder:text-zinc-600 focus:border-gold/30 focus:outline-none" />
 
       <div className="grid grid-cols-2 gap-2">
         <input type="text" value={duration} onChange={(e) => setDuration(e.target.value)} placeholder="Duración (ej. 45min)"
-          className="rounded-xl border border-marble/10 bg-marble/[0.04] px-4 py-3 text-sm text-marble placeholder:text-marble/30 focus:border-wood/50 focus:outline-none" />
+          className="rounded-xl glass-card px-4 py-3 text-sm text-white placeholder:text-zinc-600 focus:border-gold/30 focus:outline-none" />
         <input type="number" value={price} onChange={(e) => setPrice(e.target.value)} placeholder="Precio (€)" min="0"
-          className="rounded-xl border border-marble/10 bg-marble/[0.04] px-4 py-3 text-sm text-marble placeholder:text-marble/30 focus:border-wood/50 focus:outline-none" />
+          className="rounded-xl glass-card px-4 py-3 text-sm text-white placeholder:text-zinc-600 focus:border-gold/30 focus:outline-none" />
       </div>
 
       <div>
-        <p className="mb-2 text-xs text-marble/50">Icono</p>
+        <p className="mb-2 text-xs text-zinc-500">Icono</p>
         <div className="grid grid-cols-4 gap-2">
           {ICON_OPTIONS.map((opt) => {
             const Icon = opt.icon;
             return (
               <button key={opt.id} type="button" onClick={() => setIcon(opt.id)}
                 className={`flex flex-col items-center gap-1 rounded-xl py-3 text-[0.6rem] font-medium transition-all ${
-                  icon === opt.id ? 'bg-wood text-marble' : 'bg-marble/5 text-marble/55 hover:bg-marble/10'
+                  icon === opt.id ? 'gold-gradient text-black' : 'glass-card text-zinc-400 hover:text-white'
                 }`}>
-                <Icon className="h-5 w-5" strokeWidth={1.6} />
-                {opt.label}
+                <Icon className="h-5 w-5" strokeWidth={1.6} />{opt.label}
               </button>
             );
           })}
@@ -159,10 +145,10 @@ function ServiceForm({ service, onClose, onSaved }: { service: Service | null; o
       </div>
 
       <button type="submit" disabled={saving || !name.trim()}
-        className={`flex w-full items-center justify-center gap-2 rounded-full py-3.5 text-sm font-semibold uppercase tracking-wider transition-all ${
-          name.trim() && !saving ? 'bg-marble text-ink hover:bg-white active:scale-[0.98]' : 'bg-marble/10 text-marble/30'
+        className={`flex w-full items-center justify-center gap-2 rounded-full py-3.5 text-sm font-bold uppercase tracking-wider transition-all ${
+          name.trim() && !saving ? 'gold-gradient text-black hover:brightness-110 active:scale-[0.98]' : 'bg-white/5 text-zinc-600'
         }`}>
-        {saving ? <span className="h-4 w-4 animate-spin rounded-full border-2 border-ink/30 border-t-ink" /> : <Check className="h-4 w-4" />}
+        {saving ? <span className="h-4 w-4 animate-spin rounded-full border-2 border-black/30 border-t-black" /> : <Check className="h-4 w-4" />}
         Guardar
       </button>
     </form>

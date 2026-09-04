@@ -9,13 +9,35 @@ import { AdminAvailability } from '@/components/admin/AdminAvailability';
 import { AdminServices } from '@/components/admin/AdminServices';
 import { AdminStaff } from '@/components/admin/AdminStaff';
 import { AdminStaffSchedule } from '@/components/admin/AdminStaffSchedule';
-import { ArrowLeft, CalendarDays, PlusCircle, SlidersHorizontal, Scissors, Users, Clock } from 'lucide-react';
+import {
+  CalendarDays, Clock, PlusCircle, SlidersHorizontal, Scissors, Users,
+  ArrowLeft, Search, Settings, X, type LucideIcon,
+} from 'lucide-react';
 
 interface AdminPanelProps {
   onBack: () => void;
 }
 
 type AdminTab = 'today' | 'agenda' | 'manual' | 'availability' | 'services' | 'staff' | 'schedule';
+
+interface NavItem {
+  id: AdminTab;
+  label: string;
+  icon: LucideIcon;
+  category: string;
+}
+
+const NAV_ITEMS: NavItem[] = [
+  { id: 'today', label: 'Citas de Hoy', icon: CalendarDays, category: 'Principal' },
+  { id: 'manual', label: 'Cita Manual', icon: PlusCircle, category: 'Principal' },
+  { id: 'agenda', label: 'Agenda Completa', icon: Clock, category: 'Principal' },
+  { id: 'availability', label: 'Horarios y Bloqueos', icon: SlidersHorizontal, category: 'Control' },
+  { id: 'schedule', label: 'Horarios Semanales', icon: Clock, category: 'Control' },
+  { id: 'services', label: 'Servicios', icon: Scissors, category: 'Gestión' },
+  { id: 'staff', label: 'Personal', icon: Users, category: 'Gestión' },
+];
+
+const CATEGORIES = ['Principal', 'Control', 'Gestión'];
 
 export function AdminPanel({ onBack }: AdminPanelProps) {
   const [tab, setTab] = useState<AdminTab>('today');
@@ -24,6 +46,8 @@ export function AdminPanel({ onBack }: AdminPanelProps) {
   const [barbers, setBarbers] = useState<Barber[]>([]);
   const [selectedBarber, setSelectedBarber] = useState<string>('all');
   const [loading, setLoading] = useState(true);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [search, setSearch] = useState('');
 
   useEffect(() => {
     fetchAllBarbers().then((b) => setBarbers(b));
@@ -36,25 +60,14 @@ export function AdminPanel({ onBack }: AdminPanelProps) {
       .neq('status', 'cancelled')
       .order('booking_date', { ascending: true })
       .order('booking_time', { ascending: true });
-
-    if (selectedBarber !== 'all') {
-      query = query.eq('barber', selectedBarber);
-    }
-
+    if (selectedBarber !== 'all') query = query.eq('barber', selectedBarber);
     const { data } = await query;
     setBookings((data as SavedBooking[]) ?? []);
   }, [selectedBarber]);
 
   const fetchBlocks = useCallback(async () => {
-    let query = supabase
-      .from('barber_blocks')
-      .select('*')
-      .order('created_at', { ascending: false });
-
-    if (selectedBarber !== 'all') {
-      query = query.eq('barber', selectedBarber);
-    }
-
+    let query = supabase.from('barber_blocks').select('*').order('created_at', { ascending: false });
+    if (selectedBarber !== 'all') query = query.eq('barber', selectedBarber);
     const { data } = await query;
     setBlocks((data as BarberBlock[]) ?? []);
   }, [selectedBarber]);
@@ -65,9 +78,7 @@ export function AdminPanel({ onBack }: AdminPanelProps) {
     setLoading(false);
   }, [fetchBookings, fetchBlocks]);
 
-  useEffect(() => {
-    refresh();
-  }, [refresh]);
+  useEffect(() => { refresh(); }, [refresh]);
 
   useEffect(() => {
     const channel = supabase
@@ -77,44 +88,210 @@ export function AdminPanel({ onBack }: AdminPanelProps) {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'barber_vacations' }, () => fetchBlocks())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'barber_schedules' }, () => fetchBlocks())
       .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
+    return () => { supabase.removeChannel(channel); };
   }, [fetchBookings, fetchBlocks]);
 
-  const tabs: { id: AdminTab; label: string; icon: typeof CalendarDays }[] = [
-    { id: 'today', label: 'Hoy', icon: CalendarDays },
-    { id: 'agenda', label: 'Agenda', icon: Clock },
-    { id: 'manual', label: 'Cita manual', icon: PlusCircle },
-    { id: 'availability', label: 'Bloqueos', icon: SlidersHorizontal },
-    { id: 'services', label: 'Servicios', icon: Scissors },
-    { id: 'staff', label: 'Personal', icon: Users },
-    { id: 'schedule', label: 'Horarios', icon: Clock },
-  ];
+  const activeBarber = barbers.find((b) => b.id === selectedBarber) ?? null;
+  const todayCount = bookings.filter((b) => b.booking_date === new Date().toISOString().slice(0, 10)).length;
+
+  const filteredNav = NAV_ITEMS.filter((n) => n.label.toLowerCase().includes(search.toLowerCase()));
+
+  const handleNav = (id: AdminTab) => {
+    setTab(id);
+    setSidebarOpen(false);
+  };
 
   return (
-    <div className="min-h-screen animate-slide-in">
-      <header className="sticky top-0 z-30 glass-panel px-5 pb-4 pt-5">
-        <div className="flex items-center gap-3">
+    <div className="flex min-h-screen bg-zinc-950 text-zinc-200 animate-fade-in">
+      {/* === Icon Dock (left) === */}
+      <div className="fixed left-0 top-0 z-40 hidden h-screen w-16 flex-col items-center border-r border-white/5 bg-zinc-900/80 py-5 backdrop-blur-xl md:flex">
+        <div className="mb-6 flex h-10 w-10 items-center justify-center rounded-xl gold-gradient font-display text-sm font-bold text-black">
+          AM
+        </div>
+        <nav className="flex flex-1 flex-col gap-2">
+          {NAV_ITEMS.map((item) => {
+            const Icon = item.icon;
+            const active = tab === item.id;
+            return (
+              <button
+                key={item.id}
+                onClick={() => handleNav(item.id)}
+                className={`flex h-11 w-11 items-center justify-center rounded-xl transition-all duration-200 ${
+                  active
+                    ? 'bg-gold/15 text-gold'
+                    : 'text-zinc-500 hover:bg-white/5 hover:text-zinc-300'
+                }`}
+                title={item.label}
+              >
+                <Icon className="h-5 w-5" strokeWidth={1.8} />
+              </button>
+            );
+          })}
+        </nav>
+        <button
+          onClick={onBack}
+          className="flex h-11 w-11 items-center justify-center rounded-xl text-zinc-500 transition-colors hover:bg-white/5 hover:text-zinc-300"
+          title="Volver al inicio"
+        >
+          <Settings className="h-5 w-5" strokeWidth={1.8} />
+        </button>
+      </div>
+
+      {/* === Sidebar (desktop) === */}
+      <div className="fixed left-16 top-0 z-30 hidden h-screen w-64 flex-col border-r border-white/5 bg-zinc-900/60 backdrop-blur-xl md:flex">
+        <SidebarContent
+          barbers={barbers}
+          selectedBarber={selectedBarber}
+          setSelectedBarber={setSelectedBarber}
+          activeBarber={activeBarber}
+          search={search}
+          setSearch={setSearch}
+          tab={tab}
+          onNav={handleNav}
+          filteredNav={filteredNav}
+          todayCount={todayCount}
+        />
+      </div>
+
+      {/* === Mobile sidebar overlay === */}
+      {sidebarOpen && (
+        <div className="fixed inset-0 z-50 md:hidden">
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setSidebarOpen(false)} />
+          <div className="absolute left-0 top-0 h-full w-72 animate-slide-in border-r border-white/5 bg-zinc-900/95 backdrop-blur-xl">
+            <button
+              onClick={() => setSidebarOpen(false)}
+              className="absolute right-3 top-4 z-10 flex h-8 w-8 items-center justify-center rounded-full bg-white/5 text-zinc-400"
+            >
+              <X className="h-4 w-4" />
+            </button>
+            <SidebarContent
+              barbers={barbers}
+              selectedBarber={selectedBarber}
+              setSelectedBarber={setSelectedBarber}
+              activeBarber={activeBarber}
+              search={search}
+              setSearch={setSearch}
+              tab={tab}
+              onNav={handleNav}
+              filteredNav={filteredNav}
+              todayCount={todayCount}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* === Main content === */}
+      <div className="flex-1 md:ml-80">
+        {/* Mobile header */}
+        <header className="sticky top-0 z-30 flex items-center gap-3 border-b border-white/5 bg-zinc-900/80 px-4 py-4 backdrop-blur-xl md:hidden">
+          <button
+            onClick={() => setSidebarOpen(true)}
+            aria-label="Abrir menú"
+            className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/5 text-zinc-300"
+          >
+            <Settings className="h-4 w-4" />
+          </button>
+          <div className="flex-1">
+            <p className="text-[0.6rem] uppercase tracking-[0.2em] text-gold">Gestión</p>
+            <h2 className="font-display text-lg font-bold leading-tight text-white">{NAV_ITEMS.find((n) => n.id === tab)?.label}</h2>
+          </div>
           <button
             onClick={onBack}
             aria-label="Volver"
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-marble/5 text-marble/80 transition-colors hover:bg-marble/10 active:scale-90"
+            className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/5 text-zinc-300"
           >
             <ArrowLeft className="h-4 w-4" />
           </button>
+        </header>
+
+        {/* Desktop header */}
+        <header className="sticky top-0 z-20 hidden items-center justify-between border-b border-white/5 bg-zinc-950/60 px-8 py-5 backdrop-blur-xl md:flex">
           <div>
-            <p className="text-[0.65rem] uppercase tracking-[0.2em] text-wood-light">Gestión</p>
-            <h2 className="font-display text-2xl font-medium leading-tight text-marble">Panel de administración</h2>
+            <p className="text-[0.6rem] uppercase tracking-[0.2em] text-gold">Panel de administración</p>
+            <h1 className="font-display text-2xl font-bold text-white">{NAV_ITEMS.find((n) => n.id === tab)?.label}</h1>
+          </div>
+          <div className="flex items-center gap-3">
+            {activeBarber ? (
+              <div className="flex items-center gap-2.5 rounded-full glass-card px-3 py-1.5">
+                {activeBarber.photo_url ? (
+                  <img src={activeBarber.photo_url} alt="" className="h-7 w-7 rounded-full object-cover" />
+                ) : (
+                  <div className="flex h-7 w-7 items-center justify-center rounded-full gold-gradient font-display text-[0.6rem] font-bold text-black">
+                    {activeBarber.initials}
+                  </div>
+                )}
+                <span className="text-sm font-medium text-zinc-300">{activeBarber.name}</span>
+              </div>
+            ) : (
+              <span className="rounded-full glass-card px-3 py-1.5 text-sm font-medium text-zinc-400">Todos los barberos</span>
+            )}
+            <button
+              onClick={onBack}
+              className="flex h-9 w-9 items-center justify-center rounded-full glass-card text-zinc-400 transition-colors hover:text-white"
+              title="Volver al inicio"
+            >
+              <ArrowLeft className="h-4 w-4" />
+            </button>
+          </div>
+        </header>
+
+        <div className="px-4 py-6 md:px-8 md:py-8">
+          {tab === 'today' && <AdminToday bookings={bookings} loading={loading} onRefresh={refresh} />}
+          {tab === 'agenda' && <AdminAgenda bookings={bookings} loading={loading} onRefresh={refresh} />}
+          {tab === 'manual' && <AdminManualBooking onCreated={refresh} />}
+          {tab === 'availability' && <AdminAvailability blocks={blocks} onRefresh={refresh} />}
+          {tab === 'services' && <AdminServices />}
+          {tab === 'staff' && <AdminStaff />}
+          {tab === 'schedule' && <AdminStaffSchedule />}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function SidebarContent({
+  barbers, selectedBarber, setSelectedBarber, activeBarber,
+  search, setSearch, tab, onNav, filteredNav, todayCount,
+}: {
+  barbers: Barber[];
+  selectedBarber: string;
+  setSelectedBarber: (id: string) => void;
+  activeBarber: Barber | null;
+  search: string;
+  setSearch: (s: string) => void;
+  tab: AdminTab;
+  onNav: (id: AdminTab) => void;
+  filteredNav: NavItem[];
+  todayCount: number;
+}) {
+  return (
+    <div className="flex h-full flex-col">
+      {/* Profile card */}
+      <div className="border-b border-white/5 p-5">
+        <p className="mb-3 text-[0.6rem] font-semibold uppercase tracking-[0.2em] text-zinc-500">Perfil activo</p>
+        <div className="flex items-center gap-3 rounded-2xl glass-card p-3">
+          {activeBarber?.photo_url ? (
+            <img src={activeBarber.photo_url} alt="" className="h-11 w-11 rounded-xl object-cover ring-1 ring-white/10" />
+          ) : activeBarber ? (
+            <div className="flex h-11 w-11 items-center justify-center rounded-xl gold-gradient font-display text-sm font-bold text-black">
+              {activeBarber.initials}
+            </div>
+          ) : (
+            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-white/5 text-zinc-500">
+              <Users className="h-5 w-5" />
+            </div>
+          )}
+          <div className="flex-1 min-w-0">
+            <p className="truncate text-sm font-bold text-white">{activeBarber?.name ?? 'Todos'}</p>
+            <p className="truncate text-xs text-zinc-500">{activeBarber?.role ?? 'Vista general'}</p>
           </div>
         </div>
-
-        <div className="mt-4 flex gap-2 overflow-x-auto pb-1">
+        {/* Barber selector */}
+        <div className="mt-3 flex flex-wrap gap-1.5">
           <button
             onClick={() => setSelectedBarber('all')}
-            className={`shrink-0 rounded-full px-4 py-1.5 text-xs font-medium transition-all ${
-              selectedBarber === 'all' ? 'bg-wood text-marble' : 'bg-marble/5 text-marble/60 hover:bg-marble/10'
+            className={`rounded-full px-3 py-1 text-xs font-medium transition-all ${
+              selectedBarber === 'all' ? 'bg-gold/15 text-gold' : 'bg-white/5 text-zinc-500 hover:text-zinc-300'
             }`}
           >
             Todos
@@ -123,45 +300,68 @@ export function AdminPanel({ onBack }: AdminPanelProps) {
             <button
               key={b.id}
               onClick={() => setSelectedBarber(b.id)}
-              className={`shrink-0 rounded-full px-4 py-1.5 text-xs font-medium transition-all ${
-                selectedBarber === b.id ? 'bg-wood text-marble' : 'bg-marble/5 text-marble/60 hover:bg-marble/10'
+              className={`rounded-full px-3 py-1 text-xs font-medium transition-all ${
+                selectedBarber === b.id ? 'bg-gold/15 text-gold' : 'bg-white/5 text-zinc-500 hover:text-zinc-300'
               }`}
             >
               {b.name}
             </button>
           ))}
         </div>
-      </header>
+      </div>
 
-      <div className="sticky top-[120px] z-20 -mx-5 px-5 pt-3 pb-2 bg-ink/85 backdrop-blur-xl border-b border-marble/8">
-        <div className="flex gap-1.5 overflow-x-auto pb-1">
-          {tabs.map((t) => {
-            const Icon = t.icon;
-            return (
-              <button
-                key={t.id}
-                onClick={() => setTab(t.id)}
-                className={`flex shrink-0 items-center gap-1.5 rounded-xl px-3.5 py-2.5 text-xs font-semibold uppercase tracking-wider transition-all ${
-                  tab === t.id ? 'bg-marble text-ink' : 'bg-marble/5 text-marble/55 hover:bg-marble/10'
-                }`}
-              >
-                <Icon className="h-4 w-4" />
-                {t.label}
-              </button>
-            );
-          })}
+      {/* Search */}
+      <div className="px-5 py-3">
+        <div className="flex items-center gap-2 rounded-xl glass-card px-3 py-2">
+          <Search className="h-4 w-4 text-zinc-500" />
+          <input
+            type="text"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Buscar sección..."
+            className="w-full bg-transparent text-sm text-white placeholder:text-zinc-600 focus:outline-none"
+          />
         </div>
       </div>
 
-      <div className="px-5 pb-10 pt-4">
-        {tab === 'today' && <AdminToday bookings={bookings} loading={loading} onRefresh={refresh} />}
-        {tab === 'agenda' && <AdminAgenda bookings={bookings} loading={loading} onRefresh={refresh} />}
-        {tab === 'manual' && <AdminManualBooking onCreated={refresh} />}
-        {tab === 'availability' && <AdminAvailability blocks={blocks} onRefresh={refresh} />}
-        {tab === 'services' && <AdminServices />}
-        {tab === 'staff' && <AdminStaff />}
-        {tab === 'schedule' && <AdminStaffSchedule />}
-      </div>
+      {/* Nav items grouped by category */}
+      <nav className="flex-1 overflow-y-auto px-3 pb-4">
+        {CATEGORIES.map((cat) => {
+          const items = filteredNav.filter((n) => n.category === cat);
+          if (items.length === 0) return null;
+          return (
+            <div key={cat} className="mb-4">
+              <p className="mb-1.5 px-2 text-[0.6rem] font-semibold uppercase tracking-[0.15em] text-zinc-600">{cat}</p>
+              <div className="space-y-0.5">
+                {items.map((item) => {
+                  const Icon = item.icon;
+                  const active = tab === item.id;
+                  const count = item.id === 'today' ? todayCount : undefined;
+                  return (
+                    <button
+                      key={item.id}
+                      onClick={() => onNav(item.id)}
+                      className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm transition-all ${
+                        active ? 'bg-gold/10 text-gold' : 'text-zinc-400 hover:bg-white/5 hover:text-zinc-200'
+                      }`}
+                    >
+                      <Icon className="h-4 w-4 shrink-0" strokeWidth={1.8} />
+                      <span className="flex-1 font-medium">{item.label}</span>
+                      {count !== undefined && count > 0 && (
+                        <span className={`rounded-full px-2 py-0.5 text-[0.6rem] font-bold ${
+                          active ? 'bg-gold/20 text-gold' : 'bg-white/10 text-zinc-400'
+                        }`}>
+                          {count}
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        })}
+      </nav>
     </div>
   );
 }

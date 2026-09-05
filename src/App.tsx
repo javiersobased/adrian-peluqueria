@@ -8,26 +8,30 @@ import { SuccessStep } from '@/components/SuccessStep';
 import { FloatingButtons } from '@/components/FloatingButtons';
 import { AdminPanel } from '@/components/AdminPanel';
 import { useState, useEffect } from 'react';
+import { checkAuth, type AdminRole } from '@/lib/auth';
 
 type View = 'public' | 'admin';
 
-function getRouteFromHash(): View {
-  return window.location.hash === '#admin' ? 'admin' : 'public';
-}
-
 function App() {
   const booking = useBooking();
-  const [view, setView] = useState<View>(getRouteFromHash());
+  const [view, setView] = useState<View>('public');
+  const [adminRole, setAdminRole] = useState<AdminRole>('admin');
 
   useEffect(() => {
-    const onHashChange = () => setView(getRouteFromHash());
-    window.addEventListener('hashchange', onHashChange);
-    return () => window.removeEventListener('hashchange', onHashChange);
+    const auth = checkAuth();
+    if (auth.isBarber && auth.role) {
+      setAdminRole(auth.role);
+      setView('admin');
+    }
   }, []);
 
   const goPublic = () => {
-    window.location.hash = '';
     setView('public');
+  };
+
+  const goAdmin = (role: AdminRole) => {
+    setAdminRole(role);
+    setView('admin');
   };
 
   return (
@@ -44,10 +48,10 @@ function App() {
       </div>
 
       <div className="relative z-10 mx-auto max-w-app">
-        {view === 'admin' && <AdminPanel onBack={goPublic} />}
+        {view === 'admin' && <AdminPanel role={adminRole} onBack={goPublic} />}
 
         {view === 'public' && booking.step === 'landing' && (
-          <Landing onBook={booking.startBooking} onAdmin={() => { window.location.hash = 'admin'; setView('admin'); }} />
+          <Landing onBook={booking.startBooking} onAdmin={goAdmin} />
         )}
 
         {view === 'public' && booking.step === 'barber' && (

@@ -16,6 +16,8 @@ import {
   ArrowLeft, Search, Settings, X, LogOut, KeyRound, type LucideIcon,
 } from 'lucide-react';
 
+const CATEGORIES = ['Principal', 'Control', 'Gestión'];
+
 interface AdminPanelProps {
   role: AdminRole;
   onBack: () => void;
@@ -97,7 +99,6 @@ export function AdminPanel({ role, onBack }: AdminPanelProps) {
   ];
 
   const navItems = allNavItems.filter((n) => !n.restricted || (n.id === 'services' && canAccessServices(role)) || (n.id === 'staff' && canAccessStaff(role)) || (n.id === 'settings' && canAccessSettings(role)));
-  const CATEGORIES = ['Principal', 'Control', 'Gestión'];
   const filteredNav = navItems.filter((n) => n.label.toLowerCase().includes(search.toLowerCase()));
   const activeBarber = barbers.find((b) => b.id === selectedBarber) ?? null;
   const todayCount = bookings.filter((b) => b.booking_date === new Date().toISOString().slice(0, 10)).length;
@@ -304,7 +305,6 @@ function AdminSettings() {
       setMessage({ type: 'error', text: 'La contraseña debe tener al menos 4 caracteres.' });
       return;
     }
-    const { updatePassword } = require('@/lib/auth');
     const ok = updatePassword(targetRole, oldPass, newPass);
     if (ok) {
       setMessage({ type: 'success', text: 'Contraseña actualizada correctamente.' });

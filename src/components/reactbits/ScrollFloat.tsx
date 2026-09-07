@@ -36,7 +36,7 @@ export default function ScrollFloat({
   const splitText = useMemo(() => {
     const text = typeof children === 'string' ? children : '';
     return text.split('').map((char, index) => (
-      <span className="char" key={index} style={{ display: 'inline-block' }}>
+      <span className="char" key={index} style={{ display: 'inline-block', whiteSpace: 'pre' }}>
         {char === ' ' ? '\u00A0' : char}
       </span>
     ));
@@ -54,9 +54,9 @@ export default function ScrollFloat({
       {
         willChange: 'opacity, transform',
         opacity: 0,
-        yPercent: 120,
-        scaleY: 2.3,
-        scaleX: 0.7,
+        yPercent: 50,
+        scaleY: 1.5,
+        scaleX: 0.9,
         transformOrigin: '50% 0%',
       },
       {
@@ -70,9 +70,9 @@ export default function ScrollFloat({
         scrollTrigger: {
           trigger: el,
           scroller,
-          start: scrollStart,
-          end: scrollEnd,
-          scrub: true,
+          start: 'top bottom-=10%',
+          end: 'center center',
+          scrub: 0.5,
         },
       }
     );
@@ -81,7 +81,7 @@ export default function ScrollFloat({
   }, [scrollContainerRef, animationDuration, ease, scrollStart, scrollEnd, stagger]);
 
   return (
-    <Tag ref={containerRef as any} className={`scroll-float overflow-hidden ${containerClassName}`}>
+    <Tag ref={containerRef as any} className={`scroll-float ${containerClassName}`}>
       <span className={`scroll-float-text inline-block ${textClassName}`} style={{ display: 'inline-block' }}>
         {splitText}
       </span>

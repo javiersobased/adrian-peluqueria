@@ -69,7 +69,7 @@ export function Landing({ onBook, onAdmin }: LandingProps) {
       <button
         onClick={() => setShowLogin(true)}
         aria-label="Acceso administración"
-        className="fixed right-4 top-4 z-40 flex h-10 w-10 items-center justify-center rounded-full glass-card text-zinc-400 transition-all hover:border-gold/30 hover:text-gold active:scale-90"
+        className="fixed right-4 top-4 z-40 flex h-10 w-10 items-center justify-center rounded-full bg-zinc-900/70 backdrop-blur-xl border border-white/10 text-zinc-400 transition-all hover:border-gold/30 hover:text-gold active:scale-90"
       >
         <Lock className="h-4 w-4" />
       </button>
@@ -78,7 +78,7 @@ export function Landing({ onBook, onAdmin }: LandingProps) {
       {showLogin && (
         <div className="fixed inset-0 z-50 flex items-center justify-center px-6">
           <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={() => setShowLogin(false)} />
-          <div className="relative w-full max-w-sm rounded-3xl glass-panel p-6 animate-scale-in">
+          <div className="relative w-full max-w-sm rounded-3xl bg-zinc-900/70 backdrop-blur-xl border border-white/10 shadow-2xl p-6 animate-scale-in">
             <button onClick={() => setShowLogin(false)} className="absolute right-4 top-4 text-zinc-500 hover:text-white">
               <X className="h-5 w-5" />
             </button>
@@ -90,7 +90,7 @@ export function Landing({ onBook, onAdmin }: LandingProps) {
               <p className="mt-1 text-xs text-zinc-500">Introduce tus credenciales</p>
             </div>
             <form onSubmit={handleLogin} className="space-y-3">
-              <div className="flex items-center gap-3 rounded-xl glass-card px-4 py-3 focus-within:border-gold/30">
+              <div className="flex items-center gap-3 rounded-xl bg-zinc-900/70 backdrop-blur-xl border border-white/10 px-4 py-3 focus-within:border-gold/30">
                 <User className="h-4 w-4 text-zinc-500" />
                 <input
                   type="text" value={loginUser} onChange={(e) => setLoginUser(e.target.value)}
@@ -98,7 +98,7 @@ export function Landing({ onBook, onAdmin }: LandingProps) {
                   className="w-full bg-transparent text-sm text-white placeholder:text-zinc-600 focus:outline-none"
                 />
               </div>
-              <div className="flex items-center gap-3 rounded-xl glass-card px-4 py-3 focus-within:border-gold/30">
+              <div className="flex items-center gap-3 rounded-xl bg-zinc-900/70 backdrop-blur-xl border border-white/10 px-4 py-3 focus-within:border-gold/30">
                 <Lock className="h-4 w-4 text-zinc-500" />
                 <input
                   type="password" value={loginPass} onChange={(e) => setLoginPass(e.target.value)}
@@ -130,14 +130,14 @@ export function Landing({ onBook, onAdmin }: LandingProps) {
           <div className="absolute inset-0 backdrop-blur-md" />
         </div>
 
-        <div className="animate-fade-up">
+        <div className="animate-fade-up w-full max-w-4xl">
           <p className="mb-3 text-xs font-semibold uppercase tracking-[0.35em] text-gold">Huelva</p>
           <ScrollFloat
             as="h1"
             animationDuration={1}
             ease="back.inOut(2)"
             stagger={0.03}
-            containerClassName="font-display text-2xl sm:text-4xl md:text-5xl font-bold leading-[1.1] text-white whitespace-normal break-words"
+            containerClassName="font-display text-2xl sm:text-4xl md:text-6xl font-bold leading-tight text-white whitespace-normal break-words max-w-full"
             textClassName="inline-block"
           >
             Peluquería Adrián Millán
@@ -165,90 +165,95 @@ export function Landing({ onBook, onAdmin }: LandingProps) {
         </div>
       </header>
 
-      {/* About */}
-      <section id="inicio" className="relative px-6 py-20">
-        <div className="mx-auto max-w-md">
-          <div className="mb-2 text-center text-xs font-semibold uppercase tracking-[0.3em] text-gold">Nuestro Local</div>
-          <ScrollReveal
-            baseOpacity={0.1}
-            enableBlur={true}
-            baseRotation={4}
-            blurStrength={10}
-            containerClassName="font-display text-3xl font-bold leading-snug text-white mb-6"
-            textClassName="inline-block"
-          >
-            Tradición y estilo en nuestro barrio
-          </ScrollReveal>
-          <div className="overflow-hidden rounded-3xl glass-card">
-            <img
-              src="/images/google_maps_2048_1788027105155.jpg"
-              alt="Interior luminoso del local de Peluquería Adrián Millán"
-              className="h-48 w-full object-cover"
-            />
-          </div>
-          <ScrollReveal
-            baseOpacity={0.1}
-            enableBlur={true}
-            baseRotation={2}
-            blurStrength={10}
-            containerClassName="mt-5 text-[0.95rem] leading-relaxed text-zinc-400"
-            textClassName="inline-block"
-          >
-            En Peluquería Adrián Millán combinamos la técnica clásica del oficio con las tendencias más actuales. Un espacio cercano y cuidado al detalle, pensado para que disfrutes de un momento de descanso mientras te ponemos a punto. Especialistas en corte, barba y color para hombres y niños.
-          </ScrollReveal>
-        </div>
-      </section>
-
-      {/* Hours */}
-      <section id="horarios" className="px-6 pb-20">
-        <div className="mx-auto max-w-md">
-          <div className="glass-panel rounded-3xl p-6">
-            <div className="mb-5 flex items-center gap-2.5">
-              <ClockIcon className="h-5 w-5 text-gold" />
-              <h3 className="text-sm font-bold uppercase tracking-wider text-white">Horario de apertura</h3>
+      {/* About + Hours — grid on desktop */}
+      <section className="px-6 py-20">
+        <div className="mx-auto max-w-5xl">
+          <div className="grid gap-8 md:grid-cols-2">
+            {/* About */}
+            <div id="inicio">
+              <div className="mb-2 text-xs font-semibold uppercase tracking-[0.3em] text-gold">Nuestro Local</div>
+              <ScrollReveal
+                baseOpacity={0.1}
+                enableBlur={true}
+                baseRotation={3}
+                blurStrength={8}
+                containerClassName="font-display text-xl sm:text-2xl font-bold leading-snug text-white mb-4"
+                textClassName="inline-block"
+              >
+                Tradición y estilo en nuestro barrio
+              </ScrollReveal>
+              <div className="overflow-hidden rounded-3xl bg-zinc-900/70 backdrop-blur-xl border border-white/10 shadow-2xl">
+                <img
+                  src="/images/google_maps_2048_1788027105155.jpg"
+                  alt="Interior luminoso del local de Peluquería Adrián Millán"
+                  className="h-48 w-full object-cover"
+                />
+              </div>
+              <ScrollReveal
+                baseOpacity={0.1}
+                enableBlur={true}
+                baseRotation={2}
+                blurStrength={8}
+                containerClassName="mt-4 text-sm leading-relaxed text-zinc-400"
+                textClassName="inline-block"
+              >
+                En Peluquería Adrián Millán combinamos la técnica clásica del oficio con las tendencias más actuales. Un espacio cercano y cuidado al detalle, pensado para que disfrutes de un momento de descanso mientras te ponemos a punto. Especialistas en corte, barba y color para hombres y niños.
+              </ScrollReveal>
             </div>
-            <ul className="space-y-3">
-              {OPENING_HOURS.map((row) => {
-                const closed = row.hours === 'Cerrado';
-                return (
-                  <li key={row.day} className="flex items-center justify-between border-b border-white/5 pb-3 text-sm last:border-0 last:pb-0">
-                    <span className="text-zinc-300">{row.day}</span>
-                    <span className={closed ? 'text-zinc-600' : 'text-zinc-400'}>{row.hours}</span>
-                  </li>
-                );
-              })}
-            </ul>
+
+            {/* Hours */}
+            <div id="horarios">
+              <div className="rounded-3xl bg-zinc-900/70 backdrop-blur-xl border border-white/10 shadow-2xl p-6">
+                <div className="mb-5 flex items-center gap-2.5">
+                  <ClockIcon className="h-5 w-5 text-gold" />
+                  <h3 className="text-sm font-bold uppercase tracking-wider text-white">Horario de apertura</h3>
+                </div>
+                <ul className="space-y-3">
+                  {OPENING_HOURS.map((row) => {
+                    const closed = row.hours === 'Cerrado';
+                    return (
+                      <li key={row.day} className="flex items-center justify-between border-b border-white/5 pb-3 text-sm last:border-0 last:pb-0">
+                        <span className="text-zinc-300">{row.day}</span>
+                        <span className={closed ? 'text-zinc-600' : 'text-zinc-400'}>{row.hours}</span>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
+            </div>
           </div>
         </div>
       </section>
 
       {/* Location */}
       <section id="ubicacion" className="px-6 pb-24">
-        <a
-          href={SALON_MAPS_URL}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="group block overflow-hidden rounded-3xl glass-panel transition-transform duration-300 active:scale-[0.98]"
-        >
-          <div className="relative h-40">
-            <img
-              src="/images/google_maps_2048_1788027110699.jpg"
-              alt="Exterior de la peluquería"
-              className="h-full w-full object-cover opacity-50 transition-opacity duration-300 group-hover:opacity-65"
-            />
-            <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent" />
-            <div className="absolute bottom-4 left-5 right-5 flex items-end justify-between">
-              <div>
-                <div className="flex items-center gap-2 text-gold">
-                  <MapPinIcon className="h-4 w-4" />
-                  <span className="text-xs font-semibold uppercase tracking-wider">Dónde estamos</span>
+        <div className="mx-auto max-w-5xl">
+          <a
+            href={SALON_MAPS_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="group block overflow-hidden rounded-3xl bg-zinc-900/70 backdrop-blur-xl border border-white/10 shadow-2xl transition-transform duration-300 active:scale-[0.98]"
+          >
+            <div className="relative h-40 md:h-56">
+              <img
+                src="/images/google_maps_2048_1788027110699.jpg"
+                alt="Exterior de la peluquería"
+                className="h-full w-full object-cover opacity-50 transition-opacity duration-300 group-hover:opacity-65"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent" />
+              <div className="absolute bottom-4 left-5 right-5 flex items-end justify-between">
+                <div>
+                  <div className="flex items-center gap-2 text-gold">
+                    <MapPinIcon className="h-4 w-4" />
+                    <span className="text-xs font-semibold uppercase tracking-wider">Dónde estamos</span>
+                  </div>
+                  <p className="mt-1 text-sm font-medium text-white">{SALON_ADDRESS}</p>
                 </div>
-                <p className="mt-1 text-sm font-medium text-white">{SALON_ADDRESS}</p>
+                <ChevronRightIcon className="h-5 w-5 text-zinc-400 transition-transform duration-300 group-hover:translate-x-1" />
               </div>
-              <ChevronRightIcon className="h-5 w-5 text-zinc-400 transition-transform duration-300 group-hover:translate-x-1" />
             </div>
-          </div>
-        </a>
+          </a>
+        </div>
       </section>
 
       {/* Reviews */}
@@ -282,25 +287,23 @@ export function Landing({ onBook, onAdmin }: LandingProps) {
             >
               {REVIEWS.map((r, i) => (
                 <div key={i} className="w-full shrink-0 px-1">
-                  <GlassSurface borderRadius={20} className="w-full">
-                    <div className="w-full p-5 text-left">
-                      <div className="mb-2 flex items-center gap-2">
-                        <div className="flex h-9 w-9 items-center justify-center rounded-full gold-gradient font-display text-xs font-bold text-black">
-                          {r.name.charAt(0)}
-                        </div>
-                        <div>
-                          <p className="text-sm font-bold text-white">{r.name}</p>
-                          <p className="text-[0.6rem] text-zinc-500">{r.date}</p>
-                        </div>
-                        <div className="ml-auto flex gap-0.5">
-                          {[...Array(5)].map((_, j) => (
-                            <Star key={j} className={`h-3 w-3 ${j < r.rating ? 'text-gold' : 'text-zinc-700'}`} />
-                          ))}
-                        </div>
+                  <div className="w-full rounded-3xl bg-zinc-900/70 backdrop-blur-xl border border-white/10 shadow-2xl p-5 text-left">
+                    <div className="mb-2 flex items-center gap-2">
+                      <div className="flex h-9 w-9 items-center justify-center rounded-full gold-gradient font-display text-xs font-bold text-black">
+                        {r.name.charAt(0)}
                       </div>
-                      <p className="text-sm leading-relaxed text-zinc-400">"{r.text}"</p>
+                      <div>
+                        <p className="text-sm font-bold text-white">{r.name}</p>
+                        <p className="text-[0.6rem] text-zinc-500">{r.date}</p>
+                      </div>
+                      <div className="ml-auto flex gap-0.5">
+                        {[...Array(5)].map((_, j) => (
+                          <Star key={j} className={`h-3 w-3 ${j < r.rating ? 'text-gold' : 'text-zinc-700'}`} />
+                        ))}
+                      </div>
                     </div>
-                  </GlassSurface>
+                    <p className="text-sm leading-relaxed text-zinc-400">"{r.text}"</p>
+                  </div>
                 </div>
               ))}
             </div>

@@ -56,7 +56,7 @@ export default function ScrollReveal({
       {
         ease: 'none',
         rotate: 0,
-        scrollTrigger: { trigger: el, scroller, start: 'top bottom', end: rotationEnd, scrub: true },
+        scrollTrigger: { trigger: el, scroller, start: 'top bottom', end: 'center center', scrub: 0.5 },
       }
     );
 
@@ -69,7 +69,7 @@ export default function ScrollReveal({
         ease: 'none',
         opacity: 1,
         stagger: 0.05,
-        scrollTrigger: { trigger: el, scroller, start: 'top bottom-=20%', end: wordAnimationEnd, scrub: true },
+        scrollTrigger: { trigger: el, scroller, start: 'top bottom-=10%', end: 'center center', scrub: 0.5 },
       }
     );
 
@@ -82,7 +82,7 @@ export default function ScrollReveal({
           ease: 'none',
           filter: 'blur(0px)',
           stagger: 0.05,
-          scrollTrigger: { trigger: el, scroller, start: 'top bottom-=20%', end: wordAnimationEnd, scrub: true },
+          scrollTrigger: { trigger: el, scroller, start: 'top bottom-=10%', end: 'center center', scrub: 0.5 },
         }
       );
     }

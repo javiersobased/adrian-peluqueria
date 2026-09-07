@@ -1,0 +1,25 @@
+diff --git a/src/components/AdminPanel.tsx b/src/components/AdminPanel.tsx
+index 22a70aa..55dfa7d 100644
+--- a/src/components/AdminPanel.tsx
++++ b/src/components/AdminPanel.tsx
+@@ -11,7 +11,7 @@ import { AdminStaff } from '@/components/admin/AdminStaff';
+ import { AdminStaffSchedule } from '@/components/admin/AdminStaffSchedule';
+ import {
+   CalendarDays, Clock, PlusCircle, SlidersHorizontal, Scissors, Users,
+-  ArrowLeft, Search, Settings, X, type LucideIcon,
++  ArrowLeft, Search, Settings, Menu, X, type LucideIcon,
+ } from 'lucide-react';
+ 
+ interface AdminPanelProps {
+@@ -187,9 +187,9 @@ export function AdminPanel({ onBack }: AdminPanelProps) {
+           <button
+             onClick={() => setSidebarOpen(true)}
+             aria-label="Abrir menú"
+-            className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/5 text-zinc-300"
++            className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/5 text-zinc-300"
+           >
+-            <Settings className="h-4 w-4" />
++            <Menu className="h-6 w-6" strokeWidth={2} />
+           </button>
+           <div className="flex-1">
+             <p className="text-[0.6rem] uppercase tracking-[0.2em] text-gold">Gestión</p>

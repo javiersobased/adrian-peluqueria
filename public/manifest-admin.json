@@ -1,0 +1,20 @@
+{
+  "name": "Admin · Peluquería Adrián Millán",
+  "short_name": "Admin AM",
+  "description": "Panel de gestión de citas de Peluquería Adrián Millán.",
+  "start_url": "/#admin",
+  "scope": "/",
+  "id": "/admin",
+  "display": "standalone",
+  "background_color": "#0a0a0a",
+  "theme_color": "#0a0a0a",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "/image.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

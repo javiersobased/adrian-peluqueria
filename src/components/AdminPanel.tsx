@@ -39,7 +39,16 @@ export function AdminPanel({ role, onBack }: AdminPanelProps) {
   const [selectedBarber, setSelectedBarber] = useState<string>('all');
   const [loading, setLoading] = useState(true);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [sidebarClosing, setSidebarClosing] = useState(false);
   const [search, setSearch] = useState('');
+
+  const closeSidebar = useCallback(() => {
+    setSidebarClosing(true);
+    setTimeout(() => {
+      setSidebarOpen(false);
+      setSidebarClosing(false);
+    }, 300);
+  }, []);
 
   useEffect(() => { fetchAllBarbers().then((b) => setBarbers(b)); }, []);
 
@@ -93,7 +102,7 @@ export function AdminPanel({ role, onBack }: AdminPanelProps) {
   const activeBarber = barbers.find((b) => b.id === selectedBarber) ?? null;
   const todayCount = bookings.filter((b) => b.booking_date === new Date().toISOString().slice(0, 10)).length;
 
-  const handleNav = (id: AdminTab) => { setTab(id); setSidebarOpen(false); };
+  const handleNav = (id: AdminTab) => { setTab(id); closeSidebar(); };
 
   const handleLogout = () => {
     logout();
@@ -133,10 +142,10 @@ export function AdminPanel({ role, onBack }: AdminPanelProps) {
       {/* Mobile sidebar with AnimatedContent */}
       {sidebarOpen && (
         <div className="fixed inset-0 z-50 md:hidden">
-          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setSidebarOpen(false)} />
-          <AnimatedContent distance={300} direction="horizontal" reverse={false} duration={0.4} ease="power3.out" initialOpacity={0} animateOpacity={true} threshold={0} className="absolute left-0 top-0 h-full">
+          <div className={`absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity duration-300 ${sidebarClosing ? 'opacity-0' : 'opacity-100'}`} onClick={closeSidebar} />
+          <AnimatedContent distance={300} direction="horizontal" reverse={false} duration={0.35} ease="power3.out" initialOpacity={0} animateOpacity={true} threshold={0} className={`absolute left-0 top-0 h-full transition-transform duration-300 ease-out ${sidebarClosing ? '-translate-x-full' : 'translate-x-0'}`}>
             <div className="h-full w-72 border-r border-white/5 bg-zinc-900/95 backdrop-blur-xl">
-              <button onClick={() => setSidebarOpen(false)} className="absolute right-3 top-4 z-10 flex h-8 w-8 items-center justify-center rounded-full bg-white/5 text-zinc-400">
+              <button onClick={closeSidebar} className="absolute right-3 top-4 z-10 flex h-8 w-8 items-center justify-center rounded-full bg-white/5 text-zinc-400">
                 <X className="h-4 w-4" />
               </button>
               <SidebarContent barbers={barbers} selectedBarber={selectedBarber} setSelectedBarber={setSelectedBarber}

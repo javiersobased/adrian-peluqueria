@@ -1,4 +1,5 @@
-import { CalendarIcon, MapPinIcon, ClockIcon, ChevronRightIcon, Star } from '@/components/icons';
+import { CalendarIcon, MapPinIcon, ClockIcon, ChevronRightIcon } from '@/components/icons';
+import { Star } from 'lucide-react';
 import { OPENING_HOURS, SALON_MAPS_URL, SALON_ADDRESS } from '@/data/services';
 import { useState, useEffect } from 'react';
 import ScrollFloat from '@/components/reactbits/ScrollFloat';
@@ -39,7 +40,7 @@ export function Landing({ onBook, onAdmin }: LandingProps) {
     { icon: <Home size={18} />, label: 'Inicio', onClick: () => window.scrollTo({ top: 0, behavior: 'smooth' }) },
     { icon: <Clock size={18} />, label: 'Horarios', onClick: () => scrollToSection('horarios') },
     { icon: <MapPin size={18} />, label: 'Ubicación', onClick: () => scrollToSection('ubicacion') },
-    { icon: <Calendar size={18} />, label: 'Reservar', onClick: onBook },
+    { icon: <Calendar size={16} />, label: 'Reservar', onClick: onBook, highlight: true },
   ];
 
   const handleLogin = (e: React.FormEvent) => {
@@ -130,6 +131,7 @@ export function Landing({ onBook, onAdmin }: LandingProps) {
         <div className="animate-fade-up">
           <p className="mb-3 text-xs font-semibold uppercase tracking-[0.35em] text-gold">Huelva</p>
           <ScrollFloat
+            as="h1"
             animationDuration={1.2}
             ease="back.inOut(2)"
             stagger={0.04}
@@ -317,7 +319,7 @@ export function Landing({ onBook, onAdmin }: LandingProps) {
       </section>
 
       {/* Dock */}
-      <div className="fixed bottom-0 left-0 right-0 z-40 flex justify-center pb-2 md:hidden">
+      <div className="fixed bottom-8 left-0 right-0 z-40 flex justify-center">
         <Dock items={dockItems} panelHeight={56} baseItemSize={42} magnification={60} distance={150} />
       </div>
 
@@ -328,7 +330,7 @@ export function Landing({ onBook, onAdmin }: LandingProps) {
 
 export function Footer() {
   return (
-    <footer className="border-t border-white/5 px-6 py-10 pb-24 md:pb-10">
+    <footer className="border-t border-white/5 px-6 py-10 pb-28 md:pb-28">
       <div className="mx-auto max-w-md text-center">
         <p className="font-display text-xl font-bold text-white">Peluquería Adrián Millán</p>
         <p className="mt-1 text-xs text-zinc-500">Barbería y peluquería · Huelva</p>

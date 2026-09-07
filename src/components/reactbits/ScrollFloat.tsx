@@ -6,6 +6,7 @@ gsap.registerPlugin(ScrollTrigger);
 
 interface ScrollFloatProps {
   children: React.ReactNode;
+  as?: 'h1' | 'h2' | 'h3' | 'div';
   scrollContainerRef?: React.RefObject<HTMLElement>;
   containerClassName?: string;
   textClassName?: string;
@@ -18,6 +19,7 @@ interface ScrollFloatProps {
 
 export default function ScrollFloat({
   children,
+  as = 'h2',
   scrollContainerRef,
   containerClassName = '',
   textClassName = '',
@@ -28,6 +30,7 @@ export default function ScrollFloat({
   stagger = 0.03,
 }: ScrollFloatProps) {
   const containerRef = useRef<HTMLHeadingElement>(null);
+  const Tag = as;
 
   const splitText = useMemo(() => {
     const text = typeof children === 'string' ? children : '';
@@ -77,10 +80,10 @@ export default function ScrollFloat({
   }, [scrollContainerRef, animationDuration, ease, scrollStart, scrollEnd, stagger]);
 
   return (
-    <h2 ref={containerRef} className={`scroll-float overflow-hidden ${containerClassName}`}>
+    <Tag ref={containerRef as any} className={`scroll-float overflow-hidden ${containerClassName}`}>
       <span className={`scroll-float-text inline-block ${textClassName}`} style={{ display: 'inline-block' }}>
         {splitText}
       </span>
-    </h2>
+    </Tag>
   );
 }

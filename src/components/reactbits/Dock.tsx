@@ -6,6 +6,7 @@ interface DockItemData {
   label: string;
   onClick: () => void;
   className?: string;
+  highlight?: boolean;
 }
 
 interface DockProps {
@@ -101,6 +102,9 @@ export default function Dock({
   const heightRow = useTransform(isHovered, [0, 1], [panelHeight, maxHeight]);
   const height = useSpring(heightRow, spring);
 
+  const regularItems = items.filter((i) => !i.highlight);
+  const highlightItems = items.filter((i) => i.highlight);
+
   return (
     <motion.div style={{ height, scrollbarWidth: 'none' } as React.CSSProperties} className="dock-outer">
       <motion.div
@@ -111,13 +115,25 @@ export default function Dock({
         role="toolbar"
         aria-label="Application dock"
       >
-        {items.map((item, index) => (
+        {regularItems.map((item, index) => (
           <DockItem key={index} onClick={item.onClick} className={item.className}
             mouseX={mouseX} spring={spring} distance={distance} magnification={magnification}
             baseItemSize={baseItemSize} label={item.label}>
             <DockIcon>{item.icon}</DockIcon>
             <DockLabel>{item.label}</DockLabel>
           </DockItem>
+        ))}
+
+        {highlightItems.map((item, index) => (
+          <button
+            key={`hl-${index}`}
+            onClick={item.onClick}
+            className="dock-item-highlight"
+            aria-label={item.label}
+          >
+            {item.icon}
+            <span className="dock-item-highlight-text">{item.label}</span>
+          </button>
         ))}
       </motion.div>
     </motion.div>

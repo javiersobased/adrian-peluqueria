@@ -16,11 +16,13 @@ interface LandingProps {
 }
 
 const REVIEWS = [
-  { name: 'Carlos M.', rating: 5, text: 'Excelente servicio, el mejor corte que me han hecho en Huelva. Adrián es un verdadero profesional.', date: 'Hace 2 semanas' },
-  { name: 'Javier R.', rating: 5, text: 'Ambiente genial y resultado impecable. Siempre salgo satisfecho, sin duda mi peluquería de confianza.', date: 'Hace 1 mes' },
-  { name: 'Manuel P.', rating: 4, text: 'Muy buena atención y precio razonable. El local está cuidado y se nota que les importa el detalle.', date: 'Hace 1 mes' },
-  { name: 'Antonio L.', rating: 5, text: 'Llevo años yendo y nunca me decepciona. Trato cercano y profesionalidad en cada visita.', date: 'Hace 2 meses' },
-  { name: 'Francisco J.', rating: 5, text: 'La barba me la dejaron perfecta. Recomendado 100%, no hay mejor sitio en la zona.', date: 'Hace 3 meses' },
+  { name: 'Jose Manuel Quintero Ortiz', rating: 5, text: 'Amabilidad, profesionalidad y económico... con la gentileza de invitarte a café o té con dulces si vas en horario de 17:00 / 20:00.', date: 'Hace 3 meses' },
+  { name: 'Oscar Paredes', rating: 5, text: 'Buen trato al cliente y sitio muy agradable y mucha limpieza, situado en sitio bien accesible.', date: 'Hace 5 meses' },
+  { name: 'Antonio Vázquez', rating: 5, text: 'Estupendo en todo, tanto en el pelado como en el trato al cliente. Ya tiene un cliente fijo. Gracias!!!', date: 'Hace 5 meses' },
+  { name: 'Dani', rating: 5, text: 'Llevo tiempo pelándome y haciéndome la barba y los que me quedan, buenos profesionales y mejor atención.', date: 'Hace 4 meses' },
+  { name: 'Carluten', rating: 5, text: 'Gran peluquero, servicio espléndido y una decoración moderna con precios superbuenos.', date: 'Hace 5 meses' },
+  { name: 'Francisco Javier González Humanes', rating: 5, text: 'El trato ha sido inmejorable!', date: 'Hace 6 meses' },
+  { name: 'Maria Cano Padilla', rating: 5, text: 'Buen trato, rapidez y buen precio.', date: 'Hace 6 meses' },
 ];
 
 const REVIEW_URL = 'https://search.google.com/local/writereview?placeid=ChIJZQ8TpTLPEQ0RDdVh6plIAsU';
@@ -132,10 +134,10 @@ export function Landing({ onBook, onAdmin }: LandingProps) {
           <p className="mb-3 text-xs font-semibold uppercase tracking-[0.35em] text-gold">Huelva</p>
           <ScrollFloat
             as="h1"
-            animationDuration={1.2}
+            animationDuration={1}
             ease="back.inOut(2)"
-            stagger={0.04}
-            containerClassName="font-display text-4xl sm:text-5xl font-bold leading-[1.05] text-white"
+            stagger={0.03}
+            containerClassName="font-display text-2xl sm:text-4xl md:text-5xl font-bold leading-[1.1] text-white whitespace-normal break-words"
             textClassName="inline-block"
           >
             Peluquería Adrián Millán
@@ -168,10 +170,10 @@ export function Landing({ onBook, onAdmin }: LandingProps) {
         <div className="mx-auto max-w-md">
           <div className="mb-2 text-center text-xs font-semibold uppercase tracking-[0.3em] text-gold">Nuestro Local</div>
           <ScrollReveal
-            baseOpacity={0}
+            baseOpacity={0.1}
             enableBlur={true}
             baseRotation={4}
-            blurStrength={8}
+            blurStrength={10}
             containerClassName="font-display text-3xl font-bold leading-snug text-white mb-6"
             textClassName="inline-block"
           >
@@ -185,10 +187,10 @@ export function Landing({ onBook, onAdmin }: LandingProps) {
             />
           </div>
           <ScrollReveal
-            baseOpacity={0.05}
+            baseOpacity={0.1}
             enableBlur={true}
             baseRotation={2}
-            blurStrength={6}
+            blurStrength={10}
             containerClassName="mt-5 text-[0.95rem] leading-relaxed text-zinc-400"
             textClassName="inline-block"
           >

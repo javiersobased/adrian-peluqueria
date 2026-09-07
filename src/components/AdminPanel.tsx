@@ -13,7 +13,7 @@ import AnimatedContent from '@/components/reactbits/AnimatedContent';
 import { logout, canAccessServices, canAccessStaff, canAccessSettings, updatePassword, type AdminRole } from '@/lib/auth';
 import {
   CalendarDays, Clock, PlusCircle, SlidersHorizontal, Scissors, Users,
-  ArrowLeft, Search, Settings, X, LogOut, KeyRound, type LucideIcon,
+  ArrowLeft, Search, Settings, X, LogOut, KeyRound, Menu, type LucideIcon,
 } from 'lucide-react';
 
 const CATEGORIES = ['Principal', 'Control', 'Gestión'];
@@ -49,7 +49,7 @@ export function AdminPanel({ role, onBack }: AdminPanelProps) {
     setTimeout(() => {
       setSidebarOpen(false);
       setSidebarClosing(false);
-    }, 300);
+    }, 200);
   }, []);
 
   useEffect(() => { fetchAllBarbers().then((b) => setBarbers(b)); }, []);
@@ -143,8 +143,8 @@ export function AdminPanel({ role, onBack }: AdminPanelProps) {
       {/* Mobile sidebar with AnimatedContent */}
       {sidebarOpen && (
         <div className="fixed inset-0 z-50 md:hidden">
-          <div className={`absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity duration-300 ${sidebarClosing ? 'opacity-0' : 'opacity-100'}`} onClick={closeSidebar} />
-          <AnimatedContent distance={300} direction="horizontal" reverse={false} duration={0.35} ease="power3.out" initialOpacity={0} animateOpacity={true} threshold={0} className={`absolute left-0 top-0 h-full transition-transform duration-300 ease-out ${sidebarClosing ? '-translate-x-full' : 'translate-x-0'}`}>
+          <div className={`absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity duration-200 ${sidebarClosing ? 'opacity-0' : 'opacity-100'}`} onClick={closeSidebar} />
+          <AnimatedContent distance={300} direction="horizontal" reverse={false} duration={0.2} ease="power2.out" initialOpacity={0} animateOpacity={true} threshold={0} className={`absolute left-0 top-0 h-full transition-transform duration-200 ease-out ${sidebarClosing ? '-translate-x-full' : 'translate-x-0'}`}>
             <div className="h-full w-72 border-r border-white/5 bg-zinc-900/95 backdrop-blur-xl">
               <button onClick={closeSidebar} className="absolute right-3 top-4 z-10 flex h-8 w-8 items-center justify-center rounded-full bg-white/5 text-zinc-400">
                 <X className="h-4 w-4" />
@@ -161,8 +161,8 @@ export function AdminPanel({ role, onBack }: AdminPanelProps) {
       <div className="flex-1 md:ml-80">
         {/* Mobile header */}
         <header className="sticky top-0 z-30 flex items-center gap-3 border-b border-white/5 bg-zinc-900/80 px-4 py-4 backdrop-blur-xl md:hidden">
-          <button onClick={() => setSidebarOpen(true)} aria-label="Abrir menú" className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/5 text-zinc-300">
-            <Settings className="h-4 w-4" />
+          <button onClick={() => setSidebarOpen(true)} aria-label="Abrir menú" className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/5 text-zinc-300">
+            <Menu className="h-5 w-5" />
           </button>
           <div className="flex-1">
             <p className="text-[0.6rem] uppercase tracking-[0.2em] text-gold">Gestión</p>
@@ -199,6 +199,7 @@ export function AdminPanel({ role, onBack }: AdminPanelProps) {
         </header>
 
         <div className="px-4 py-6 md:px-8 md:py-8">
+          <div className="admin-embed rounded-3xl p-4 md:p-6">
           {tab === 'today' && <AdminToday bookings={bookings} loading={loading} onRefresh={refresh} />}
           {tab === 'agenda' && <AdminAgenda bookings={bookings} loading={loading} onRefresh={refresh} />}
           {tab === 'manual' && <AdminManualBooking onCreated={refresh} />}
@@ -207,6 +208,7 @@ export function AdminPanel({ role, onBack }: AdminPanelProps) {
           {tab === 'staff' && canAccessStaff(role) && <AdminStaff />}
           {tab === 'schedule' && <AdminStaffSchedule />}
           {tab === 'settings' && canAccessSettings(role) && <AdminSettings />}
+          </div>
         </div>
       </div>
     </div>

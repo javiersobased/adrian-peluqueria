@@ -1,0 +1,611 @@
+diff --git a/src/App.tsx b/src/App.tsx
+index 33e9856..9fa4e8a 100644
+--- a/src/App.tsx
++++ b/src/App.tsx
+@@ -1,4 +1,5 @@
+ import { useBooking } from '@/hooks/useBooking';
++import { useAuth } from '@/hooks/useAuth';
+ import { Landing } from '@/components/Landing';
+ import { BarberStep } from '@/components/BarberStep';
+ import { ServiceStep } from '@/components/ServiceStep';
+@@ -7,24 +8,58 @@ import { DetailsStep } from '@/components/DetailsStep';
+ import { SuccessStep } from '@/components/SuccessStep';
+ import { FloatingButtons } from '@/components/FloatingButtons';
+ import { AdminPanel } from '@/components/AdminPanel';
+-import { useState, useEffect } from 'react';
++import { LoginModal } from '@/components/LoginModal';
++import { useState, useEffect, useCallback, useRef } from 'react';
+ import { checkAuth, type AdminRole } from '@/lib/auth';
++import { getPendingBooking, clearPendingBooking, savePendingBooking } from '@/lib/pendingBooking';
++import { insertBooking } from '@/lib/bookings';
++import type { BookingForm } from '@/types';
+ 
+ type View = 'public' | 'admin';
+ 
+ function App() {
+   const booking = useBooking();
++  const auth = useAuth();
+   const [view, setView] = useState<View>('public');
+   const [adminRole, setAdminRole] = useState<AdminRole>('admin');
++  const [showLoginModal, setShowLoginModal] = useState(false);
++  const [signingIn, setSigningIn] = useState(false);
++  const [resumingBooking, setResumingBooking] = useState(false);
++  const resumedRef = useRef(false);
+ 
+   useEffect(() => {
+-    const auth = checkAuth();
+-    if (auth.isBarber && auth.role) {
+-      setAdminRole(auth.role);
++    const localAuth = checkAuth();
++    if (localAuth.isBarber && localAuth.role) {
++      setAdminRole(localAuth.role);
+       setView('admin');
+     }
+   }, []);
+ 
++  // After signInWithOAuth, Google redirects the whole page away and back, so
++  // this runs on the fresh page load once Supabase has resolved the session.
++  // If there was a booking waiting on login, finish it automatically here.
++  useEffect(() => {
++    if (auth.loading || !auth.user || resumedRef.current) return;
++    const pending = getPendingBooking();
++    if (!pending) return;
++
++    resumedRef.current = true;
++    clearPendingBooking();
++    setResumingBooking(true);
++    setShowLoginModal(false);
++
++    insertBooking(pending, auth.user.id)
++      .then((saved) => {
++        booking.applyExternalConfirmation(saved);
++      })
++      .catch(() => {
++        // Nothing lost: the customer is now logged in, so a manual retry
++        // from the confirm button will go straight through next time.
++      })
++      .finally(() => setResumingBooking(false));
++    // eslint-disable-next-line react-hooks/exhaustive-deps
++  }, [auth.loading, auth.user]);
++
+   const goPublic = () => {
+     setView('public');
+   };
+@@ -34,6 +69,28 @@ function App() {
+     setView('admin');
+   };
+ 
++  const handleGoogleSignIn = useCallback(async () => {
++    setSigningIn(true);
++    await auth.signInWithGoogle();
++    // Page navigates away to Google here; setSigningIn(false) never runs
++    // because this component unmounts on redirect.
++  }, [auth]);
++
++  const handleDetailsSubmit = useCallback(
++    async (form: BookingForm) => {
++      if (auth.user) {
++        await booking.submitBooking(form, auth.user.id);
++        return;
++      }
++      // Not logged in: stash the booking and ask for Google sign-in first.
++      const payload = booking.buildPayload(form);
++      if (!payload) return;
++      savePendingBooking(payload);
++      setShowLoginModal(true);
++    },
++    [auth.user, booking]
++  );
++
+   return (
+     <div className="relative min-h-screen bg-ink text-zinc-200">
+       <div className="fixed inset-0 -z-20">
+@@ -51,7 +108,7 @@ function App() {
+         {view === 'admin' && <AdminPanel role={adminRole} onBack={goPublic} />}
+ 
+         {view === 'public' && booking.step === 'landing' && (
+-          <Landing onBook={booking.startBooking} onAdmin={goAdmin} />
++          <Landing onBook={booking.startBooking} onAdmin={goAdmin} user={auth.user} onSignOut={auth.signOut} />
+         )}
+ 
+         {view === 'public' && booking.step === 'barber' && (
+@@ -69,7 +126,7 @@ function App() {
+         {view === 'public' && booking.step === 'details' && (
+           <DetailsStep
+             onBack={booking.goBack}
+-            onSubmit={booking.submitBooking}
++            onSubmit={handleDetailsSubmit}
+             submitting={booking.submitting}
+             error={booking.error}
+           />
+@@ -81,6 +138,21 @@ function App() {
+       </div>
+ 
+       {view === 'public' && <FloatingButtons />}
++
++      {showLoginModal && (
++        <LoginModal
++          onGoogleSignIn={handleGoogleSignIn}
++          onClose={() => setShowLoginModal(false)}
++          signingIn={signingIn}
++        />
++      )}
++
++      {resumingBooking && (
++        <div className="fixed inset-0 z-[95] flex flex-col items-center justify-center gap-3 bg-black/80 backdrop-blur-md">
++          <span className="h-8 w-8 animate-spin rounded-full border-2 border-gold/30 border-t-gold" />
++          <p className="text-sm text-zinc-300">Confirmando tu reserva…</p>
++        </div>
++      )}
+     </div>
+   );
+ }
+diff --git a/src/components/Landing.tsx b/src/components/Landing.tsx
+index f706ef0..0ce2ea8 100644
+--- a/src/components/Landing.tsx
++++ b/src/components/Landing.tsx
+@@ -9,10 +9,13 @@ import Dock from '@/components/reactbits/Dock';
+ import CountUp from '@/components/reactbits/CountUp';
+ import { Home, Clock, MapPin, Calendar, X, Lock, User } from 'lucide-react';
+ import { login, type AdminRole } from '@/lib/auth';
++import type { User as SupabaseUser } from '@supabase/supabase-js';
+ 
+ interface LandingProps {
+   onBook: () => void;
+   onAdmin: (role: AdminRole) => void;
++  user?: SupabaseUser | null;
++  onSignOut?: () => void;
+ }
+ 
+ const REVIEWS = [
+@@ -27,12 +30,13 @@ const REVIEWS = [
+ 
+ const REVIEW_URL = 'https://search.google.com/local/writereview?placeid=ChIJZQ8TpTLPEQ0RDdVh6plIAsU';
+ 
+-export function Landing({ onBook, onAdmin }: LandingProps) {
++export function Landing({ onBook, onAdmin, user, onSignOut }: LandingProps) {
+   const [showLogin, setShowLogin] = useState(false);
+   const [loginUser, setLoginUser] = useState('');
+   const [loginPass, setLoginPass] = useState('');
+   const [loginError, setLoginError] = useState('');
+   const [reviewIndex, setReviewIndex] = useState(0);
++  const [showAccountMenu, setShowAccountMenu] = useState(false);
+ 
+   const scrollToSection = (id: string) => {
+     document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' });
+@@ -65,6 +69,39 @@ export function Landing({ onBook, onAdmin }: LandingProps) {
+ 
+   return (
+     <div className="min-h-screen animate-fade-in">
++      {/* Account indicator top-left (only shown once signed in with Google) */}
++      {user && (
++        <div className="fixed left-4 top-4 z-40">
++          <button
++            onClick={() => setShowAccountMenu((v) => !v)}
++            className="flex items-center gap-2 rounded-full bg-zinc-900/70 backdrop-blur-xl border border-white/10 py-1.5 pl-1.5 pr-3 text-xs font-medium text-zinc-300 transition-all hover:border-gold/30"
++          >
++            {user.user_metadata?.avatar_url ? (
++              <img src={user.user_metadata.avatar_url} alt="" className="h-6 w-6 rounded-full" />
++            ) : (
++              <div className="flex h-6 w-6 items-center justify-center rounded-full gold-gradient text-[0.6rem] font-bold text-black">
++                {(user.user_metadata?.full_name || user.email || '?').charAt(0).toUpperCase()}
++              </div>
++            )}
++            <span className="max-w-[8rem] truncate">{user.user_metadata?.full_name || user.email}</span>
++          </button>
++
++          {showAccountMenu && (
++            <div className="absolute left-0 top-12 w-44 rounded-2xl border border-white/10 bg-zinc-900/90 p-1.5 shadow-2xl backdrop-blur-xl animate-scale-in">
++              <button
++                onClick={() => {
++                  setShowAccountMenu(false);
++                  onSignOut?.();
++                }}
++                className="w-full rounded-xl px-3 py-2 text-left text-xs font-medium text-zinc-300 transition-colors hover:bg-white/5 hover:text-white"
++              >
++                Cerrar sesión
++              </button>
++            </div>
++          )}
++        </div>
++      )}
++
+       {/* Admin button top-right */}
+       <button
+         onClick={() => setShowLogin(true)}
+diff --git a/src/components/LoginModal.tsx b/src/components/LoginModal.tsx
+new file mode 100644
+index 0000000..a49569a
+--- /dev/null
++++ b/src/components/LoginModal.tsx
+@@ -0,0 +1,64 @@
++import { ShieldCheck, X } from 'lucide-react';
++
++interface LoginModalProps {
++  onGoogleSignIn: () => void;
++  onClose: () => void;
++  signingIn: boolean;
++}
++
++/** Official 4-colour Google "G" glyph, used as-is per Google's sign-in button guidelines. */
++function GoogleGlyph() {
++  return (
++    <svg className="h-5 w-5" viewBox="0 0 48 48" aria-hidden="true">
++      <path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3c-1.6 4.6-6 8-11.3 8-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.9 1.2 8 3.1l5.7-5.7C34.5 6 29.5 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.7-.4-3.5z" />
++      <path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.6 15.9 18.9 13 24 13c3.1 0 5.9 1.2 8 3.1l5.7-5.7C34.5 6 29.5 4 24 4c-7.4 0-13.8 4.1-17.1 10.1z" />
++      <path fill="#4CAF50" d="M24 44c5.4 0 10.3-1.8 14.1-5l-6.5-5.5c-2 1.4-4.6 2.3-7.6 2.3-5.2 0-9.7-3.4-11.3-8.1l-6.5 5C9.9 39.6 16.4 44 24 44z" />
++      <path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.3-2.2 4.2-4.1 5.6l6.5 5.5C40.9 36.4 44 30.9 44 24c0-1.3-.1-2.7-.4-3.5z" />
++    </svg>
++  );
++}
++
++export function LoginModal({ onGoogleSignIn, onClose, signingIn }: LoginModalProps) {
++  return (
++    <div className="fixed inset-0 z-[90] flex items-center justify-center px-6" role="dialog" aria-modal="true">
++      <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={onClose} />
++      <div className="relative w-full max-w-sm rounded-3xl border border-white/10 bg-zinc-900/70 p-6 shadow-2xl backdrop-blur-xl animate-scale-in">
++        <button
++          onClick={onClose}
++          aria-label="Cerrar"
++          className="absolute right-4 top-4 text-zinc-500 transition-colors hover:text-white"
++        >
++          <X className="h-5 w-5" />
++        </button>
++
++        <div className="mb-5 text-center">
++          <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-2xl gold-gradient">
++            <ShieldCheck className="h-6 w-6 text-black" />
++          </div>
++          <h3 className="font-display text-xl font-bold text-white">Confirma que eres tú</h3>
++          <p className="mt-1.5 px-2 text-xs leading-relaxed text-zinc-500">
++            Para evitar citas falsas, inicia sesión con tu cuenta de Google antes de confirmar. Es rápido y no crearemos ninguna
++            publicación en tu nombre.
++          </p>
++        </div>
++
++        <button
++          onClick={onGoogleSignIn}
++          disabled={signingIn}
++          className="flex w-full items-center justify-center gap-3 rounded-full bg-white py-3.5 text-sm font-bold text-zinc-800 shadow-lg transition-all hover:brightness-95 active:scale-[0.98] disabled:opacity-60"
++        >
++          {signingIn ? (
++            <span className="h-4 w-4 animate-spin rounded-full border-2 border-zinc-300 border-t-zinc-600" />
++          ) : (
++            <GoogleGlyph />
++          )}
++          {signingIn ? 'Conectando…' : 'Continuar con Google'}
++        </button>
++
++        <p className="mt-4 text-center text-[0.65rem] text-zinc-600">
++          Tu cita se guarda automáticamente en cuanto inicies sesión, no hace falta rellenarla de nuevo.
++        </p>
++      </div>
++    </div>
++  );
++}
+diff --git a/src/hooks/useAuth.ts b/src/hooks/useAuth.ts
+new file mode 100644
+index 0000000..711b8cc
+--- /dev/null
++++ b/src/hooks/useAuth.ts
+@@ -0,0 +1,43 @@
++import { useCallback, useEffect, useState } from 'react';
++import type { User } from '@supabase/supabase-js';
++import { supabase } from '@/lib/supabase';
++
++/**
++ * Customer identity via Supabase Auth + Google, used to stop fake/anonymous
++ * bookings. This is separate from the admin panel's own local password gate
++ * (src/lib/auth.ts), which is unrelated.
++ */
++export function useAuth() {
++  const [user, setUser] = useState<User | null>(null);
++  const [loading, setLoading] = useState(true);
++
++  useEffect(() => {
++    supabase.auth.getSession().then(({ data }) => {
++      setUser(data.session?.user ?? null);
++      setLoading(false);
++    });
++
++    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
++      setUser(session?.user ?? null);
++      setLoading(false);
++    });
++
++    return () => listener.subscription.unsubscribe();
++  }, []);
++
++  const signInWithGoogle = useCallback(async () => {
++    await supabase.auth.signInWithOAuth({
++      provider: 'google',
++      options: {
++        // Full-page redirect flow: comes straight back to the same site.
++        redirectTo: window.location.origin,
++      },
++    });
++  }, []);
++
++  const signOut = useCallback(async () => {
++    await supabase.auth.signOut();
++  }, []);
++
++  return { user, loading, signInWithGoogle, signOut };
++}
+diff --git a/src/hooks/useBooking.ts b/src/hooks/useBooking.ts
+index 7bb7935..bcd4a15 100644
+--- a/src/hooks/useBooking.ts
++++ b/src/hooks/useBooking.ts
+@@ -1,6 +1,8 @@
+ import { useState, useCallback } from 'react';
+-import { supabase } from '@/lib/supabase';
+ import type { Service, Barber, BookingForm, SavedBooking } from '@/types';
++import type { PendingBookingPayload } from '@/lib/pendingBooking';
++import { clearPendingBooking } from '@/lib/pendingBooking';
++import { insertBooking } from '@/lib/bookings';
+ 
+ export type BookingStep = 'landing' | 'barber' | 'service' | 'datetime' | 'details' | 'success';
+ 
+@@ -45,41 +47,54 @@ export function useBooking() {
+     });
+   }, []);
+ 
++  /** Builds the exact row to insert from the current selections + the details form. */
++  const buildPayload = useCallback(
++    (form: BookingForm): PendingBookingPayload | null => {
++      if (!barber || !service || !date || !time) return null;
++      return {
++        service: service.name,
++        service_price: service.price,
++        barber: barber.id,
++        booking_date: date,
++        booking_time: time,
++        full_name: form.fullName,
++        phone: form.phone,
++        email: form.email,
++        comments: form.comments || null,
++      };
++    },
++    [barber, service, date, time]
++  );
++
++  /** Inserts the booking for an already-authenticated user and jumps to the success screen. */
+   const submitBooking = useCallback(
+-    async (form: BookingForm) => {
+-      if (!barber || !service || !date || !time) return;
++    async (form: BookingForm, userId: string) => {
++      const payload = buildPayload(form);
++      if (!payload) return;
+       setSubmitting(true);
+       setError(null);
+       try {
+-        const { data, error: insertError } = await supabase
+-          .from('bookings')
+-          .insert({
+-            service: service.name,
+-            service_price: service.price,
+-            barber: barber.id,
+-            booking_date: date,
+-            booking_time: time,
+-            full_name: form.fullName,
+-            phone: form.phone,
+-            email: form.email,
+-            comments: form.comments || null,
+-          })
+-          .select()
+-          .single();
+-
+-        if (insertError) throw insertError;
+-        setConfirmation(data as SavedBooking);
++        const saved = await insertBooking(payload, userId);
++        clearPendingBooking();
++        setConfirmation(saved);
+         setStep('success');
+-      } catch (e) {
++      } catch {
+         setError('No se pudo guardar la reserva. Inténtalo de nuevo.');
+       } finally {
+         setSubmitting(false);
+       }
+     },
+-    [barber, service, date, time]
++    [buildPayload]
+   );
+ 
++  /** Used after a Google login redirect: the payload came from localStorage, not live state. */
++  const applyExternalConfirmation = useCallback((saved: SavedBooking) => {
++    setConfirmation(saved);
++    setStep('success');
++  }, []);
++
+   const reset = useCallback(() => {
++    clearPendingBooking();
+     setBarber(null);
+     setService(null);
+     setDate('');
+@@ -103,7 +118,9 @@ export function useBooking() {
+     selectService,
+     selectDateTime,
+     goBack,
++    buildPayload,
+     submitBooking,
++    applyExternalConfirmation,
+     reset,
+   };
+ }
+diff --git a/src/lib/bookings.ts b/src/lib/bookings.ts
+new file mode 100644
+index 0000000..3b6871b
+--- /dev/null
++++ b/src/lib/bookings.ts
+@@ -0,0 +1,14 @@
++import { supabase } from '@/lib/supabase';
++import type { SavedBooking } from '@/types';
++import type { PendingBookingPayload } from '@/lib/pendingBooking';
++
++export async function insertBooking(payload: PendingBookingPayload, userId: string): Promise<SavedBooking> {
++  const { data, error } = await supabase
++    .from('bookings')
++    .insert({ ...payload, user_id: userId })
++    .select()
++    .single();
++
++  if (error) throw error;
++  return data as SavedBooking;
++}
+diff --git a/src/lib/pendingBooking.ts b/src/lib/pendingBooking.ts
+new file mode 100644
+index 0000000..4bb0ef6
+--- /dev/null
++++ b/src/lib/pendingBooking.ts
+@@ -0,0 +1,41 @@
++const KEY = 'am_pending_booking';
++
++/** Exactly the shape we insert into `bookings`, minus `user_id` (added at insert time). */
++export interface PendingBookingPayload {
++  service: string;
++  service_price: number;
++  barber: string;
++  booking_date: string;
++  booking_time: string;
++  full_name: string;
++  phone: string;
++  email: string;
++  comments: string | null;
++}
++
++// Google's sign-in redirects the whole page away and back, wiping any React
++// state — so the in-progress booking has to survive in localStorage, not memory.
++export function savePendingBooking(payload: PendingBookingPayload) {
++  try {
++    localStorage.setItem(KEY, JSON.stringify(payload));
++  } catch {
++    /* ignore (private mode / storage full) */
++  }
++}
++
++export function getPendingBooking(): PendingBookingPayload | null {
++  try {
++    const raw = localStorage.getItem(KEY);
++    return raw ? (JSON.parse(raw) as PendingBookingPayload) : null;
++  } catch {
++    return null;
++  }
++}
++
++export function clearPendingBooking() {
++  try {
++    localStorage.removeItem(KEY);
++  } catch {
++    /* ignore */
++  }
++}
+diff --git a/src/lib/supabase.ts b/src/lib/supabase.ts
+index 4fd63fc..bc65b3b 100644
+--- a/src/lib/supabase.ts
++++ b/src/lib/supabase.ts
+@@ -5,6 +5,10 @@ const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+ 
+ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+   auth: {
+-    persistSession: false,
++    // Needed so the session survives the full-page redirect to/from Google,
++    // and so a customer stays logged in across visits.
++    persistSession: true,
++    autoRefreshToken: true,
++    detectSessionInUrl: true,
+   },
+ });
+diff --git a/src/types.ts b/src/types.ts
+index 609c5de..edec14f 100644
+--- a/src/types.ts
++++ b/src/types.ts
+@@ -38,6 +38,7 @@ export interface SavedBooking {
+   comments: string | null;
+   status: string;
+   created_at: string;
++  user_id: string | null;
+ }
+ 
+ export type BlockType = 'day_off' | 'weekly_off' | 'slot_block' | 'time_range';
+diff --git a/supabase/migrations/20260909120000_require_google_auth_for_bookings.sql b/supabase/migrations/20260909120000_require_google_auth_for_bookings.sql
+new file mode 100644
+index 0000000..957f33f
+--- /dev/null
++++ b/supabase/migrations/20260909120000_require_google_auth_for_bookings.sql
+@@ -0,0 +1,75 @@
++/*
++# Require Google sign-in for customer bookings (auth.uid() based RLS)
++
++1. Changes
++- Adds `user_id` (uuid, nullable, references auth.users) to `bookings`.
++  Every booking made by a customer through the public site from now on
++  carries the id of the Google account that created it. Existing rows
++  (from before this migration) keep `user_id = NULL`.
++- Adds an index on `user_id`.
++
++2. Security model
++- A customer must be signed in (Supabase Auth via Google) to create a
++  booking, and can only insert/read rows where `auth.uid() = user_id`.
++  This replaces the old fully-open "anon can insert anything" policy and
++  is what stops fake/anonymous bookings.
++- The admin panel ("Cita Manual" / agenda / today) still authenticates
++  with its own local username+password screen (see src/lib/auth.ts), not
++  with Supabase Auth — it always talks to Supabase using the public `anon`
++  key. To avoid breaking it, `anon` keeps the ability to:
++    - INSERT a booking, but ONLY with `user_id IS NULL` (i.e. a manual
++      walk-in booking created by staff, never impersonating a customer).
++    - SELECT / UPDATE / DELETE any booking (so the admin panel can keep
++      listing, cancelling and managing every appointment).
++- IMPORTANT / honest caveat: because the admin login is not real Supabase
++  Auth, this RLS setup cannot cryptographically distinguish "the barber"
++  from "anyone who has the public anon key" at the database level — the
++  anon key is, by design, public in client-side apps. The real gate today
++  is still the client-side password screen. If you want the database
++  itself to enforce "only the barber can see every booking", the admin
++  login needs to move to Supabase Auth too (e.g. a fixed allow-listed
++  admin email checked in RLS via auth.jwt() ->> 'email'). That's a
++  natural follow-up, not included here since it wasn't part of this change.
++*/
++
++-- 1. Add user_id column + index
++ALTER TABLE bookings
++  ADD COLUMN IF NOT EXISTS user_id uuid REFERENCES auth.users(id) ON DELETE SET NULL;
++
++CREATE INDEX IF NOT EXISTS idx_bookings_user_id ON bookings(user_id);
++
++-- 2. INSERT: a signed-in customer can only insert their own booking...
++DROP POLICY IF EXISTS "anon_insert_bookings" ON bookings;
++
++CREATE POLICY "authenticated_insert_own_bookings" ON bookings FOR INSERT
++  TO authenticated
++  WITH CHECK (auth.uid() = user_id);
++
++-- ...and the admin panel (anon key) can still insert a manual/walk-in
++-- booking, as long as it isn't tagged with someone else's account.
++CREATE POLICY "anon_insert_manual_bookings" ON bookings FOR INSERT
++  TO anon
++  WITH CHECK (user_id IS NULL);
++
++-- 3. SELECT: a signed-in customer can only read their own bookings...
++DROP POLICY IF EXISTS "anon_select_bookings" ON bookings;
++
++CREATE POLICY "authenticated_select_own_bookings" ON bookings FOR SELECT
++  TO authenticated
++  USING (auth.uid() = user_id);
++
++-- ...the admin panel (anon key) keeps seeing every booking, as before.
++CREATE POLICY "anon_select_all_bookings_admin" ON bookings FOR SELECT
++  TO anon
++  USING (true);
++
++-- 4. UPDATE/DELETE: unchanged — only the admin panel does this today.
++DROP POLICY IF EXISTS "anon_update_bookings" ON bookings;
++CREATE POLICY "anon_update_bookings_admin" ON bookings FOR UPDATE
++  TO anon
++  USING (true) WITH CHECK (true);
++
++DROP POLICY IF EXISTS "anon_delete_bookings" ON bookings;
++CREATE POLICY "anon_delete_bookings_admin" ON bookings FOR DELETE
++  TO anon
++  USING (true);

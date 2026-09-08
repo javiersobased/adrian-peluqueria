@@ -38,6 +38,7 @@ export interface SavedBooking {
   comments: string | null;
   status: string;
   created_at: string;
+  user_id: string | null;
 }
 
 export type BlockType = 'day_off' | 'weekly_off' | 'slot_block' | 'time_range';

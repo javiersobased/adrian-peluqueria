@@ -1,6 +1,8 @@
 import { useState, useCallback } from 'react';
-import { supabase } from '@/lib/supabase';
 import type { Service, Barber, BookingForm, SavedBooking } from '@/types';
+import type { PendingBookingPayload } from '@/lib/pendingBooking';
+import { clearPendingBooking } from '@/lib/pendingBooking';
+import { insertBooking } from '@/lib/bookings';
 
 export type BookingStep = 'landing' | 'barber' | 'service' | 'datetime' | 'details' | 'success';
 
@@ -45,41 +47,54 @@ export function useBooking() {
     });
   }, []);
 
+  /** Builds the exact row to insert from the current selections + the details form. */
+  const buildPayload = useCallback(
+    (form: BookingForm): PendingBookingPayload | null => {
+      if (!barber || !service || !date || !time) return null;
+      return {
+        service: service.name,
+        service_price: service.price,
+        barber: barber.id,
+        booking_date: date,
+        booking_time: time,
+        full_name: form.fullName,
+        phone: form.phone,
+        email: form.email,
+        comments: form.comments || null,
+      };
+    },
+    [barber, service, date, time]
+  );
+
+  /** Inserts the booking for an already-authenticated user and jumps to the success screen. */
   const submitBooking = useCallback(
-    async (form: BookingForm) => {
-      if (!barber || !service || !date || !time) return;
+    async (form: BookingForm, userId: string) => {
+      const payload = buildPayload(form);
+      if (!payload) return;
       setSubmitting(true);
       setError(null);
       try {
-        const { data, error: insertError } = await supabase
-          .from('bookings')
-          .insert({
-            service: service.name,
-            service_price: service.price,
-            barber: barber.id,
-            booking_date: date,
-            booking_time: time,
-            full_name: form.fullName,
-            phone: form.phone,
-            email: form.email,
-            comments: form.comments || null,
-          })
-          .select()
-          .single();
-
-        if (insertError) throw insertError;
-        setConfirmation(data as SavedBooking);
+        const saved = await insertBooking(payload, userId);
+        clearPendingBooking();
+        setConfirmation(saved);
         setStep('success');
-      } catch (e) {
+      } catch {
         setError('No se pudo guardar la reserva. Inténtalo de nuevo.');
       } finally {
         setSubmitting(false);
       }
     },
-    [barber, service, date, time]
+    [buildPayload]
   );
 
+  /** Used after a Google login redirect: the payload came from localStorage, not live state. */
+  const applyExternalConfirmation = useCallback((saved: SavedBooking) => {
+    setConfirmation(saved);
+    setStep('success');
+  }, []);
+
   const reset = useCallback(() => {
+    clearPendingBooking();
     setBarber(null);
     setService(null);
     setDate('');
@@ -103,7 +118,9 @@ export function useBooking() {
     selectService,
     selectDateTime,
     goBack,
+    buildPayload,
     submitBooking,
+    applyExternalConfirmation,
     reset,
   };
 }

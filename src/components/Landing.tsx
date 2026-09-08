@@ -9,10 +9,13 @@ import Dock from '@/components/reactbits/Dock';
 import CountUp from '@/components/reactbits/CountUp';
 import { Home, Clock, MapPin, Calendar, X, Lock, User } from 'lucide-react';
 import { login, type AdminRole } from '@/lib/auth';
+import type { User as SupabaseUser } from '@supabase/supabase-js';
 
 interface LandingProps {
   onBook: () => void;
   onAdmin: (role: AdminRole) => void;
+  user?: SupabaseUser | null;
+  onSignOut?: () => void;
 }
 
 const REVIEWS = [
@@ -27,12 +30,13 @@ const REVIEWS = [
 
 const REVIEW_URL = 'https://search.google.com/local/writereview?placeid=ChIJZQ8TpTLPEQ0RDdVh6plIAsU';
 
-export function Landing({ onBook, onAdmin }: LandingProps) {
+export function Landing({ onBook, onAdmin, user, onSignOut }: LandingProps) {
   const [showLogin, setShowLogin] = useState(false);
   const [loginUser, setLoginUser] = useState('');
   const [loginPass, setLoginPass] = useState('');
   const [loginError, setLoginError] = useState('');
   const [reviewIndex, setReviewIndex] = useState(0);
+  const [showAccountMenu, setShowAccountMenu] = useState(false);
 
   const scrollToSection = (id: string) => {
     document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' });
@@ -65,6 +69,39 @@ export function Landing({ onBook, onAdmin }: LandingProps) {
 
   return (
     <div className="min-h-screen animate-fade-in">
+      {/* Account indicator top-left (only shown once signed in with Google) */}
+      {user && (
+        <div className="fixed left-4 top-4 z-40">
+          <button
+            onClick={() => setShowAccountMenu((v) => !v)}
+            className="flex items-center gap-2 rounded-full bg-zinc-900/70 backdrop-blur-xl border border-white/10 py-1.5 pl-1.5 pr-3 text-xs font-medium text-zinc-300 transition-all hover:border-gold/30"
+          >
+            {user.user_metadata?.avatar_url ? (
+              <img src={user.user_metadata.avatar_url} alt="" className="h-6 w-6 rounded-full" />
+            ) : (
+              <div className="flex h-6 w-6 items-center justify-center rounded-full gold-gradient text-[0.6rem] font-bold text-black">
+                {(user.user_metadata?.full_name || user.email || '?').charAt(0).toUpperCase()}
+              </div>
+            )}
+            <span className="max-w-[8rem] truncate">{user.user_metadata?.full_name || user.email}</span>
+          </button>
+
+          {showAccountMenu && (
+            <div className="absolute left-0 top-12 w-44 rounded-2xl border border-white/10 bg-zinc-900/90 p-1.5 shadow-2xl backdrop-blur-xl animate-scale-in">
+              <button
+                onClick={() => {
+                  setShowAccountMenu(false);
+                  onSignOut?.();
+                }}
+                className="w-full rounded-xl px-3 py-2 text-left text-xs font-medium text-zinc-300 transition-colors hover:bg-white/5 hover:text-white"
+              >
+                Cerrar sesión
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Admin button top-right */}
       <button
         onClick={() => setShowLogin(true)}

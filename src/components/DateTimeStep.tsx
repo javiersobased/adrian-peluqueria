@@ -74,13 +74,8 @@ export function DateTimeStep({ barber, onBack, onContinue }: DateTimeStepProps) 
   const fetchBookedSlots = useCallback(async (date: Date | null) => {
     if (!date) return;
     const iso = toISO(date);
-    const { data } = await supabase
-      .from('bookings')
-      .select('booking_time')
-      .eq('barber', barber.id)
-      .eq('booking_date', iso)
-      .neq('status', 'cancelled');
-    setBookedSlots(new Set((data ?? []).map((r: { booking_time: string }) => r.booking_time)));
+    const { data } = await supabase.rpc('get_booked_slots', { p_barber: barber.id, p_date: iso });
+    setBookedSlots(new Set((data as string[]) ?? []));
   }, [barber.id]);
 
   useEffect(() => {
@@ -110,10 +105,10 @@ export function DateTimeStep({ barber, onBack, onContinue }: DateTimeStepProps) 
     `${WEEKDAY_SHORT[(date.getDay() + 6) % 7]} ${date.getDate()} ${MONTH_NAMES[date.getMonth()]}`;
 
   return (
-    <div className="min-h-screen animate-slide-in">
+    <div className="flex min-h-screen animate-slide-in flex-col">
       <StepHeader title="Fecha y hora" subtitle="Paso 3 de 4" onBack={onBack} />
 
-      <div className="px-5 pb-32">
+      <div className="flex-1 overflow-y-auto px-5 pb-28">
         {/* Barber header card */}
         <div className="mb-5 flex items-center gap-4 rounded-3xl glass-card p-4">
           {barber.photo_url ? (
@@ -170,7 +165,7 @@ export function DateTimeStep({ barber, onBack, onContinue }: DateTimeStepProps) 
               </div>
             </div>
 
-            {/* Time slots */}
+            {/* Time slots — only available slots shown */}
             {selected ? (
               <div className="animate-fade-in">
                 <div className="mb-3 flex items-center gap-2">
@@ -180,18 +175,30 @@ export function DateTimeStep({ barber, onBack, onContinue }: DateTimeStepProps) 
                   </p>
                 </div>
 
-                {slots.morning.length > 0 && (
-                  <SlotGroup label="Mañana" slots={slots.morning} selected={selectedTime} onSelect={setSelectedTime}
-                    isAvailable={(s) => isSlotAvailable(s, bookedSlots, slotBlocks, timeRangeBlocks)} />
-                )}
-                {slots.afternoon.length > 0 ? (
-                  <SlotGroup label="Tarde" slots={slots.afternoon} selected={selectedTime} onSelect={setSelectedTime}
-                    isAvailable={(s) => isSlotAvailable(s, bookedSlots, slotBlocks, timeRangeBlocks)} />
-                ) : slots.morning.length === 0 ? (
-                  <div className="rounded-2xl glass-card px-5 py-8 text-center">
-                    <p className="text-sm text-zinc-500">No hay horas disponibles este día.</p>
-                  </div>
-                ) : null}
+                {(() => {
+                  const morningAvail = slots.morning.filter((s) => isSlotAvailable(s, bookedSlots, slotBlocks, timeRangeBlocks));
+                  const afternoonAvail = slots.afternoon.filter((s) => isSlotAvailable(s, bookedSlots, slotBlocks, timeRangeBlocks));
+                  const totalAvail = morningAvail.length + afternoonAvail.length;
+
+                  if (totalAvail === 0) {
+                    return (
+                      <div className="rounded-2xl glass-card px-5 py-8 text-center">
+                        <p className="text-sm text-zinc-500">No hay horas disponibles este día.</p>
+                      </div>
+                    );
+                  }
+
+                  return (
+                    <>
+                      {morningAvail.length > 0 && (
+                        <SlotGroup label="Mañana" slots={morningAvail} selected={selectedTime} onSelect={setSelectedTime} />
+                      )}
+                      {afternoonAvail.length > 0 && (
+                        <SlotGroup label="Tarde" slots={afternoonAvail} selected={selectedTime} onSelect={setSelectedTime} />
+                      )}
+                    </>
+                  );
+                })()}
               </div>
             ) : null}
           </>
@@ -215,9 +222,9 @@ export function DateTimeStep({ barber, onBack, onContinue }: DateTimeStepProps) 
 }
 
 function SlotGroup({
-  label, slots, selected, onSelect, isAvailable,
+  label, slots, selected, onSelect,
 }: {
-  label: string; slots: string[]; selected: string; onSelect: (s: string) => void; isAvailable: (s: string) => boolean;
+  label: string; slots: string[]; selected: string; onSelect: (s: string) => void;
 }) {
   return (
     <div className="mb-5">
@@ -225,16 +232,13 @@ function SlotGroup({
       <div className="grid grid-cols-4 gap-2">
         {slots.map((slot) => {
           const isSel = selected === slot;
-          const available = isAvailable(slot);
           return (
             <button
               key={slot}
-              onClick={() => available && onSelect(slot)}
-              disabled={!available}
+              onClick={() => onSelect(slot)}
               className={`rounded-2xl py-3 text-sm font-semibold transition-all duration-200 active:scale-90 ${
                 isSel ? 'gold-gradient text-black gold-glow'
-                : available ? 'glass-card text-zinc-300 hover:border-gold/20 hover:text-white'
-                : 'bg-zinc-900/40 text-zinc-700 cursor-not-allowed line-through'
+                : 'glass-card text-zinc-300 hover:border-gold/20 hover:text-white'
               }`}
             >
               {slot}

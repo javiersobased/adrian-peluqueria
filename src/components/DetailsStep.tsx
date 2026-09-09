@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { StepHeader } from '@/components/ServiceStep';
-import { UserIcon, PhoneIcon, MailIcon, CheckIcon } from '@/components/icons';
+import { UserIcon, PhoneIcon, CheckIcon } from '@/components/icons';
+import { supabase } from '@/lib/supabase';
 import type { BookingForm } from '@/types';
 
 const SPANISH_PHONE_REGEX = /^(\+34\s?|0034\s?)?[6789]\d{2}(\s?\d{2}){3}$/;
@@ -16,22 +17,38 @@ export function DetailsStep({ onBack, onSubmit, submitting, error }: DetailsStep
   const [form, setForm] = useState<BookingForm>({
     fullName: '',
     phone: '',
-    email: '',
     comments: '',
   });
   const [touched, setTouched] = useState<Record<string, boolean>>({});
+  const [prefilled, setPrefilled] = useState(false);
+
+  useEffect(() => {
+    (async () => {
+      const { data } = await supabase
+        .from('customers')
+        .select('full_name, phone, comments')
+        .maybeSingle();
+      if (data) {
+        setForm({
+          fullName: data.full_name ?? '',
+          phone: data.phone ?? '',
+          comments: data.comments ?? '',
+        });
+        setPrefilled(true);
+      }
+    })();
+  }, []);
 
   const errors = {
     fullName: form.fullName.trim().length < 2 ? 'Introduce tu nombre completo' : '',
     phone: !SPANISH_PHONE_REGEX.test(form.phone.trim()) ? 'Introduce un teléfono español válido (612 345 678)' : '',
-    email: !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim()) ? 'Introduce un correo válido' : '',
   };
 
-  const isValid = !errors.fullName && !errors.phone && !errors.email;
+  const isValid = !errors.fullName && !errors.phone;
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    setTouched({ fullName: true, phone: true, email: true });
+    setTouched({ fullName: true, phone: true });
     if (isValid) onSubmit(form);
   };
 
@@ -43,7 +60,9 @@ export function DetailsStep({ onBack, onSubmit, submitting, error }: DetailsStep
 
       <form onSubmit={handleSubmit} className="px-5 pb-32">
         <p className="mb-6 text-sm text-zinc-400">
-          Necesitamos algunos datos para confirmar tu reserva. Nos pondremos en contacto contigo si fuera necesario.
+          {prefilled
+            ? 'Hemos rellenado tus datos de tu última visita. Revisa y confirma.'
+            : 'Necesitamos algunos datos para confirmar tu reserva.'}
         </p>
 
         <div className="space-y-4">
@@ -68,17 +87,6 @@ export function DetailsStep({ onBack, onSubmit, submitting, error }: DetailsStep
             placeholder="Ej. 612 345 678 o +34 612 345 678"
             type="tel"
             autoComplete="tel"
-          />
-          <Field
-            label="Correo electrónico"
-            icon={<MailIcon className="h-4 w-4" />}
-            value={form.email}
-            onChange={(v) => setForm({ ...form, email: v })}
-            onBlur={() => setTouched({ ...touched, email: true })}
-            error={showErr('email') ? errors.email : ''}
-            placeholder="tucorreo@email.com"
-            type="email"
-            autoComplete="email"
           />
 
           <div>

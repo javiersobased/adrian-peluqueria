@@ -1,5 +1,5 @@
 import { CalendarIcon, MapPinIcon, ClockIcon, ChevronRightIcon } from '@/components/icons';
-import { Star } from 'lucide-react';
+import { Star, LogIn, LayoutDashboard, Scissors, ChevronDown } from 'lucide-react';
 import { OPENING_HOURS, SALON_MAPS_URL, SALON_ADDRESS } from '@/data/services';
 import { useState, useEffect } from 'react';
 import ScrollFloat from '@/components/reactbits/ScrollFloat';
@@ -7,14 +7,16 @@ import ScrollReveal from '@/components/reactbits/ScrollReveal';
 import GlassSurface from '@/components/reactbits/GlassSurface';
 import Dock from '@/components/reactbits/Dock';
 import CountUp from '@/components/reactbits/CountUp';
-import { Home, Clock, MapPin, Calendar, X, Lock, User } from 'lucide-react';
-import { login, type AdminRole } from '@/lib/auth';
+import { Home, Clock, MapPin, Calendar, X } from 'lucide-react';
 import type { User as SupabaseUser } from '@supabase/supabase-js';
+import type { UserRole } from '@/types';
 
 interface LandingProps {
   onBook: () => void;
-  onAdmin: (role: AdminRole) => void;
+  onSignIn: () => void;
+  onGoToPanel: () => void;
   user?: SupabaseUser | null;
+  role?: UserRole | null;
   onSignOut?: () => void;
 }
 
@@ -30,13 +32,9 @@ const REVIEWS = [
 
 const REVIEW_URL = 'https://search.google.com/local/writereview?placeid=ChIJZQ8TpTLPEQ0RDdVh6plIAsU';
 
-export function Landing({ onBook, onAdmin, user, onSignOut }: LandingProps) {
-  const [showLogin, setShowLogin] = useState(false);
-  const [loginUser, setLoginUser] = useState('');
-  const [loginPass, setLoginPass] = useState('');
-  const [loginError, setLoginError] = useState('');
-  const [reviewIndex, setReviewIndex] = useState(0);
+export function Landing({ onBook, onSignIn, onGoToPanel, user, role, onSignOut }: LandingProps) {
   const [showAccountMenu, setShowAccountMenu] = useState(false);
+  const [reviewIndex, setReviewIndex] = useState(0);
 
   const scrollToSection = (id: string) => {
     document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' });
@@ -49,17 +47,6 @@ export function Landing({ onBook, onAdmin, user, onSignOut }: LandingProps) {
     { icon: <Calendar size={16} />, label: 'Reservar', onClick: onBook, highlight: true },
   ];
 
-  const handleLogin = (e: React.FormEvent) => {
-    e.preventDefault();
-    const result = login(loginUser.trim(), loginPass.trim());
-    if (result.isBarber && result.role) {
-      setShowLogin(false);
-      onAdmin(result.role);
-    } else {
-      setLoginError('Usuario o contraseña incorrectos.');
-    }
-  };
-
   useEffect(() => {
     const interval = setInterval(() => {
       setReviewIndex((prev) => (prev + 1) % REVIEWS.length);
@@ -67,93 +54,75 @@ export function Landing({ onBook, onAdmin, user, onSignOut }: LandingProps) {
     return () => clearInterval(interval);
   }, []);
 
+  const isVerifiedStaff = role?.role && role?.status === 'verified';
+  const panelLabel = role?.role === 'admin' ? 'Panel de Administración' : 'Panel de Barbero';
+
   return (
     <div className="min-h-screen animate-fade-in">
-      {/* Account indicator top-left (only shown once signed in with Google) */}
-      {user && (
-        <div className="fixed left-4 top-4 z-40">
+      {/* Top-right: unified login / panel access */}
+      <div className="fixed right-4 top-4 z-40 flex items-center gap-2">
+        {isVerifiedStaff && (
           <button
-            onClick={() => setShowAccountMenu((v) => !v)}
-            className="flex items-center gap-2 rounded-full bg-zinc-900/70 backdrop-blur-xl border border-white/10 py-1.5 pl-1.5 pr-3 text-xs font-medium text-zinc-300 transition-all hover:border-gold/30"
+            onClick={onGoToPanel}
+            className="flex items-center gap-2 rounded-full gold-gradient px-4 py-2 text-xs font-bold uppercase tracking-wider text-black transition-all hover:brightness-110 active:scale-95 gold-glow"
           >
-            {user.user_metadata?.avatar_url ? (
-              <img src={user.user_metadata.avatar_url} alt="" className="h-6 w-6 rounded-full" />
-            ) : (
-              <div className="flex h-6 w-6 items-center justify-center rounded-full gold-gradient text-[0.6rem] font-bold text-black">
-                {(user.user_metadata?.full_name || user.email || '?').charAt(0).toUpperCase()}
+            {role?.role === 'barber' ? <Scissors className="h-3.5 w-3.5" /> : <LayoutDashboard className="h-3.5 w-3.5" />}
+            {panelLabel}
+          </button>
+        )}
+
+        {user ? (
+          <div className="relative">
+            <button
+              onClick={() => setShowAccountMenu((v) => !v)}
+              className="flex items-center gap-2 rounded-full bg-zinc-900/70 backdrop-blur-xl border border-white/10 py-1.5 pl-1.5 pr-3 text-xs font-medium text-zinc-300 transition-all hover:border-gold/30"
+            >
+              {user.user_metadata?.avatar_url ? (
+                <img src={user.user_metadata.avatar_url} alt="" className="h-6 w-6 rounded-full" />
+              ) : (
+                <div className="flex h-6 w-6 items-center justify-center rounded-full gold-gradient text-[0.6rem] font-bold text-black">
+                  {(user.user_metadata?.full_name || user.email || '?').charAt(0).toUpperCase()}
+                </div>
+              )}
+              <span className="max-w-[8rem] truncate">{user.user_metadata?.full_name || user.email}</span>
+              <ChevronDown className="h-3 w-3 text-zinc-500" />
+            </button>
+
+            {showAccountMenu && (
+              <div className="absolute right-0 top-12 w-44 rounded-2xl border border-white/10 bg-zinc-900/90 p-1.5 shadow-2xl backdrop-blur-xl animate-scale-in">
+                {isVerifiedStaff && (
+                  <button
+                    onClick={() => {
+                      setShowAccountMenu(false);
+                      onGoToPanel();
+                    }}
+                    className="w-full rounded-xl px-3 py-2 text-left text-xs font-medium text-gold transition-colors hover:bg-gold/10"
+                  >
+                    {panelLabel}
+                  </button>
+                )}
+                <button
+                  onClick={() => {
+                    setShowAccountMenu(false);
+                    onSignOut?.();
+                  }}
+                  className="w-full rounded-xl px-3 py-2 text-left text-xs font-medium text-zinc-300 transition-colors hover:bg-white/5 hover:text-white"
+                >
+                  Cerrar sesión
+                </button>
               </div>
             )}
-            <span className="max-w-[8rem] truncate">{user.user_metadata?.full_name || user.email}</span>
-          </button>
-
-          {showAccountMenu && (
-            <div className="absolute left-0 top-12 w-44 rounded-2xl border border-white/10 bg-zinc-900/90 p-1.5 shadow-2xl backdrop-blur-xl animate-scale-in">
-              <button
-                onClick={() => {
-                  setShowAccountMenu(false);
-                  onSignOut?.();
-                }}
-                className="w-full rounded-xl px-3 py-2 text-left text-xs font-medium text-zinc-300 transition-colors hover:bg-white/5 hover:text-white"
-              >
-                Cerrar sesión
-              </button>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Admin button top-right */}
-      <button
-        onClick={() => setShowLogin(true)}
-        aria-label="Acceso administración"
-        className="fixed right-4 top-4 z-40 flex h-10 w-10 items-center justify-center rounded-full bg-zinc-900/70 backdrop-blur-xl border border-white/10 text-zinc-400 transition-all hover:border-gold/30 hover:text-gold active:scale-90"
-      >
-        <Lock className="h-4 w-4" />
-      </button>
-
-      {/* Login modal */}
-      {showLogin && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center px-6">
-          <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={() => setShowLogin(false)} />
-          <div className="relative w-full max-w-sm rounded-3xl bg-zinc-900/70 backdrop-blur-xl border border-white/10 shadow-2xl p-6 animate-scale-in">
-            <button onClick={() => setShowLogin(false)} className="absolute right-4 top-4 text-zinc-500 hover:text-white">
-              <X className="h-5 w-5" />
-            </button>
-            <div className="mb-5 text-center">
-              <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-2xl gold-gradient">
-                <Lock className="h-6 w-6 text-black" />
-              </div>
-              <h3 className="font-display text-xl font-bold text-white">Acceso al panel</h3>
-              <p className="mt-1 text-xs text-zinc-500">Introduce tus credenciales</p>
-            </div>
-            <form onSubmit={handleLogin} className="space-y-3">
-              <div className="flex items-center gap-3 rounded-xl bg-zinc-900/70 backdrop-blur-xl border border-white/10 px-4 py-3 focus-within:border-gold/30">
-                <User className="h-4 w-4 text-zinc-500" />
-                <input
-                  type="text" value={loginUser} onChange={(e) => setLoginUser(e.target.value)}
-                  placeholder="Usuario" autoComplete="username"
-                  className="w-full bg-transparent text-sm text-white placeholder:text-zinc-600 focus:outline-none"
-                />
-              </div>
-              <div className="flex items-center gap-3 rounded-xl bg-zinc-900/70 backdrop-blur-xl border border-white/10 px-4 py-3 focus-within:border-gold/30">
-                <Lock className="h-4 w-4 text-zinc-500" />
-                <input
-                  type="password" value={loginPass} onChange={(e) => setLoginPass(e.target.value)}
-                  placeholder="Contraseña" autoComplete="current-password"
-                  className="w-full bg-transparent text-sm text-white placeholder:text-zinc-600 focus:outline-none"
-                />
-              </div>
-              {loginError && <p className="text-xs text-red-400">{loginError}</p>}
-              <button
-                type="submit"
-                className="flex w-full items-center justify-center gap-2 rounded-full gold-gradient py-3.5 text-sm font-bold uppercase tracking-wider text-black transition-all hover:brightness-110 active:scale-[0.98] gold-glow"
-              >
-                Entrar
-              </button>
-            </form>
           </div>
-        </div>
-      )}
+        ) : (
+          <button
+            onClick={onSignIn}
+            className="flex items-center gap-2 rounded-full bg-zinc-900/70 backdrop-blur-xl border border-white/10 px-4 py-2 text-xs font-medium text-zinc-300 transition-all hover:border-gold/30 hover:text-gold active:scale-95"
+          >
+            <LogIn className="h-3.5 w-3.5" />
+            Iniciar sesión
+          </button>
+        )}
+      </div>
 
       {/* Hero */}
       <header className="relative flex min-h-[92vh] flex-col items-center justify-center px-6 text-center">

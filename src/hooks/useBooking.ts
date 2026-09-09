@@ -2,7 +2,7 @@ import { useState, useCallback } from 'react';
 import type { Service, Barber, BookingForm, SavedBooking } from '@/types';
 import type { PendingBookingPayload } from '@/lib/pendingBooking';
 import { clearPendingBooking } from '@/lib/pendingBooking';
-import { insertBooking } from '@/lib/bookings';
+import { createBooking, fetchBookingById } from '@/lib/bookings';
 
 export type BookingStep = 'landing' | 'barber' | 'service' | 'datetime' | 'details' | 'success';
 
@@ -47,7 +47,6 @@ export function useBooking() {
     });
   }, []);
 
-  /** Builds the exact row to insert from the current selections + the details form. */
   const buildPayload = useCallback(
     (form: BookingForm): PendingBookingPayload | null => {
       if (!barber || !service || !date || !time) return null;
@@ -59,27 +58,27 @@ export function useBooking() {
         booking_time: time,
         full_name: form.fullName,
         phone: form.phone,
-        email: form.email,
         comments: form.comments || null,
       };
     },
     [barber, service, date, time]
   );
 
-  /** Inserts the booking for an already-authenticated user and jumps to the success screen. */
   const submitBooking = useCallback(
-    async (form: BookingForm, userId: string) => {
+    async (form: BookingForm) => {
       const payload = buildPayload(form);
       if (!payload) return;
       setSubmitting(true);
       setError(null);
       try {
-        const saved = await insertBooking(payload, userId);
+        const { id, error: rpcError } = await createBooking(payload);
+        if (rpcError) throw new Error(rpcError);
+        const saved = await fetchBookingById(id);
         clearPendingBooking();
-        setConfirmation(saved);
+        setConfirmation(saved as SavedBooking);
         setStep('success');
-      } catch {
-        setError('No se pudo guardar la reserva. Inténtalo de nuevo.');
+      } catch (e) {
+        setError(e instanceof Error ? e.message : 'No se pudo guardar la reserva. Inténtalo de nuevo.');
       } finally {
         setSubmitting(false);
       }
@@ -87,7 +86,6 @@ export function useBooking() {
     [buildPayload]
   );
 
-  /** Used after a Google login redirect: the payload came from localStorage, not live state. */
   const applyExternalConfirmation = useCallback((saved: SavedBooking) => {
     setConfirmation(saved);
     setStep('success');

@@ -21,7 +21,6 @@ export interface Barber {
 export interface BookingForm {
   fullName: string;
   phone: string;
-  email: string;
   comments: string;
 }
 
@@ -34,7 +33,7 @@ export interface SavedBooking {
   booking_time: string;
   full_name: string;
   phone: string;
-  email: string;
+  email: string | null;
   comments: string | null;
   status: string;
   created_at: string;
@@ -74,4 +73,33 @@ export interface BarberVacation {
   end_date: string;
   reason: string | null;
   created_at: string;
+}
+
+export type StaffRole = 'admin' | 'barber';
+export type StaffStatus = 'pending' | 'verified' | 'rejected';
+
+export interface StaffMember {
+  email: string;
+  full_name: string | null;
+  role: StaffRole;
+  barber_id: string | null;
+  status: StaffStatus;
+  created_at: string;
+}
+
+export interface Customer {
+  user_id: string;
+  full_name: string;
+  phone: string;
+  email: string | null;
+  comments: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface UserRole {
+  role: StaffRole | null;
+  status: StaffStatus | null;
+  barber_id: string | null;
+  email: string | null;
 }

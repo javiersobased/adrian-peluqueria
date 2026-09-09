@@ -10,10 +10,11 @@ import { FloatingButtons } from '@/components/FloatingButtons';
 import { AdminPanel } from '@/components/AdminPanel';
 import { LoginModal } from '@/components/LoginModal';
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { checkAuth, type AdminRole } from '@/lib/auth';
 import { getPendingBooking, clearPendingBooking, savePendingBooking } from '@/lib/pendingBooking';
-import { insertBooking } from '@/lib/bookings';
-import type { BookingForm } from '@/types';
+import { createBooking, fetchBookingById } from '@/lib/bookings';
+import { hasAdmin, claimAdmin } from '@/lib/auth';
+import { supabase } from '@/lib/supabase';
+import type { SavedBooking } from '@/types';
 
 type View = 'public' | 'admin';
 
@@ -21,23 +22,36 @@ function App() {
   const booking = useBooking();
   const auth = useAuth();
   const [view, setView] = useState<View>('public');
-  const [adminRole, setAdminRole] = useState<AdminRole>('admin');
   const [showLoginModal, setShowLoginModal] = useState(false);
+  const [loginPurpose, setLoginPurpose] = useState<'booking' | 'general'>('general');
   const [signingIn, setSigningIn] = useState(false);
   const [resumingBooking, setResumingBooking] = useState(false);
+  const [needsAdminBootstrap, setNeedsAdminBootstrap] = useState(false);
+  const [bootstrapping, setBootstrapping] = useState(false);
   const resumedRef = useRef(false);
+  const roleCheckedRef = useRef(false);
 
+  // PWA: if there's a verified staff session on load, go straight to the panel
   useEffect(() => {
-    const localAuth = checkAuth();
-    if (localAuth.isBarber && localAuth.role) {
-      setAdminRole(localAuth.role);
+    if (auth.loading || roleCheckedRef.current) return;
+    roleCheckedRef.current = true;
+
+    if (auth.user && auth.role?.status === 'verified' && auth.role?.role) {
       setView('admin');
     }
-  }, []);
+  }, [auth.loading, auth.user, auth.role]);
 
-  // After signInWithOAuth, Google redirects the whole page away and back, so
-  // this runs on the fresh page load once Supabase has resolved the session.
-  // If there was a booking waiting on login, finish it automatically here.
+  // Check if admin bootstrap is needed
+  useEffect(() => {
+    if (auth.loading || !auth.user) return;
+    hasAdmin().then((exists) => {
+      if (!exists && auth.role?.role !== 'admin') {
+        setNeedsAdminBootstrap(true);
+      }
+    });
+  }, [auth.loading, auth.user, auth.role]);
+
+  // After Google redirect: if there was a pending booking, finish it
   useEffect(() => {
     if (auth.loading || !auth.user || resumedRef.current) return;
     const pending = getPendingBooking();
@@ -48,48 +62,68 @@ function App() {
     setResumingBooking(true);
     setShowLoginModal(false);
 
-    insertBooking(pending, auth.user.id)
-      .then((saved) => {
-        booking.applyExternalConfirmation(saved);
-      })
-      .catch(() => {
-        // Nothing lost: the customer is now logged in, so a manual retry
-        // from the confirm button will go straight through next time.
-      })
-      .finally(() => setResumingBooking(false));
+    (async () => {
+      try {
+        const { id, error } = await createBooking(pending);
+        if (error) throw new Error(error);
+        const saved = await fetchBookingById(id);
+        booking.applyExternalConfirmation(saved as SavedBooking);
+      } catch {
+        // Customer is now logged in; a manual retry will work
+      } finally {
+        setResumingBooking(false);
+      }
+    })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [auth.loading, auth.user]);
 
-  const goPublic = () => {
+  const goPublic = useCallback(() => {
     setView('public');
-  };
+  }, []);
 
-  const goAdmin = (role: AdminRole) => {
-    setAdminRole(role);
+  const goAdmin = useCallback(() => {
     setView('admin');
-  };
+  }, []);
 
   const handleGoogleSignIn = useCallback(async () => {
     setSigningIn(true);
     await auth.signInWithGoogle();
-    // Page navigates away to Google here; setSigningIn(false) never runs
-    // because this component unmounts on redirect.
+  }, [auth]);
+
+  const handleGeneralLogin = useCallback(() => {
+    setLoginPurpose('general');
+    setShowLoginModal(true);
+  }, []);
+
+  const handleAdminBootstrap = useCallback(async () => {
+    setBootstrapping(true);
+    const { error } = await claimAdmin();
+    if (error) {
+      alert(error);
+    } else {
+      setNeedsAdminBootstrap(false);
+      await auth.refreshRole();
+      setView('admin');
+    }
+    setBootstrapping(false);
   }, [auth]);
 
   const handleDetailsSubmit = useCallback(
-    async (form: BookingForm) => {
+    async (form: { fullName: string; phone: string; comments: string }) => {
       if (auth.user) {
-        await booking.submitBooking(form, auth.user.id);
+        await booking.submitBooking(form);
         return;
       }
-      // Not logged in: stash the booking and ask for Google sign-in first.
       const payload = booking.buildPayload(form);
       if (!payload) return;
       savePendingBooking(payload);
+      setLoginPurpose('booking');
       setShowLoginModal(true);
     },
     [auth.user, booking]
   );
+
+  const isVerifiedStaff = auth.role?.role && auth.role?.status === 'verified';
 
   return (
     <div className="relative min-h-screen bg-ink text-zinc-200">
@@ -105,10 +139,19 @@ function App() {
       </div>
 
       <div className="relative z-10 mx-auto max-w-app">
-        {view === 'admin' && <AdminPanel role={adminRole} onBack={goPublic} />}
+        {view === 'admin' && isVerifiedStaff && (
+          <AdminPanel userRole={auth.role!} onSignOut={async () => { await auth.signOut(); setView('public'); }} />
+        )}
 
         {view === 'public' && booking.step === 'landing' && (
-          <Landing onBook={booking.startBooking} onAdmin={goAdmin} user={auth.user} onSignOut={auth.signOut} />
+          <Landing
+            onBook={booking.startBooking}
+            onSignIn={handleGeneralLogin}
+            onGoToPanel={goAdmin}
+            user={auth.user}
+            role={auth.role}
+            onSignOut={auth.signOut}
+          />
         )}
 
         {view === 'public' && booking.step === 'barber' && (
@@ -139,11 +182,39 @@ function App() {
 
       {view === 'public' && <FloatingButtons />}
 
+      {/* Admin bootstrap prompt */}
+      {needsAdminBootstrap && auth.user && !isVerifiedStaff && (
+        <div className="fixed inset-0 z-[95] flex items-center justify-center px-6">
+          <div className="absolute inset-0 bg-black/80 backdrop-blur-md" />
+          <div className="relative w-full max-w-sm rounded-3xl border border-gold/20 bg-zinc-900/90 p-6 shadow-2xl backdrop-blur-xl animate-scale-in text-center">
+            <h3 className="mb-2 font-display text-xl font-bold text-white">Configurar administrador</h3>
+            <p className="mb-5 text-sm leading-relaxed text-zinc-400">
+              No hay ningún administrador configurado todavía. ¿Quieres convertir tu cuenta en el administrador principal?
+            </p>
+            <button
+              onClick={handleAdminBootstrap}
+              disabled={bootstrapping}
+              className="flex w-full items-center justify-center gap-2 rounded-full gold-gradient py-3.5 text-sm font-bold uppercase tracking-wider text-black transition-all hover:brightness-110 active:scale-[0.98] disabled:opacity-60"
+            >
+              {bootstrapping ? <span className="h-4 w-4 animate-spin rounded-full border-2 border-black/30 border-t-black" /> : null}
+              Hacerme administrador
+            </button>
+            <button
+              onClick={() => setNeedsAdminBootstrap(false)}
+              className="mt-3 w-full rounded-full px-4 py-2 text-xs font-medium text-zinc-500 transition-colors hover:text-white"
+            >
+              Ahora no
+            </button>
+          </div>
+        </div>
+      )}
+
       {showLoginModal && (
         <LoginModal
           onGoogleSignIn={handleGoogleSignIn}
           onClose={() => setShowLoginModal(false)}
           signingIn={signingIn}
+          purpose={loginPurpose}
         />
       )}
 

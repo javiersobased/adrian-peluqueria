@@ -1,12 +1,12 @@
-import { ShieldCheck, X } from 'lucide-react';
+import { ShieldCheck, LogIn, X } from 'lucide-react';
 
 interface LoginModalProps {
   onGoogleSignIn: () => void;
   onClose: () => void;
   signingIn: boolean;
+  purpose: 'booking' | 'general';
 }
 
-/** Official 4-colour Google "G" glyph, used as-is per Google's sign-in button guidelines. */
 function GoogleGlyph() {
   return (
     <svg className="h-5 w-5" viewBox="0 0 48 48" aria-hidden="true">
@@ -18,7 +18,7 @@ function GoogleGlyph() {
   );
 }
 
-export function LoginModal({ onGoogleSignIn, onClose, signingIn }: LoginModalProps) {
+export function LoginModal({ onGoogleSignIn, onClose, signingIn, purpose }: LoginModalProps) {
   return (
     <div className="fixed inset-0 z-[90] flex items-center justify-center px-6" role="dialog" aria-modal="true">
       <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={onClose} />
@@ -33,13 +33,23 @@ export function LoginModal({ onGoogleSignIn, onClose, signingIn }: LoginModalPro
 
         <div className="mb-5 text-center">
           <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-2xl gold-gradient">
-            <ShieldCheck className="h-6 w-6 text-black" />
+            {purpose === 'booking' ? <ShieldCheck className="h-6 w-6 text-black" /> : <LogIn className="h-6 w-6 text-black" />}
           </div>
-          <h3 className="font-display text-xl font-bold text-white">Confirma que eres tú</h3>
-          <p className="mt-1.5 px-2 text-xs leading-relaxed text-zinc-500">
-            Para evitar citas falsas, inicia sesión con tu cuenta de Google antes de confirmar. Es rápido y no crearemos ninguna
-            publicación en tu nombre.
-          </p>
+          {purpose === 'booking' ? (
+            <>
+              <h3 className="font-display text-xl font-bold text-white">Confirma que eres tú</h3>
+              <p className="mt-1.5 px-2 text-xs leading-relaxed text-zinc-500">
+                Para evitar citas falsas, inicia sesión con tu cuenta de Google antes de confirmar. Es rápido y no crearemos ninguna publicación en tu nombre.
+              </p>
+            </>
+          ) : (
+            <>
+              <h3 className="font-display text-xl font-bold text-white">Iniciar sesión</h3>
+              <p className="mt-1.5 px-2 text-xs leading-relaxed text-zinc-500">
+                Accede con tu cuenta de Google. Si eres barbero o administrador, verás tu panel correspondiente.
+              </p>
+            </>
+          )}
         </div>
 
         <button
@@ -55,9 +65,11 @@ export function LoginModal({ onGoogleSignIn, onClose, signingIn }: LoginModalPro
           {signingIn ? 'Conectando…' : 'Continuar con Google'}
         </button>
 
-        <p className="mt-4 text-center text-[0.65rem] text-zinc-600">
-          Tu cita se guarda automáticamente en cuanto inicies sesión, no hace falta rellenarla de nuevo.
-        </p>
+        {purpose === 'booking' && (
+          <p className="mt-4 text-center text-[0.65rem] text-zinc-600">
+            Tu cita se guarda automáticamente en cuanto inicies sesión, no hace falta rellenarla de nuevo.
+          </p>
+        )}
       </div>
     </div>
   );

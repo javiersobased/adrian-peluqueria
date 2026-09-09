@@ -1,7 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
 import { fetchAllBarbers } from '@/data/services';
-import type { SavedBooking, BarberBlock, Barber } from '@/types';
+import { verifyBarber, rejectBarber } from '@/lib/auth';
+import type { SavedBooking, BarberBlock, Barber, StaffMember, Customer, UserRole } from '@/types';
 import { AdminToday } from '@/components/admin/AdminToday';
 import { AdminAgenda } from '@/components/admin/AdminAgenda';
 import { AdminManualBooking } from '@/components/admin/AdminManualBooking';
@@ -9,35 +10,38 @@ import { AdminAvailability } from '@/components/admin/AdminAvailability';
 import { AdminServices } from '@/components/admin/AdminServices';
 import { AdminStaff } from '@/components/admin/AdminStaff';
 import { AdminStaffSchedule } from '@/components/admin/AdminStaffSchedule';
+import { AdminCustomers } from '@/components/admin/AdminCustomers';
 import AnimatedContent from '@/components/reactbits/AnimatedContent';
-import { logout, canAccessServices, canAccessStaff, canAccessSettings, updatePassword, type AdminRole } from '@/lib/auth';
 import {
   CalendarDays, Clock, PlusCircle, SlidersHorizontal, Scissors, Users,
-  ArrowLeft, Search, Settings, X, LogOut, KeyRound, Menu, type LucideIcon,
+  ArrowLeft, Search, X, LogOut, Menu, UserCheck, type LucideIcon,
 } from 'lucide-react';
 
 const CATEGORIES = ['Principal', 'Control', 'Gestión'];
 
 interface AdminPanelProps {
-  role: AdminRole;
-  onBack: () => void;
+  userRole: UserRole;
+  onSignOut: () => void;
 }
 
-type AdminTab = 'today' | 'agenda' | 'manual' | 'availability' | 'services' | 'staff' | 'schedule' | 'settings';
+type AdminTab = 'today' | 'agenda' | 'manual' | 'availability' | 'services' | 'staff' | 'schedule' | 'customers' | 'verify';
 
 interface NavItem {
   id: AdminTab;
   label: string;
   icon: LucideIcon;
   category: string;
-  restricted?: boolean;
+  adminOnly?: boolean;
 }
 
-export function AdminPanel({ role, onBack }: AdminPanelProps) {
-  const [tab, setTab] = useState<AdminTab>('today');
+export function AdminPanel({ userRole, onSignOut }: AdminPanelProps) {
+  const isAdmin = userRole.role === 'admin' && userRole.status === 'verified';
+  const [tab, setTab] = useState<AdminTab>(isAdmin ? 'today' : 'today');
   const [bookings, setBookings] = useState<SavedBooking[]>([]);
   const [blocks, setBlocks] = useState<BarberBlock[]>([]);
   const [barbers, setBarbers] = useState<Barber[]>([]);
+  const [staffList, setStaffList] = useState<StaffMember[]>([]);
+  const [customers, setCustomers] = useState<Customer[]>([]);
   const [selectedBarber, setSelectedBarber] = useState<string>('all');
   const [loading, setLoading] = useState(true);
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -68,11 +72,24 @@ export function AdminPanel({ role, onBack }: AdminPanelProps) {
     setBlocks((data as BarberBlock[]) ?? []);
   }, [selectedBarber]);
 
+  const fetchStaff = useCallback(async () => {
+    const { data } = await supabase.from('staff').select('*').order('created_at', { ascending: false });
+    setStaffList((data as StaffMember[]) ?? []);
+  }, []);
+
+  const fetchCustomers = useCallback(async () => {
+    const { data } = await supabase.from('customers').select('*').order('created_at', { ascending: false });
+    setCustomers((data as Customer[]) ?? []);
+  }, []);
+
   const refresh = useCallback(async () => {
     setLoading(true);
     await Promise.all([fetchBookings(), fetchBlocks()]);
+    if (isAdmin) {
+      await Promise.all([fetchStaff(), fetchCustomers()]);
+    }
     setLoading(false);
-  }, [fetchBookings, fetchBlocks]);
+  }, [fetchBookings, fetchBlocks, fetchStaff, fetchCustomers, isAdmin]);
 
   useEffect(() => { refresh(); }, [refresh]);
 
@@ -93,22 +110,32 @@ export function AdminPanel({ role, onBack }: AdminPanelProps) {
     { id: 'agenda', label: 'Agenda Completa', icon: Clock, category: 'Principal' },
     { id: 'availability', label: 'Horarios y Bloqueos', icon: SlidersHorizontal, category: 'Control' },
     { id: 'schedule', label: 'Horarios Semanales', icon: Clock, category: 'Control' },
-    { id: 'services', label: 'Servicios', icon: Scissors, category: 'Gestión', restricted: true },
-    { id: 'staff', label: 'Personal', icon: Users, category: 'Gestión', restricted: true },
-    { id: 'settings', label: 'Ajustes', icon: Settings, category: 'Gestión', restricted: true },
+    { id: 'customers', label: 'Clientes', icon: Users, category: 'Gestión', adminOnly: true },
+    { id: 'verify', label: 'Verificar Barberos', icon: UserCheck, category: 'Gestión', adminOnly: true },
+    { id: 'services', label: 'Servicios', icon: Scissors, category: 'Gestión', adminOnly: true },
+    { id: 'staff', label: 'Personal', icon: Users, category: 'Gestión', adminOnly: true },
   ];
 
-  const navItems = allNavItems.filter((n) => !n.restricted || (n.id === 'services' && canAccessServices(role)) || (n.id === 'staff' && canAccessStaff(role)) || (n.id === 'settings' && canAccessSettings(role)));
+  const navItems = allNavItems.filter((n) => !n.adminOnly || isAdmin);
   const filteredNav = navItems.filter((n) => n.label.toLowerCase().includes(search.toLowerCase()));
   const activeBarber = barbers.find((b) => b.id === selectedBarber) ?? null;
   const todayCount = bookings.filter((b) => b.booking_date === new Date().toISOString().slice(0, 10)).length;
 
   const handleNav = (id: AdminTab) => { setTab(id); closeSidebar(); };
 
-  const handleLogout = () => {
-    logout();
-    onBack();
+  const handleVerify = async (email: string) => {
+    const { error } = await verifyBarber(email);
+    if (error) alert(error);
+    fetchStaff();
   };
+
+  const handleReject = async (email: string) => {
+    const { error } = await rejectBarber(email);
+    if (error) alert(error);
+    fetchStaff();
+  };
+
+  const panelTitle = isAdmin ? 'Panel de Administración' : 'Panel de Barbero';
 
   return (
     <div className="flex min-h-screen bg-zinc-950 text-zinc-200 animate-fade-in">
@@ -128,7 +155,7 @@ export function AdminPanel({ role, onBack }: AdminPanelProps) {
             );
           })}
         </nav>
-        <button onClick={handleLogout} className="flex h-11 w-11 items-center justify-center rounded-xl text-zinc-500 transition-colors hover:bg-red-500/10 hover:text-red-400" title="Cerrar sesión">
+        <button onClick={onSignOut} className="flex h-11 w-11 items-center justify-center rounded-xl text-zinc-500 transition-colors hover:bg-red-500/10 hover:text-red-400" title="Cerrar sesión">
           <LogOut className="h-5 w-5" strokeWidth={1.8} />
         </button>
       </div>
@@ -137,10 +164,10 @@ export function AdminPanel({ role, onBack }: AdminPanelProps) {
       <div className="fixed left-16 top-0 z-30 hidden h-screen w-64 flex-col border-r border-white/5 bg-zinc-900/60 backdrop-blur-xl md:flex">
         <SidebarContent barbers={barbers} selectedBarber={selectedBarber} setSelectedBarber={setSelectedBarber}
           activeBarber={activeBarber} search={search} setSearch={setSearch} tab={tab} onNav={handleNav}
-          filteredNav={filteredNav} todayCount={todayCount} onLogout={handleLogout} role={role} />
+          filteredNav={filteredNav} todayCount={todayCount} onSignOut={onSignOut} isAdmin={isAdmin} panelTitle={panelTitle} />
       </div>
 
-      {/* Mobile sidebar with AnimatedContent */}
+      {/* Mobile sidebar */}
       {sidebarOpen && (
         <div className="fixed inset-0 z-50 md:hidden">
           <div className={`absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity duration-200 ${sidebarClosing ? 'opacity-0' : 'opacity-100'}`} onClick={closeSidebar} />
@@ -151,7 +178,7 @@ export function AdminPanel({ role, onBack }: AdminPanelProps) {
               </button>
               <SidebarContent barbers={barbers} selectedBarber={selectedBarber} setSelectedBarber={setSelectedBarber}
                 activeBarber={activeBarber} search={search} setSearch={setSearch} tab={tab} onNav={handleNav}
-                filteredNav={filteredNav} todayCount={todayCount} onLogout={handleLogout} role={role} />
+                filteredNav={filteredNav} todayCount={todayCount} onSignOut={onSignOut} isAdmin={isAdmin} panelTitle={panelTitle} />
             </div>
           </AnimatedContent>
         </div>
@@ -165,10 +192,10 @@ export function AdminPanel({ role, onBack }: AdminPanelProps) {
             <Menu className="h-5 w-5" />
           </button>
           <div className="flex-1">
-            <p className="text-[0.6rem] uppercase tracking-[0.2em] text-gold">Gestión</p>
+            <p className="text-[0.6rem] uppercase tracking-[0.2em] text-gold">{panelTitle}</p>
             <h2 className="font-display text-lg font-bold leading-tight text-white">{navItems.find((n) => n.id === tab)?.label}</h2>
           </div>
-          <button onClick={handleLogout} aria-label="Cerrar sesión" className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/5 text-zinc-300">
+          <button onClick={onSignOut} aria-label="Cerrar sesión" className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/5 text-zinc-300">
             <LogOut className="h-4 w-4" />
           </button>
         </header>
@@ -176,7 +203,7 @@ export function AdminPanel({ role, onBack }: AdminPanelProps) {
         {/* Desktop header */}
         <header className="sticky top-0 z-20 hidden items-center justify-between border-b border-white/5 bg-zinc-950/60 px-8 py-5 backdrop-blur-xl md:flex">
           <div>
-            <p className="text-[0.6rem] uppercase tracking-[0.2em] text-gold">Panel de administración</p>
+            <p className="text-[0.6rem] uppercase tracking-[0.2em] text-gold">{panelTitle}</p>
             <h1 className="font-display text-2xl font-bold text-white">{navItems.find((n) => n.id === tab)?.label}</h1>
           </div>
           <div className="flex items-center gap-3">
@@ -192,7 +219,7 @@ export function AdminPanel({ role, onBack }: AdminPanelProps) {
             ) : (
               <span className="rounded-full glass-card px-3 py-1.5 text-sm font-medium text-zinc-400">Todos los barberos</span>
             )}
-            <button onClick={handleLogout} className="flex h-9 w-9 items-center justify-center rounded-full glass-card text-zinc-400 transition-colors hover:text-red-400" title="Cerrar sesión">
+            <button onClick={onSignOut} className="flex h-9 w-9 items-center justify-center rounded-full glass-card text-zinc-400 transition-colors hover:text-red-400" title="Cerrar sesión">
               <LogOut className="h-4 w-4" />
             </button>
           </div>
@@ -204,10 +231,13 @@ export function AdminPanel({ role, onBack }: AdminPanelProps) {
           {tab === 'agenda' && <AdminAgenda bookings={bookings} loading={loading} onRefresh={refresh} />}
           {tab === 'manual' && <AdminManualBooking onCreated={refresh} />}
           {tab === 'availability' && <AdminAvailability blocks={blocks} onRefresh={refresh} />}
-          {tab === 'services' && canAccessServices(role) && <AdminServices />}
-          {tab === 'staff' && canAccessStaff(role) && <AdminStaff />}
+          {tab === 'services' && isAdmin && <AdminServices />}
+          {tab === 'staff' && isAdmin && <AdminStaff />}
           {tab === 'schedule' && <AdminStaffSchedule />}
-          {tab === 'settings' && canAccessSettings(role) && <AdminSettings />}
+          {tab === 'customers' && isAdmin && <AdminCustomers customers={customers} loading={loading} onRefresh={refresh} />}
+          {tab === 'verify' && isAdmin && (
+            <VerifyStaff staffList={staffList} onVerify={handleVerify} onReject={handleReject} onRefresh={fetchStaff} />
+          )}
           </div>
         </div>
       </div>
@@ -216,30 +246,17 @@ export function AdminPanel({ role, onBack }: AdminPanelProps) {
 }
 
 function SidebarContent({
-  barbers, selectedBarber, setSelectedBarber, activeBarber, search, setSearch, tab, onNav, filteredNav, todayCount, onLogout, role,
+  barbers, selectedBarber, setSelectedBarber, activeBarber, search, setSearch, tab, onNav, filteredNav, todayCount, onSignOut, isAdmin, panelTitle,
 }: {
   barbers: Barber[]; selectedBarber: string; setSelectedBarber: (id: string) => void;
   activeBarber: Barber | null; search: string; setSearch: (s: string) => void; tab: AdminTab;
-  onNav: (id: AdminTab) => void; filteredNav: NavItem[]; todayCount: number; onLogout: () => void; role: AdminRole;
+  onNav: (id: AdminTab) => void; filteredNav: NavItem[]; todayCount: number; onSignOut: () => void; isAdmin: boolean; panelTitle: string;
 }) {
   return (
     <div className="flex h-full flex-col">
       <div className="border-b border-white/5 p-5">
-        <p className="mb-3 text-[0.6rem] font-semibold uppercase tracking-[0.2em] text-zinc-500">Perfil activo</p>
-        <div className="flex items-center gap-3 rounded-2xl glass-card p-3">
-          {activeBarber?.photo_url ? (
-            <img src={activeBarber.photo_url} alt="" className="h-11 w-11 rounded-xl object-cover ring-1 ring-white/10" />
-          ) : activeBarber ? (
-            <div className="flex h-11 w-11 items-center justify-center rounded-xl gold-gradient font-display text-sm font-bold text-black">{activeBarber.initials}</div>
-          ) : (
-            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-white/5 text-zinc-500"><Users className="h-5 w-5" /></div>
-          )}
-          <div className="flex-1 min-w-0">
-            <p className="truncate text-sm font-bold text-white">{activeBarber?.name ?? 'Todos'}</p>
-            <p className="truncate text-xs text-zinc-500">{role === 'adrian' ? 'Acceso total' : 'Acceso limitado'}</p>
-          </div>
-        </div>
-        <div className="mt-3 flex flex-wrap gap-1.5">
+        <p className="mb-3 text-[0.6rem] font-semibold uppercase tracking-[0.2em] text-zinc-500">{panelTitle}</p>
+        <div className="flex flex-wrap gap-1.5">
           <button onClick={() => setSelectedBarber('all')} className={`rounded-full px-3 py-1 text-xs font-medium transition-all ${selectedBarber === 'all' ? 'bg-gold/15 text-gold' : 'bg-white/5 text-zinc-500 hover:text-zinc-300'}`}>Todos</button>
           {barbers.map((b) => (
             <button key={b.id} onClick={() => setSelectedBarber(b.id)} className={`rounded-full px-3 py-1 text-xs font-medium transition-all ${selectedBarber === b.id ? 'bg-gold/15 text-gold' : 'bg-white/5 text-zinc-500 hover:text-zinc-300'}`}>{b.name}</button>
@@ -281,7 +298,7 @@ function SidebarContent({
       </nav>
 
       <div className="border-t border-white/5 p-3">
-        <button onClick={onLogout} className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-zinc-400 transition-all hover:bg-red-500/10 hover:text-red-400">
+        <button onClick={onSignOut} className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-zinc-400 transition-all hover:bg-red-500/10 hover:text-red-400">
           <LogOut className="h-4 w-4 shrink-0" strokeWidth={1.8} />
           <span className="font-medium">Cerrar sesión</span>
         </button>
@@ -290,65 +307,69 @@ function SidebarContent({
   );
 }
 
-function AdminSettings() {
-  const [oldPass, setOldPass] = useState('');
-  const [newPass, setNewPass] = useState('');
-  const [confirmPass, setConfirmPass] = useState('');
-  const [targetRole, setTargetRole] = useState<'adrian' | 'admin'>('admin');
-  const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+function VerifyStaff({ staffList, onVerify, onReject, onRefresh }: {
+  staffList: StaffMember[];
+  onVerify: (email: string) => void;
+  onReject: (email: string) => void;
+  onRefresh: () => void;
+}) {
+  useEffect(() => { onRefresh(); }, [onRefresh]);
 
-  const handleChange = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (newPass !== confirmPass) {
-      setMessage({ type: 'error', text: 'Las contraseñas no coinciden.' });
-      return;
-    }
-    if (newPass.length < 4) {
-      setMessage({ type: 'error', text: 'La contraseña debe tener al menos 4 caracteres.' });
-      return;
-    }
-    const ok = updatePassword(targetRole, oldPass, newPass);
-    if (ok) {
-      setMessage({ type: 'success', text: 'Contraseña actualizada correctamente.' });
-      setOldPass(''); setNewPass(''); setConfirmPass('');
-    } else {
-      setMessage({ type: 'error', text: 'La contraseña actual es incorrecta.' });
-    }
-  };
+  const pending = staffList.filter((s) => s.status === 'pending' && s.role === 'barber');
+  const verified = staffList.filter((s) => s.status === 'verified' && s.role === 'barber');
 
   return (
-    <div className="mx-auto max-w-md">
-      <div className="mb-5 flex items-center gap-2">
-        <KeyRound className="h-5 w-5 text-gold" />
-        <h3 className="font-display text-xl font-bold text-white">Gestión de contraseñas</h3>
-      </div>
-      <form onSubmit={handleChange} className="rounded-3xl glass-card p-5 space-y-4">
-        <div>
-          <label className="mb-1.5 block text-xs text-zinc-500">Cambiar contraseña de</label>
-          <div className="flex gap-2">
-            <button type="button" onClick={() => setTargetRole('admin')} className={`flex-1 rounded-xl py-2.5 text-sm font-medium transition-all ${targetRole === 'admin' ? 'gold-gradient text-black' : 'glass-card text-zinc-400 hover:text-white'}`}>Usuario general</button>
-            <button type="button" onClick={() => setTargetRole('adrian')} className={`flex-1 rounded-xl py-2.5 text-sm font-medium transition-all ${targetRole === 'adrian' ? 'gold-gradient text-black' : 'glass-card text-zinc-400 hover:text-white'}`}>Adrián</button>
+    <div className="mx-auto max-w-2xl space-y-6">
+      <div>
+        <h3 className="mb-3 font-display text-lg font-bold text-white">Pendientes de verificación</h3>
+        {pending.length === 0 ? (
+          <p className="text-sm text-zinc-500">No hay barberos pendientes.</p>
+        ) : (
+          <div className="space-y-2.5">
+            {pending.map((s) => (
+              <div key={s.email} className="flex items-center gap-3 rounded-2xl glass-card p-3.5">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-500/15 text-amber-400">
+                  <Clock className="h-5 w-5" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-bold text-white">{s.full_name || s.email}</p>
+                  <p className="text-xs text-zinc-500">{s.email}</p>
+                </div>
+                <button onClick={() => onVerify(s.email)} className="flex items-center gap-1.5 rounded-full bg-emerald-500/15 px-3 py-1.5 text-xs font-bold text-emerald-400 transition-all hover:bg-emerald-500/25">
+                  <UserCheck className="h-3.5 w-3.5" /> Verificar
+                </button>
+                <button onClick={() => onReject(s.email)} className="rounded-full bg-red-500/10 px-3 py-1.5 text-xs font-bold text-red-400 transition-all hover:bg-red-500/20">
+                  Rechazar
+                </button>
+              </div>
+            ))}
           </div>
-        </div>
-        <div>
-          <label className="mb-1.5 block text-xs text-zinc-500">Contraseña actual</label>
-          <input type="password" value={oldPass} onChange={(e) => setOldPass(e.target.value)} placeholder="Contraseña actual" className="w-full rounded-xl glass-card px-4 py-3 text-sm text-white placeholder:text-zinc-600 focus:border-gold/30 focus:outline-none" />
-        </div>
-        <div>
-          <label className="mb-1.5 block text-xs text-zinc-500">Nueva contraseña</label>
-          <input type="password" value={newPass} onChange={(e) => setNewPass(e.target.value)} placeholder="Nueva contraseña" className="w-full rounded-xl glass-card px-4 py-3 text-sm text-white placeholder:text-zinc-600 focus:border-gold/30 focus:outline-none" />
-        </div>
-        <div>
-          <label className="mb-1.5 block text-xs text-zinc-500">Confirmar nueva contraseña</label>
-          <input type="password" value={confirmPass} onChange={(e) => setConfirmPass(e.target.value)} placeholder="Repite la nueva contraseña" className="w-full rounded-xl glass-card px-4 py-3 text-sm text-white placeholder:text-zinc-600 focus:border-gold/30 focus:outline-none" />
-        </div>
-        {message && (
-          <div className={`rounded-xl px-4 py-3 text-sm ${message.type === 'success' ? 'border border-emerald-500/20 bg-emerald-500/10 text-emerald-400' : 'border border-red-500/20 bg-red-500/10 text-red-400'}`}>{message.text}</div>
         )}
-        <button type="submit" disabled={!oldPass || !newPass || !confirmPass} className={`flex w-full items-center justify-center gap-2 rounded-full py-3.5 text-sm font-bold uppercase tracking-wider transition-all ${oldPass && newPass && confirmPass ? 'gold-gradient text-black hover:brightness-110 active:scale-[0.98]' : 'bg-white/5 text-zinc-600'}`}>
-          <KeyRound className="h-4 w-4" />Actualizar contraseña
-        </button>
-      </form>
+      </div>
+
+      <div>
+        <h3 className="mb-3 font-display text-lg font-bold text-white">Barberos verificados</h3>
+        {verified.length === 0 ? (
+          <p className="text-sm text-zinc-500">No hay barberos verificados.</p>
+        ) : (
+          <div className="space-y-2.5">
+            {verified.map((s) => (
+              <div key={s.email} className="flex items-center gap-3 rounded-2xl glass-card p-3.5">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-500/15 text-emerald-400">
+                  <UserCheck className="h-5 w-5" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-bold text-white">{s.full_name || s.email}</p>
+                  <p className="text-xs text-zinc-500">{s.email}</p>
+                </div>
+                <button onClick={() => onReject(s.email)} className="rounded-full bg-red-500/10 px-3 py-1.5 text-xs font-bold text-red-400 transition-all hover:bg-red-500/20">
+                  Suspender
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

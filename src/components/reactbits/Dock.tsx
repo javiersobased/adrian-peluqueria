@@ -106,7 +106,7 @@ export default function Dock({
   const highlightItems = items.filter((i) => i.highlight);
 
   return (
-    <motion.div style={{ height, scrollbarWidth: 'none' } as React.CSSProperties} className="dock-outer">
+    <motion.div style={{ height, scrollbarWidth: 'none' } as unknown as React.CSSProperties} className="dock-outer">
       <motion.div
         onMouseMove={({ pageX }) => { isHovered.set(1); mouseX.set(pageX); }}
         onMouseLeave={() => { isHovered.set(0); mouseX.set(Infinity); }}
@@ -120,7 +120,7 @@ export default function Dock({
             mouseX={mouseX} spring={spring} distance={distance} magnification={magnification}
             baseItemSize={baseItemSize} label={item.label}>
             <DockIcon>{item.icon}</DockIcon>
-            <DockLabel>{item.label}</DockLabel>
+            <DockLabel isHovered={isHovered}>{item.label}</DockLabel>
           </DockItem>
         ))}
 

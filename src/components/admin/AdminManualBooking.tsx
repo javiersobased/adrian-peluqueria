@@ -39,7 +39,7 @@ export function AdminManualBooking({ onCreated }: AdminManualBookingProps) {
       const { error: insertError } = await supabase.from('bookings').insert({
         barber, service, service_price: svc?.price ?? 0,
         booking_date: date, booking_time: time, full_name: fullName.trim(),
-        phone: '', email: '', comments: null, status: 'confirmed',
+        phone: '', email: null, comments: null, status: 'confirmed', user_id: null,
       });
       if (insertError) throw insertError;
       setSuccess(true);

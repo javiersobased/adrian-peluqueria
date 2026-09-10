@@ -18,6 +18,7 @@ interface LandingProps {
   user?: SupabaseUser | null;
   role?: UserRole | null;
   onSignOut?: () => void;
+  onBarberRequest?: () => void;
 }
 
 const REVIEWS = [
@@ -32,7 +33,7 @@ const REVIEWS = [
 
 const REVIEW_URL = 'https://search.google.com/local/writereview?placeid=ChIJZQ8TpTLPEQ0RDdVh6plIAsU';
 
-export function Landing({ onBook, onSignIn, onGoToPanel, user, role, onSignOut }: LandingProps) {
+export function Landing({ onBook, onSignIn, onGoToPanel, user, role, onSignOut, onBarberRequest }: LandingProps) {
   const [showAccountMenu, setShowAccountMenu] = useState(false);
   const [reviewIndex, setReviewIndex] = useState(0);
 
@@ -123,6 +124,19 @@ export function Landing({ onBook, onSignIn, onGoToPanel, user, role, onSignOut }
           </button>
         )}
       </div>
+
+      {/* Barber request link — only for logged-in users without a role */}
+      {onBarberRequest && (
+        <div className="fixed right-4 top-20 z-40">
+          <button
+            onClick={onBarberRequest}
+            className="flex items-center gap-1.5 rounded-full bg-zinc-900/50 backdrop-blur-xl border border-white/5 px-3 py-1.5 text-[0.7rem] text-zinc-500 transition-all hover:border-gold/20 hover:text-gold"
+          >
+            <Scissors className="h-3 w-3" />
+            ¿Eres barbero? Solicita acceso
+          </button>
+        </div>
+      )}
 
       {/* Hero */}
       <header className="relative flex min-h-[92vh] flex-col items-center justify-center px-6 text-center">

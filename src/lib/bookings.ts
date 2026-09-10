@@ -1,5 +1,6 @@
 import { supabase } from '@/lib/supabase';
 import type { PendingBookingPayload } from '@/lib/pendingBooking';
+import type { SavedBooking } from '@/types';
 
 export async function createBooking(payload: PendingBookingPayload): Promise<{ id: string; error: string | null }> {
   const { data, error } = await supabase.rpc('create_booking', {
@@ -25,4 +26,20 @@ export async function fetchBookingById(id: string) {
     .maybeSingle();
   if (error) throw error;
   return data;
+}
+
+export async function findExistingBooking(
+  barber: string,
+  bookingDate: string,
+  bookingTime: string
+): Promise<SavedBooking | null> {
+  const { data } = await supabase
+    .from('bookings')
+    .select('*')
+    .eq('barber', barber)
+    .eq('booking_date', bookingDate)
+    .eq('booking_time', bookingTime)
+    .neq('status', 'cancelled')
+    .maybeSingle();
+  return (data as SavedBooking) ?? null;
 }

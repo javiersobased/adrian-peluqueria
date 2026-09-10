@@ -22,6 +22,7 @@ const CATEGORIES = ['Principal', 'Control', 'Gestión'];
 interface AdminPanelProps {
   userRole: UserRole;
   onSignOut: () => void;
+  onGoPublic: () => void;
 }
 
 type AdminTab = 'today' | 'agenda' | 'manual' | 'availability' | 'services' | 'staff' | 'schedule' | 'customers' | 'verify';
@@ -34,7 +35,7 @@ interface NavItem {
   adminOnly?: boolean;
 }
 
-export function AdminPanel({ userRole, onSignOut }: AdminPanelProps) {
+export function AdminPanel({ userRole, onSignOut, onGoPublic }: AdminPanelProps) {
   const isAdmin = userRole.role === 'admin' && userRole.status === 'verified';
   const [tab, setTab] = useState<AdminTab>(isAdmin ? 'today' : 'today');
   const [bookings, setBookings] = useState<SavedBooking[]>([]);
@@ -155,16 +156,21 @@ export function AdminPanel({ userRole, onSignOut }: AdminPanelProps) {
             );
           })}
         </nav>
-        <button onClick={onSignOut} className="flex h-11 w-11 items-center justify-center rounded-xl text-zinc-500 transition-colors hover:bg-red-500/10 hover:text-red-400" title="Cerrar sesión">
-          <LogOut className="h-5 w-5" strokeWidth={1.8} />
-        </button>
+        <div className="flex flex-col gap-2">
+          <button onClick={onGoPublic} className="flex h-11 w-11 items-center justify-center rounded-xl text-zinc-500 transition-colors hover:bg-white/5 hover:text-gold" title="Volver a la web">
+            <ArrowLeft className="h-5 w-5" strokeWidth={1.8} />
+          </button>
+          <button onClick={onSignOut} className="flex h-11 w-11 items-center justify-center rounded-xl text-zinc-500 transition-colors hover:bg-red-500/10 hover:text-red-400" title="Cerrar sesión">
+            <LogOut className="h-5 w-5" strokeWidth={1.8} />
+          </button>
+        </div>
       </div>
 
       {/* Desktop Sidebar */}
       <div className="fixed left-16 top-0 z-30 hidden h-screen w-64 flex-col border-r border-white/5 bg-zinc-900/60 backdrop-blur-xl md:flex">
         <SidebarContent barbers={barbers} selectedBarber={selectedBarber} setSelectedBarber={setSelectedBarber}
           activeBarber={activeBarber} search={search} setSearch={setSearch} tab={tab} onNav={handleNav}
-          filteredNav={filteredNav} todayCount={todayCount} onSignOut={onSignOut} isAdmin={isAdmin} panelTitle={panelTitle} />
+          filteredNav={filteredNav} todayCount={todayCount} onSignOut={onSignOut} onGoPublic={onGoPublic} isAdmin={isAdmin} panelTitle={panelTitle} />
       </div>
 
       {/* Mobile sidebar */}
@@ -178,7 +184,7 @@ export function AdminPanel({ userRole, onSignOut }: AdminPanelProps) {
               </button>
               <SidebarContent barbers={barbers} selectedBarber={selectedBarber} setSelectedBarber={setSelectedBarber}
                 activeBarber={activeBarber} search={search} setSearch={setSearch} tab={tab} onNav={handleNav}
-                filteredNav={filteredNav} todayCount={todayCount} onSignOut={onSignOut} isAdmin={isAdmin} panelTitle={panelTitle} />
+                filteredNav={filteredNav} todayCount={todayCount} onSignOut={onSignOut} onGoPublic={onGoPublic} isAdmin={isAdmin} panelTitle={panelTitle} />
             </div>
           </AnimatedContent>
         </div>
@@ -195,9 +201,14 @@ export function AdminPanel({ userRole, onSignOut }: AdminPanelProps) {
             <p className="text-[0.6rem] uppercase tracking-[0.2em] text-gold">{panelTitle}</p>
             <h2 className="font-display text-lg font-bold leading-tight text-white">{navItems.find((n) => n.id === tab)?.label}</h2>
           </div>
-          <button onClick={onSignOut} aria-label="Cerrar sesión" className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/5 text-zinc-300">
-            <LogOut className="h-4 w-4" />
-          </button>
+          <div className="flex items-center gap-1.5">
+            <button onClick={onGoPublic} aria-label="Volver a la web" className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/5 text-zinc-300 transition-colors hover:text-gold">
+              <ArrowLeft className="h-4 w-4" />
+            </button>
+            <button onClick={onSignOut} aria-label="Cerrar sesión" className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/5 text-zinc-300 transition-colors hover:text-red-400">
+              <LogOut className="h-4 w-4" />
+            </button>
+          </div>
         </header>
 
         {/* Desktop header */}
@@ -219,9 +230,14 @@ export function AdminPanel({ userRole, onSignOut }: AdminPanelProps) {
             ) : (
               <span className="rounded-full glass-card px-3 py-1.5 text-sm font-medium text-zinc-400">Todos los barberos</span>
             )}
-            <button onClick={onSignOut} className="flex h-9 w-9 items-center justify-center rounded-full glass-card text-zinc-400 transition-colors hover:text-red-400" title="Cerrar sesión">
-              <LogOut className="h-4 w-4" />
-            </button>
+            <div className="flex items-center gap-1.5">
+              <button onClick={onGoPublic} className="flex h-9 w-9 items-center justify-center rounded-full glass-card text-zinc-400 transition-colors hover:text-gold" title="Volver a la web">
+                <ArrowLeft className="h-4 w-4" />
+              </button>
+              <button onClick={onSignOut} className="flex h-9 w-9 items-center justify-center rounded-full glass-card text-zinc-400 transition-colors hover:text-red-400" title="Cerrar sesión">
+                <LogOut className="h-4 w-4" />
+              </button>
+            </div>
           </div>
         </header>
 
@@ -246,11 +262,11 @@ export function AdminPanel({ userRole, onSignOut }: AdminPanelProps) {
 }
 
 function SidebarContent({
-  barbers, selectedBarber, setSelectedBarber, activeBarber, search, setSearch, tab, onNav, filteredNav, todayCount, onSignOut, isAdmin, panelTitle,
+  barbers, selectedBarber, setSelectedBarber, activeBarber, search, setSearch, tab, onNav, filteredNav, todayCount, onSignOut, onGoPublic, isAdmin, panelTitle,
 }: {
   barbers: Barber[]; selectedBarber: string; setSelectedBarber: (id: string) => void;
   activeBarber: Barber | null; search: string; setSearch: (s: string) => void; tab: AdminTab;
-  onNav: (id: AdminTab) => void; filteredNav: NavItem[]; todayCount: number; onSignOut: () => void; isAdmin: boolean; panelTitle: string;
+  onNav: (id: AdminTab) => void; filteredNav: NavItem[]; todayCount: number; onSignOut: () => void; onGoPublic: () => void; isAdmin: boolean; panelTitle: string;
 }) {
   return (
     <div className="flex h-full flex-col">
@@ -297,7 +313,11 @@ function SidebarContent({
         })}
       </nav>
 
-      <div className="border-t border-white/5 p-3">
+      <div className="border-t border-white/5 p-3 space-y-0.5">
+        <button onClick={onGoPublic} className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-zinc-400 transition-all hover:bg-white/5 hover:text-gold">
+          <ArrowLeft className="h-4 w-4 shrink-0" strokeWidth={1.8} />
+          <span className="font-medium">Volver a la web</span>
+        </button>
         <button onClick={onSignOut} className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-zinc-400 transition-all hover:bg-red-500/10 hover:text-red-400">
           <LogOut className="h-4 w-4 shrink-0" strokeWidth={1.8} />
           <span className="font-medium">Cerrar sesión</span>

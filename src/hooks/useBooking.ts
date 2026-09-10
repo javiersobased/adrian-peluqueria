@@ -2,7 +2,7 @@ import { useState, useCallback } from 'react';
 import type { Service, Barber, BookingForm, SavedBooking } from '@/types';
 import type { PendingBookingPayload } from '@/lib/pendingBooking';
 import { clearPendingBooking } from '@/lib/pendingBooking';
-import { createBooking, fetchBookingById } from '@/lib/bookings';
+import { createBooking, fetchBookingById, findExistingBooking } from '@/lib/bookings';
 
 export type BookingStep = 'landing' | 'barber' | 'service' | 'datetime' | 'details' | 'success';
 
@@ -78,7 +78,24 @@ export function useBooking() {
         setConfirmation(saved as SavedBooking);
         setStep('success');
       } catch (e) {
-        setError(e instanceof Error ? e.message : 'No se pudo guardar la reserva. Inténtalo de nuevo.');
+        console.error('Error al crear reserva:', e);
+        const msg = e instanceof Error ? e.message : '';
+
+        // Check if the booking actually went through despite the error
+        const existing = await findExistingBooking(payload.barber, payload.booking_date, payload.booking_time);
+        if (existing) {
+          clearPendingBooking();
+          setConfirmation(existing);
+          setStep('success');
+          return;
+        }
+
+        if (msg.includes('already booked') || msg.includes('time slot')) {
+          setError('Ese horario ya no está disponible. Elige otra hora.');
+          setStep('datetime');
+        } else {
+          setError('No se pudo confirmar la reserva. Inténtalo de nuevo en unos segundos.');
+        }
       } finally {
         setSubmitting(false);
       }

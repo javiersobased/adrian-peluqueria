@@ -12,8 +12,10 @@ import { AdminStaffSchedule } from '@/components/admin/AdminStaffSchedule';
 import { AdminCustomers } from '@/components/admin/AdminCustomers';
 import {
   CalendarDays, Clock, PlusCircle, SlidersHorizontal, Scissors, Users,
-  ArrowLeft, Search, X, LogOut, Menu, type LucideIcon,
+  Search, X, LogOut, Menu, type LucideIcon,
 } from 'lucide-react';
+import { InstallAppButton } from '@/components/InstallAppButton';
+import { setActivePwaContext } from '@/lib/pwaContext';
 
 const CATEGORIES = ['Principal', 'Control', 'Gestión'];
 
@@ -33,7 +35,7 @@ interface NavItem {
   adminOnly?: boolean;
 }
 
-export function AdminPanel({ userRole, onSignOut, onGoPublic }: AdminPanelProps) {
+export function AdminPanel({ userRole, onSignOut }: AdminPanelProps) {
   const isAdmin = userRole.role === 'admin' && userRole.status === 'verified';
   const [tab, setTab] = useState<AdminTab>('today');
   const [bookings, setBookings] = useState<SavedBooking[]>([]);
@@ -44,6 +46,8 @@ export function AdminPanel({ userRole, onSignOut, onGoPublic }: AdminPanelProps)
   const [loading, setLoading] = useState(true);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [search, setSearch] = useState('');
+
+  useEffect(() => { setActivePwaContext('admin'); }, []);
 
   const closeSidebar = useCallback(() => {
     setSidebarOpen(false);
@@ -168,9 +172,7 @@ export function AdminPanel({ userRole, onSignOut, onGoPublic }: AdminPanelProps)
             <p className="text-[0.6rem] uppercase tracking-[0.2em] text-gold">{panelTitle}</p>
             <h2 className="font-display text-lg font-bold leading-tight text-white">{navItems.find((n) => n.id === tab)?.label}</h2>
           </div>
-          <button onClick={onGoPublic} aria-label="Volver a la web" className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/5 text-zinc-300 transition-colors hover:text-gold">
-            <ArrowLeft className="h-4 w-4" />
-          </button>
+          <InstallAppButton appName="Admin Adrián Millán" className="mr-1" compact />
         </header>
 
         {/* Desktop header — only "Volver a la web" button */}
@@ -192,9 +194,7 @@ export function AdminPanel({ userRole, onSignOut, onGoPublic }: AdminPanelProps)
             ) : (
               <span className="rounded-full glass-card px-3 py-1.5 text-sm font-medium text-zinc-400">Todos los barberos</span>
             )}
-            <button onClick={onGoPublic} className="flex h-9 w-9 items-center justify-center rounded-full glass-card text-zinc-400 transition-colors hover:text-gold" title="Volver a la web">
-              <ArrowLeft className="h-4 w-4" />
-            </button>
+            <InstallAppButton appName="Admin Adrián Millán" compact />
           </div>
         </header>
 

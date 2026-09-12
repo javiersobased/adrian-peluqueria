@@ -2,6 +2,10 @@ import { CheckIcon, CalendarIcon, ClockIcon, HomeIcon } from '@/components/icons
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import type { SavedBooking, Barber } from '@/types';
+import { safeCap, googleCalendarUrl, downloadIcs } from '@/lib/calendar';
+import { sendBookingEmail } from '@/lib/email';
+import { SALON_ADDRESS } from '@/data/services';
+import { CalendarPlus, Apple, Mail } from 'lucide-react';
 
 interface SuccessStepProps {
   booking: SavedBooking;
@@ -13,23 +17,56 @@ const MONTHS_ES = [
   'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre',
 ];
 
-function prettyDate(iso: string) {
+function prettyDate(iso: string | null | undefined): string {
+  if (!iso) return 'Fecha por confirmar';
   const d = new Date(iso + 'T00:00:00');
-  const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
-  return `${cap(MONTHS_ES[d.getMonth()])} ${d.getDate()}, ${d.getFullYear()}`;
+  if (isNaN(d.getTime())) return 'Fecha por confirmar';
+  return `${safeCap(MONTHS_ES[d.getMonth()])} ${d.getDate()}, ${d.getFullYear()}`;
 }
 
 export function SuccessStep({ booking, onHome }: SuccessStepProps) {
   const [barber, setBarber] = useState<Barber | null>(null);
+  const [showModal, setShowModal] = useState(true);
 
   useEffect(() => {
+    if (!booking?.barber) return;
     supabase
       .from('barbers')
       .select('*')
       .eq('id', booking.barber)
       .maybeSingle()
       .then(({ data }) => setBarber(data as Barber | null));
-  }, [booking.barber]);
+  }, [booking?.barber]);
+
+  useEffect(() => {
+    if (booking?.id && booking?.email) {
+      sendBookingEmail(booking);
+    }
+  }, [booking?.id, booking?.email]);
+
+  const gcalUrl = googleCalendarUrl({
+    title: `Cita: ${booking?.service ?? 'Peluquería'}`,
+    date: booking?.booking_date ?? '',
+    time: booking?.booking_time ?? '',
+    durationMin: 30,
+    location: SALON_ADDRESS,
+    details: `Barbero: ${barber?.name ?? booking?.barber ?? ''}`,
+  });
+
+  const handleAppleCalendar = () => {
+    downloadIcs({
+      title: `Cita: ${booking?.service ?? 'Peluquería'}`,
+      date: booking?.booking_date ?? '',
+      time: booking?.booking_time ?? '',
+      durationMin: 30,
+      location: SALON_ADDRESS,
+      description: `Barbero: ${barber?.name ?? booking?.barber ?? ''}`,
+    });
+  };
+
+  const safeTime = booking?.booking_time ?? '--:--';
+  const safeName = booking?.full_name ?? 'Cliente';
+  const safeService = booking?.service ?? 'Servicio';
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center px-6 text-center animate-fade-in">
@@ -49,7 +86,7 @@ export function SuccessStep({ booking, onHome }: SuccessStepProps) {
       <div className="mt-8 w-full max-w-sm rounded-3xl glass-panel p-6 text-left animate-fade-up">
         <div className="mb-4 border-b border-white/5 pb-4">
           <p className="text-[0.65rem] uppercase tracking-wider text-zinc-500">Servicio</p>
-          <p className="mt-1 font-display text-xl font-bold text-white">{booking.service}</p>
+          <p className="mt-1 font-display text-xl font-bold text-white">{safeService}</p>
         </div>
 
         <div className="space-y-4">
@@ -72,14 +109,14 @@ export function SuccessStep({ booking, onHome }: SuccessStepProps) {
             <CalendarIcon className="h-4 w-4 text-gold" />
             <div>
               <p className="text-[0.65rem] uppercase tracking-wider text-zinc-500">Fecha</p>
-              <p className="text-sm font-medium text-white">{prettyDate(booking.booking_date)}</p>
+              <p className="text-sm font-medium text-white">{prettyDate(booking?.booking_date)}</p>
             </div>
           </div>
           <div className="flex items-center gap-3">
             <ClockIcon className="h-4 w-4 text-gold" />
             <div>
               <p className="text-[0.65rem] uppercase tracking-wider text-zinc-500">Hora</p>
-              <p className="text-sm font-medium text-white">{booking.booking_time} h</p>
+              <p className="text-sm font-medium text-white">{safeTime} h</p>
             </div>
           </div>
           <div className="flex items-center gap-3">
@@ -88,7 +125,7 @@ export function SuccessStep({ booking, onHome }: SuccessStepProps) {
             </div>
             <div>
               <p className="text-[0.65rem] uppercase tracking-wider text-zinc-500">A nombre de</p>
-              <p className="text-sm font-medium text-white">{booking.full_name}</p>
+              <p className="text-sm font-medium text-white">{safeName}</p>
             </div>
           </div>
         </div>
@@ -101,6 +138,65 @@ export function SuccessStep({ booking, onHome }: SuccessStepProps) {
         <HomeIcon className="h-4 w-4" />
         Volver al inicio
       </button>
+
+      {/* Success modal with calendar buttons */}
+      {showModal && (
+        <div className="fixed inset-0 z-[90] flex items-center justify-center px-4">
+          <div
+            className="absolute inset-0 bg-black/70 backdrop-blur-md animate-fade-in"
+            onClick={() => setShowModal(false)}
+          />
+          <div className="relative w-full max-w-md rounded-3xl border border-gold/20 bg-zinc-900/95 p-6 shadow-2xl backdrop-blur-xl animate-scale-in text-center">
+            <button
+              onClick={() => setShowModal(false)}
+              aria-label="Cerrar"
+              className="absolute right-4 top-4 text-zinc-500 transition-colors hover:text-zinc-300"
+            >
+              <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+
+            <div className="relative mx-auto mb-5 h-16 w-16">
+              <div className="absolute inset-0 animate-ping rounded-full bg-gold/20" />
+              <div className="relative flex h-16 w-16 items-center justify-center rounded-full gold-gradient animate-scale-in">
+                <CheckIcon className="h-8 w-8 text-black" />
+              </div>
+            </div>
+
+            <h3 className="font-display text-xl font-bold text-white">¡Cita confirmada con éxito!</h3>
+            <p className="mt-2 text-sm leading-relaxed text-zinc-400">
+              Te hemos enviado un correo con los detalles de tu cita.
+            </p>
+
+            <div className="mt-5 space-y-2.5">
+              <a
+                href={gcalUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex w-full items-center justify-center gap-2.5 rounded-full bg-white/5 px-5 py-3 text-sm font-bold text-white transition-all hover:bg-white/10 active:scale-[0.98]"
+              >
+                <CalendarPlus className="h-4 w-4 text-gold" />
+                Añadir a Google Calendar
+              </a>
+              <button
+                onClick={handleAppleCalendar}
+                className="flex w-full items-center justify-center gap-2.5 rounded-full bg-white/5 px-5 py-3 text-sm font-bold text-white transition-all hover:bg-white/10 active:scale-[0.98]"
+              >
+                <Apple className="h-4 w-4 text-gold" />
+                Añadir a Apple Calendar (.ics)
+              </button>
+            </div>
+
+            <button
+              onClick={() => setShowModal(false)}
+              className="mt-4 w-full text-xs font-medium text-zinc-500 transition-colors hover:text-white"
+            >
+              Ver resumen de mi cita
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

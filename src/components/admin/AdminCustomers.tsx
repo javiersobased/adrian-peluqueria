@@ -55,7 +55,7 @@ export function AdminCustomers({ customers, loading, onRefresh }: AdminCustomers
             <div key={c.user_id} className="rounded-2xl glass-card p-4 transition-colors hover:border-gold/15">
               <div className="flex items-start gap-3">
                 <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl gold-gradient font-display text-sm font-bold text-black">
-                  {c.full_name.charAt(0).toUpperCase()}
+                  {c.full_name ? c.full_name.charAt(0).toUpperCase() : '?'}
                 </div>
                 <div className="flex-1 min-w-0 space-y-1.5">
                   <p className="text-sm font-bold text-white">{c.full_name}</p>

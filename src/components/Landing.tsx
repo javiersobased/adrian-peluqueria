@@ -1,14 +1,16 @@
 import { CalendarIcon, MapPinIcon, ClockIcon, ChevronRightIcon } from '@/components/icons';
-import { Star, LogIn, LayoutDashboard, Scissors, ChevronDown } from 'lucide-react';
+import { Star, LogIn, LayoutDashboard, Scissors, ChevronDown, CalendarDays } from 'lucide-react';
 import { OPENING_HOURS, SALON_MAPS_URL, SALON_ADDRESS } from '@/data/services';
 import { useState, useEffect } from 'react';
 import ScrollFloat from '@/components/reactbits/ScrollFloat';
 import ScrollReveal from '@/components/reactbits/ScrollReveal';
 import Dock from '@/components/reactbits/Dock';
 import CountUp from '@/components/reactbits/CountUp';
+import { InstallAppButton } from '@/components/InstallAppButton';
 import { Home, Clock, MapPin, Calendar } from 'lucide-react';
 import type { User as SupabaseUser } from '@supabase/supabase-js';
 import type { UserRole } from '@/types';
+import { safeInitial } from '@/lib/calendar';
 
 interface LandingProps {
   onBook: () => void;
@@ -17,6 +19,7 @@ interface LandingProps {
   user?: SupabaseUser | null;
   role?: UserRole | null;
   onSignOut?: () => void;
+  onGoToMyBookings?: () => void;
 }
 
 const REVIEWS = [
@@ -31,7 +34,7 @@ const REVIEWS = [
 
 const REVIEW_URL = 'https://search.google.com/local/writereview?placeid=ChIJZQ8TpTLPEQ0RDdVh6plIAsU';
 
-export function Landing({ onBook, onSignIn, onGoToPanel, user, role, onSignOut }: LandingProps) {
+export function Landing({ onBook, onSignIn, onGoToPanel, user, role, onSignOut, onGoToMyBookings }: LandingProps) {
   const [showAccountMenu, setShowAccountMenu] = useState(false);
   const [reviewIndex, setReviewIndex] = useState(0);
 
@@ -71,7 +74,8 @@ export function Landing({ onBook, onSignIn, onGoToPanel, user, role, onSignOut }
         )}
 
         {user ? (
-          <div className="relative">
+          <div className="relative flex items-center gap-2">
+            <InstallAppButton appName="Reservas Adrián Millán" compact />
             <button
               onClick={() => setShowAccountMenu((v) => !v)}
               className="flex items-center gap-2 rounded-full bg-zinc-900/70 backdrop-blur-xl border border-white/10 py-1.5 pl-1.5 pr-3 text-xs font-medium text-zinc-300 transition-all hover:border-gold/30"
@@ -80,7 +84,7 @@ export function Landing({ onBook, onSignIn, onGoToPanel, user, role, onSignOut }
                 <img src={user.user_metadata.avatar_url} alt="" className="h-6 w-6 rounded-full" />
               ) : (
                 <div className="flex h-6 w-6 items-center justify-center rounded-full gold-gradient text-[0.6rem] font-bold text-black">
-                  {(user.user_metadata?.full_name || user.email || '?').charAt(0).toUpperCase()}
+                  {safeInitial(user.user_metadata?.full_name || user.email)}
                 </div>
               )}
               <span className="max-w-[8rem] truncate">{user.user_metadata?.full_name || user.email}</span>
@@ -100,6 +104,17 @@ export function Landing({ onBook, onSignIn, onGoToPanel, user, role, onSignOut }
                     {panelLabel}
                   </button>
                 )}
+                {onGoToMyBookings && (
+                  <button
+                    onClick={() => {
+                      setShowAccountMenu(false);
+                      onGoToMyBookings();
+                    }}
+                    className="w-full rounded-xl px-3 py-2 text-left text-xs font-medium text-zinc-300 transition-colors hover:bg-white/5 hover:text-white"
+                  >
+                    <span className="flex items-center gap-1.5"><CalendarDays className="h-3.5 w-3.5" /> Mis citas</span>
+                  </button>
+                )}
                 <button
                   onClick={() => {
                     setShowAccountMenu(false);
@@ -113,13 +128,16 @@ export function Landing({ onBook, onSignIn, onGoToPanel, user, role, onSignOut }
             )}
           </div>
         ) : (
-          <button
-            onClick={onSignIn}
-            className="flex items-center gap-2 rounded-full bg-zinc-900/70 backdrop-blur-xl border border-white/10 px-4 py-2 text-xs font-medium text-zinc-300 transition-all hover:border-gold/30 hover:text-gold active:scale-95"
-          >
-            <LogIn className="h-3.5 w-3.5" />
-            Iniciar sesión
-          </button>
+          <div className="flex items-center gap-2">
+            <InstallAppButton appName="Reservas Adrián Millán" compact />
+            <button
+              onClick={onSignIn}
+              className="flex items-center gap-2 rounded-full bg-zinc-900/70 backdrop-blur-xl border border-white/10 px-4 py-2 text-xs font-medium text-zinc-300 transition-all hover:border-gold/30 hover:text-gold active:scale-95"
+            >
+              <LogIn className="h-3.5 w-3.5" />
+              Iniciar sesión
+            </button>
+          </div>
         )}
       </div>
 
@@ -295,7 +313,7 @@ export function Landing({ onBook, onSignIn, onGoToPanel, user, role, onSignOut }
                   <div className="w-full rounded-3xl bg-zinc-900/70 backdrop-blur-xl border border-white/10 shadow-2xl p-5 text-left">
                     <div className="mb-2 flex items-center gap-2">
                       <div className="flex h-9 w-9 items-center justify-center rounded-full gold-gradient font-display text-xs font-bold text-black">
-                        {r.name.charAt(0)}
+                        {safeInitial(r.name)}
                       </div>
                       <div>
                         <p className="text-sm font-bold text-white">{r.name}</p>

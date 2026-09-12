@@ -9,13 +9,15 @@ import { SuccessStep } from '@/components/SuccessStep';
 import { FloatingButtons } from '@/components/FloatingButtons';
 import { AdminPanel } from '@/components/AdminPanel';
 import { LoginModal } from '@/components/LoginModal';
+import { MyBookings } from '@/components/MyBookings';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import type { SavedBooking } from '@/types';
 import { getPendingBooking, clearPendingBooking, savePendingBooking } from '@/lib/pendingBooking';
 import { createBooking } from '@/lib/bookings';
 import { hasAdmin, claimAdmin } from '@/lib/auth';
+import { setActivePwaContext } from '@/lib/pwaContext';
 
-type View = 'public' | 'admin';
+type View = 'public' | 'admin' | 'my-bookings';
 
 function App() {
   const booking = useBooking();
@@ -29,6 +31,22 @@ function App() {
   const [bootstrapping, setBootstrapping] = useState(false);
   const resumedRef = useRef(false);
   const roleCheckedRef = useRef(false);
+
+  // Detect #admin hash on initial load for PWA admin shortcut
+  useEffect(() => {
+    if (window.location.hash === '#admin') {
+      setView('admin');
+    }
+  }, []);
+
+  // Set PWA context based on current view
+  useEffect(() => {
+    if (view === 'admin') {
+      setActivePwaContext('admin');
+    } else {
+      setActivePwaContext('booking');
+    }
+  }, [view]);
 
   useEffect(() => {
     if (auth.loading || roleCheckedRef.current) return;
@@ -82,6 +100,10 @@ function App() {
     setView('admin');
   }, []);
 
+  const goMyBookings = useCallback(() => {
+    setView('my-bookings');
+  }, []);
+
   const handleGoogleSignIn = useCallback(async () => {
     setSigningIn(true);
     await auth.signInWithGoogle();
@@ -122,6 +144,38 @@ function App() {
 
   const isVerifiedStaff = auth.role?.role && auth.role?.status === 'verified';
 
+  // Admin panel is full-screen, no width constraint
+  if (view === 'admin' && isVerifiedStaff) {
+    return (
+      <AdminPanel
+        userRole={auth.role!}
+        onSignOut={async () => { await auth.signOut(); setView('public'); }}
+        onGoPublic={goPublic}
+      />
+    );
+  }
+
+  // My bookings portal — fluid width
+  if (view === 'my-bookings') {
+    return (
+      <div className="relative min-h-screen bg-ink text-zinc-200">
+        <div className="fixed inset-0 -z-20">
+          <img
+            src="https://images.pexels.com/photos/7195803/pexels-photo-7195803.jpeg?auto=compress&cs=tinysrgb&w=1260&h=1680"
+            alt=""
+            aria-hidden="true"
+            className="h-full w-full object-cover"
+          />
+          <div className="absolute inset-0 bg-black/85" />
+          <div className="absolute inset-0 backdrop-blur-xl" />
+        </div>
+        <div className="relative z-10">
+          <MyBookings onBack={goPublic} userEmail={auth.user?.email} />
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="relative min-h-screen bg-ink text-zinc-200">
       <div className="fixed inset-0 -z-20">
@@ -135,12 +189,8 @@ function App() {
         <div className="absolute inset-0 backdrop-blur-xl" />
       </div>
 
-      <div className="relative z-10 mx-auto max-w-app">
-        {view === 'admin' && isVerifiedStaff && (
-          <AdminPanel userRole={auth.role!} onSignOut={async () => { await auth.signOut(); setView('public'); }} onGoPublic={goPublic} />
-        )}
-
-        {view === 'public' && booking.step === 'landing' && (
+      <div className="relative z-10 mx-auto w-full max-w-7xl">
+        {booking.step === 'landing' && (
           <Landing
             onBook={booking.startBooking}
             onSignIn={handleGeneralLogin}
@@ -148,22 +198,23 @@ function App() {
             user={auth.user}
             role={auth.role}
             onSignOut={auth.signOut}
+            onGoToMyBookings={auth.user ? goMyBookings : undefined}
           />
         )}
 
-        {view === 'public' && booking.step === 'barber' && (
+        {booking.step === 'barber' && (
           <BarberStep onBack={booking.goBack} onSelect={booking.selectBarber} />
         )}
 
-        {view === 'public' && booking.step === 'service' && (
+        {booking.step === 'service' && (
           <ServiceStep onBack={booking.goBack} onSelect={booking.selectService} />
         )}
 
-        {view === 'public' && booking.step === 'datetime' && booking.barber && (
+        {booking.step === 'datetime' && booking.barber && (
           <DateTimeStep barber={booking.barber} onBack={booking.goBack} onContinue={booking.selectDateTime} />
         )}
 
-        {view === 'public' && booking.step === 'details' && (
+        {booking.step === 'details' && (
           <DetailsStep
             onBack={booking.goBack}
             onSubmit={handleDetailsSubmit}
@@ -172,12 +223,12 @@ function App() {
           />
         )}
 
-        {view === 'public' && booking.step === 'success' && booking.confirmation && (
+        {booking.step === 'success' && booking.confirmation && (
           <SuccessStep booking={booking.confirmation} onHome={booking.reset} />
         )}
       </div>
 
-      {view === 'public' && <FloatingButtons />}
+      <FloatingButtons />
 
       {needsAdminBootstrap && auth.user && !isVerifiedStaff && (
         <div className="fixed inset-0 z-[95] flex items-center justify-center px-6">

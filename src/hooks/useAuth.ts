@@ -9,6 +9,7 @@ export function useAuth() {
   const [loading, setLoading] = useState(true);
 
   const fetchRole = useCallback(async (uid: string) => {
+    await supabase.rpc('auto_assign_barber_role');
     const { data } = await supabase.rpc('get_my_role');
     if (data) {
       setRole(data as UserRole);

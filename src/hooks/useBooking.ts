@@ -2,7 +2,7 @@ import { useState, useCallback } from 'react';
 import type { Service, Barber, BookingForm, SavedBooking } from '@/types';
 import type { PendingBookingPayload } from '@/lib/pendingBooking';
 import { clearPendingBooking } from '@/lib/pendingBooking';
-import { createBooking, fetchBookingById, findExistingBooking } from '@/lib/bookings';
+import { createBooking, findExistingBooking } from '@/lib/bookings';
 
 export type BookingStep = 'landing' | 'barber' | 'service' | 'datetime' | 'details' | 'success';
 
@@ -71,12 +71,13 @@ export function useBooking() {
       setSubmitting(true);
       setError(null);
       try {
-        const { id, error: rpcError } = await createBooking(payload);
+        const { booking, error: rpcError } = await createBooking(payload);
         if (rpcError) throw new Error(rpcError);
-        const saved = await fetchBookingById(id);
         clearPendingBooking();
-        setConfirmation(saved as SavedBooking);
-        setStep('success');
+        if (booking) {
+          setConfirmation(booking);
+          setStep('success');
+        }
       } catch (e) {
         console.error('Error al crear reserva:', e);
         const msg = e instanceof Error ? e.message : '';

@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
 import { fetchAllBarbers } from '@/data/services';
-import { verifyBarber, rejectBarber } from '@/lib/auth';
 import type { SavedBooking, BarberBlock, Barber, StaffMember, Customer, UserRole } from '@/types';
 import { AdminToday } from '@/components/admin/AdminToday';
 import { AdminAgenda } from '@/components/admin/AdminAgenda';
@@ -11,10 +10,9 @@ import { AdminServices } from '@/components/admin/AdminServices';
 import { AdminStaff } from '@/components/admin/AdminStaff';
 import { AdminStaffSchedule } from '@/components/admin/AdminStaffSchedule';
 import { AdminCustomers } from '@/components/admin/AdminCustomers';
-import AnimatedContent from '@/components/reactbits/AnimatedContent';
 import {
   CalendarDays, Clock, PlusCircle, SlidersHorizontal, Scissors, Users,
-  ArrowLeft, Search, X, LogOut, Menu, UserCheck, type LucideIcon,
+  ArrowLeft, Search, X, LogOut, Menu, type LucideIcon,
 } from 'lucide-react';
 
 const CATEGORIES = ['Principal', 'Control', 'Gestión'];
@@ -25,7 +23,7 @@ interface AdminPanelProps {
   onGoPublic: () => void;
 }
 
-type AdminTab = 'today' | 'agenda' | 'manual' | 'availability' | 'services' | 'staff' | 'schedule' | 'customers' | 'verify';
+type AdminTab = 'today' | 'agenda' | 'manual' | 'availability' | 'services' | 'staff' | 'schedule' | 'customers';
 
 interface NavItem {
   id: AdminTab;
@@ -37,24 +35,18 @@ interface NavItem {
 
 export function AdminPanel({ userRole, onSignOut, onGoPublic }: AdminPanelProps) {
   const isAdmin = userRole.role === 'admin' && userRole.status === 'verified';
-  const [tab, setTab] = useState<AdminTab>(isAdmin ? 'today' : 'today');
+  const [tab, setTab] = useState<AdminTab>('today');
   const [bookings, setBookings] = useState<SavedBooking[]>([]);
   const [blocks, setBlocks] = useState<BarberBlock[]>([]);
   const [barbers, setBarbers] = useState<Barber[]>([]);
-  const [staffList, setStaffList] = useState<StaffMember[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [selectedBarber, setSelectedBarber] = useState<string>('all');
   const [loading, setLoading] = useState(true);
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [sidebarClosing, setSidebarClosing] = useState(false);
   const [search, setSearch] = useState('');
 
   const closeSidebar = useCallback(() => {
-    setSidebarClosing(true);
-    setTimeout(() => {
-      setSidebarOpen(false);
-      setSidebarClosing(false);
-    }, 200);
+    setSidebarOpen(false);
   }, []);
 
   useEffect(() => { fetchAllBarbers().then((b) => setBarbers(b)); }, []);
@@ -72,11 +64,6 @@ export function AdminPanel({ userRole, onSignOut, onGoPublic }: AdminPanelProps)
     const { data } = await query;
     setBlocks((data as BarberBlock[]) ?? []);
   }, [selectedBarber]);
-
-  const fetchStaff = useCallback(async () => {
-    const { data } = await supabase.from('staff').select('*').order('created_at', { ascending: false });
-    setStaffList((data as StaffMember[]) ?? []);
-  }, []);
 
   const fetchCustomers = useCallback(async () => {
     const { data } = await supabase.from('customers').select('*').order('created_at', { ascending: false });
@@ -109,10 +96,9 @@ export function AdminPanel({ userRole, onSignOut, onGoPublic }: AdminPanelProps)
     { id: 'today', label: 'Citas de Hoy', icon: CalendarDays, category: 'Principal' },
     { id: 'manual', label: 'Cita Manual', icon: PlusCircle, category: 'Principal' },
     { id: 'agenda', label: 'Agenda Completa', icon: Clock, category: 'Principal' },
-    { id: 'availability', label: 'Horarios y Bloqueos', icon: SlidersHorizontal, category: 'Control' },
-    { id: 'schedule', label: 'Horarios Semanales', icon: Clock, category: 'Control' },
+    { id: 'availability', label: 'Horarios y Bloqueos', icon: SlidersHorizontal, category: 'Control', adminOnly: true },
+    { id: 'schedule', label: 'Horarios Semanales', icon: Clock, category: 'Control', adminOnly: true },
     { id: 'customers', label: 'Clientes', icon: Users, category: 'Gestión', adminOnly: true },
-    { id: 'verify', label: 'Verificar Barberos', icon: UserCheck, category: 'Gestión', adminOnly: true },
     { id: 'services', label: 'Servicios', icon: Scissors, category: 'Gestión', adminOnly: true },
     { id: 'staff', label: 'Personal', icon: Users, category: 'Gestión', adminOnly: true },
   ];
@@ -124,23 +110,11 @@ export function AdminPanel({ userRole, onSignOut, onGoPublic }: AdminPanelProps)
 
   const handleNav = (id: AdminTab) => { setTab(id); closeSidebar(); };
 
-  const handleVerify = async (email: string) => {
-    const { error } = await verifyBarber(email);
-    if (error) alert(error);
-    fetchStaff();
-  };
-
-  const handleReject = async (email: string) => {
-    const { error } = await rejectBarber(email);
-    if (error) alert(error);
-    fetchStaff();
-  };
-
   const panelTitle = isAdmin ? 'Panel de Administración' : 'Panel de Barbero';
 
   return (
     <div className="flex min-h-screen bg-zinc-950 text-zinc-200 animate-fade-in">
-      {/* Icon Dock */}
+      {/* Icon Dock — desktop only */}
       <div className="fixed left-0 top-0 z-40 hidden h-screen w-16 flex-col items-center border-r border-white/5 bg-zinc-900/80 py-5 backdrop-blur-xl md:flex">
         <div className="mb-6 flex h-10 w-10 items-center justify-center rounded-xl gold-gradient font-display text-sm font-bold text-black">AM</div>
         <nav className="flex flex-1 flex-col gap-2">
@@ -156,43 +130,36 @@ export function AdminPanel({ userRole, onSignOut, onGoPublic }: AdminPanelProps)
             );
           })}
         </nav>
-        <div className="flex flex-col gap-2">
-          <button onClick={onGoPublic} className="flex h-11 w-11 items-center justify-center rounded-xl text-zinc-500 transition-colors hover:bg-white/5 hover:text-gold" title="Volver a la web">
-            <ArrowLeft className="h-5 w-5" strokeWidth={1.8} />
-          </button>
-          <button onClick={onSignOut} className="flex h-11 w-11 items-center justify-center rounded-xl text-zinc-500 transition-colors hover:bg-red-500/10 hover:text-red-400" title="Cerrar sesión">
-            <LogOut className="h-5 w-5" strokeWidth={1.8} />
-          </button>
-        </div>
+        <button onClick={onSignOut} className="flex h-11 w-11 items-center justify-center rounded-xl text-zinc-500 transition-colors hover:bg-red-500/10 hover:text-red-400" title="Cerrar sesión">
+          <LogOut className="h-5 w-5" strokeWidth={1.8} />
+        </button>
       </div>
 
       {/* Desktop Sidebar */}
       <div className="fixed left-16 top-0 z-30 hidden h-screen w-64 flex-col border-r border-white/5 bg-zinc-900/60 backdrop-blur-xl md:flex">
         <SidebarContent barbers={barbers} selectedBarber={selectedBarber} setSelectedBarber={setSelectedBarber}
           activeBarber={activeBarber} search={search} setSearch={setSearch} tab={tab} onNav={handleNav}
-          filteredNav={filteredNav} todayCount={todayCount} onSignOut={onSignOut} onGoPublic={onGoPublic} isAdmin={isAdmin} panelTitle={panelTitle} />
+          filteredNav={filteredNav} todayCount={todayCount} onSignOut={onSignOut} isAdmin={isAdmin} panelTitle={panelTitle} />
       </div>
 
-      {/* Mobile sidebar */}
+      {/* Mobile sidebar — smooth slide-in from left */}
       {sidebarOpen && (
         <div className="fixed inset-0 z-50 md:hidden">
-          <div className={`absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity duration-200 ${sidebarClosing ? 'opacity-0' : 'opacity-100'}`} onClick={closeSidebar} />
-          <AnimatedContent distance={300} direction="horizontal" reverse={false} duration={0.2} ease="power2.out" initialOpacity={0} animateOpacity={true} threshold={0} className={`absolute left-0 top-0 h-full transition-transform duration-200 ease-out ${sidebarClosing ? '-translate-x-full' : 'translate-x-0'}`}>
-            <div className="h-full w-72 border-r border-white/5 bg-zinc-900/95 backdrop-blur-xl">
-              <button onClick={closeSidebar} className="absolute right-3 top-4 z-10 flex h-8 w-8 items-center justify-center rounded-full bg-white/5 text-zinc-400">
-                <X className="h-4 w-4" />
-              </button>
-              <SidebarContent barbers={barbers} selectedBarber={selectedBarber} setSelectedBarber={setSelectedBarber}
-                activeBarber={activeBarber} search={search} setSearch={setSearch} tab={tab} onNav={handleNav}
-                filteredNav={filteredNav} todayCount={todayCount} onSignOut={onSignOut} onGoPublic={onGoPublic} isAdmin={isAdmin} panelTitle={panelTitle} />
-            </div>
-          </AnimatedContent>
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity duration-300" onClick={closeSidebar} />
+          <div className="absolute left-0 top-0 h-full w-72 border-r border-white/5 bg-zinc-900/95 backdrop-blur-xl transition-transform duration-300 ease-out animate-slide-in-left">
+            <button onClick={closeSidebar} className="absolute right-3 top-4 z-10 flex h-8 w-8 items-center justify-center rounded-full bg-white/5 text-zinc-400">
+              <X className="h-4 w-4" />
+            </button>
+            <SidebarContent barbers={barbers} selectedBarber={selectedBarber} setSelectedBarber={setSelectedBarber}
+              activeBarber={activeBarber} search={search} setSearch={setSearch} tab={tab} onNav={handleNav}
+              filteredNav={filteredNav} todayCount={todayCount} onSignOut={onSignOut} isAdmin={isAdmin} panelTitle={panelTitle} />
+          </div>
         </div>
       )}
 
       {/* Main content */}
       <div className="flex-1 md:ml-80">
-        {/* Mobile header */}
+        {/* Mobile header — only "Volver a la web" button */}
         <header className="sticky top-0 z-30 flex items-center gap-3 border-b border-white/5 bg-zinc-900/80 px-4 py-4 backdrop-blur-xl md:hidden">
           <button onClick={() => setSidebarOpen(true)} aria-label="Abrir menú" className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/5 text-zinc-300">
             <Menu className="h-5 w-5" />
@@ -201,17 +168,12 @@ export function AdminPanel({ userRole, onSignOut, onGoPublic }: AdminPanelProps)
             <p className="text-[0.6rem] uppercase tracking-[0.2em] text-gold">{panelTitle}</p>
             <h2 className="font-display text-lg font-bold leading-tight text-white">{navItems.find((n) => n.id === tab)?.label}</h2>
           </div>
-          <div className="flex items-center gap-1.5">
-            <button onClick={onGoPublic} aria-label="Volver a la web" className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/5 text-zinc-300 transition-colors hover:text-gold">
-              <ArrowLeft className="h-4 w-4" />
-            </button>
-            <button onClick={onSignOut} aria-label="Cerrar sesión" className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/5 text-zinc-300 transition-colors hover:text-red-400">
-              <LogOut className="h-4 w-4" />
-            </button>
-          </div>
+          <button onClick={onGoPublic} aria-label="Volver a la web" className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/5 text-zinc-300 transition-colors hover:text-gold">
+            <ArrowLeft className="h-4 w-4" />
+          </button>
         </header>
 
-        {/* Desktop header */}
+        {/* Desktop header — only "Volver a la web" button */}
         <header className="sticky top-0 z-20 hidden items-center justify-between border-b border-white/5 bg-zinc-950/60 px-8 py-5 backdrop-blur-xl md:flex">
           <div>
             <p className="text-[0.6rem] uppercase tracking-[0.2em] text-gold">{panelTitle}</p>
@@ -230,14 +192,9 @@ export function AdminPanel({ userRole, onSignOut, onGoPublic }: AdminPanelProps)
             ) : (
               <span className="rounded-full glass-card px-3 py-1.5 text-sm font-medium text-zinc-400">Todos los barberos</span>
             )}
-            <div className="flex items-center gap-1.5">
-              <button onClick={onGoPublic} className="flex h-9 w-9 items-center justify-center rounded-full glass-card text-zinc-400 transition-colors hover:text-gold" title="Volver a la web">
-                <ArrowLeft className="h-4 w-4" />
-              </button>
-              <button onClick={onSignOut} className="flex h-9 w-9 items-center justify-center rounded-full glass-card text-zinc-400 transition-colors hover:text-red-400" title="Cerrar sesión">
-                <LogOut className="h-4 w-4" />
-              </button>
-            </div>
+            <button onClick={onGoPublic} className="flex h-9 w-9 items-center justify-center rounded-full glass-card text-zinc-400 transition-colors hover:text-gold" title="Volver a la web">
+              <ArrowLeft className="h-4 w-4" />
+            </button>
           </div>
         </header>
 
@@ -246,14 +203,11 @@ export function AdminPanel({ userRole, onSignOut, onGoPublic }: AdminPanelProps)
           {tab === 'today' && <AdminToday bookings={bookings} loading={loading} onRefresh={refresh} />}
           {tab === 'agenda' && <AdminAgenda bookings={bookings} loading={loading} onRefresh={refresh} />}
           {tab === 'manual' && <AdminManualBooking onCreated={refresh} />}
-          {tab === 'availability' && <AdminAvailability blocks={blocks} onRefresh={refresh} />}
+          {tab === 'availability' && isAdmin && <AdminAvailability blocks={blocks} onRefresh={refresh} />}
           {tab === 'services' && isAdmin && <AdminServices />}
           {tab === 'staff' && isAdmin && <AdminStaff />}
-          {tab === 'schedule' && <AdminStaffSchedule />}
+          {tab === 'schedule' && isAdmin && <AdminStaffSchedule />}
           {tab === 'customers' && isAdmin && <AdminCustomers customers={customers} loading={loading} onRefresh={refresh} />}
-          {tab === 'verify' && isAdmin && (
-            <VerifyStaff staffList={staffList} onVerify={handleVerify} onReject={handleReject} onRefresh={fetchStaff} />
-          )}
           </div>
         </div>
       </div>
@@ -262,11 +216,11 @@ export function AdminPanel({ userRole, onSignOut, onGoPublic }: AdminPanelProps)
 }
 
 function SidebarContent({
-  barbers, selectedBarber, setSelectedBarber, activeBarber, search, setSearch, tab, onNav, filteredNav, todayCount, onSignOut, onGoPublic, isAdmin, panelTitle,
+  barbers, selectedBarber, setSelectedBarber, activeBarber, search, setSearch, tab, onNav, filteredNav, todayCount, onSignOut, isAdmin, panelTitle,
 }: {
   barbers: Barber[]; selectedBarber: string; setSelectedBarber: (id: string) => void;
   activeBarber: Barber | null; search: string; setSearch: (s: string) => void; tab: AdminTab;
-  onNav: (id: AdminTab) => void; filteredNav: NavItem[]; todayCount: number; onSignOut: () => void; onGoPublic: () => void; isAdmin: boolean; panelTitle: string;
+  onNav: (id: AdminTab) => void; filteredNav: NavItem[]; todayCount: number; onSignOut: () => void; isAdmin: boolean; panelTitle: string;
 }) {
   return (
     <div className="flex h-full flex-col">
@@ -313,82 +267,11 @@ function SidebarContent({
         })}
       </nav>
 
-      <div className="border-t border-white/5 p-3 space-y-0.5">
-        <button onClick={onGoPublic} className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-zinc-400 transition-all hover:bg-white/5 hover:text-gold">
-          <ArrowLeft className="h-4 w-4 shrink-0" strokeWidth={1.8} />
-          <span className="font-medium">Volver a la web</span>
-        </button>
+      <div className="border-t border-white/5 p-3">
         <button onClick={onSignOut} className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-zinc-400 transition-all hover:bg-red-500/10 hover:text-red-400">
           <LogOut className="h-4 w-4 shrink-0" strokeWidth={1.8} />
           <span className="font-medium">Cerrar sesión</span>
         </button>
-      </div>
-    </div>
-  );
-}
-
-function VerifyStaff({ staffList, onVerify, onReject, onRefresh }: {
-  staffList: StaffMember[];
-  onVerify: (email: string) => void;
-  onReject: (email: string) => void;
-  onRefresh: () => void;
-}) {
-  useEffect(() => { onRefresh(); }, [onRefresh]);
-
-  const pending = staffList.filter((s) => s.status === 'pending' && s.role === 'barber');
-  const verified = staffList.filter((s) => s.status === 'verified' && s.role === 'barber');
-
-  return (
-    <div className="mx-auto max-w-2xl space-y-6">
-      <div>
-        <h3 className="mb-3 font-display text-lg font-bold text-white">Pendientes de verificación</h3>
-        {pending.length === 0 ? (
-          <p className="text-sm text-zinc-500">No hay barberos pendientes.</p>
-        ) : (
-          <div className="space-y-2.5">
-            {pending.map((s) => (
-              <div key={s.email} className="flex items-center gap-3 rounded-2xl glass-card p-3.5">
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-500/15 text-amber-400">
-                  <Clock className="h-5 w-5" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-bold text-white">{s.full_name || s.email}</p>
-                  <p className="text-xs text-zinc-500">{s.email}</p>
-                </div>
-                <button onClick={() => onVerify(s.email)} className="flex items-center gap-1.5 rounded-full bg-emerald-500/15 px-3 py-1.5 text-xs font-bold text-emerald-400 transition-all hover:bg-emerald-500/25">
-                  <UserCheck className="h-3.5 w-3.5" /> Verificar
-                </button>
-                <button onClick={() => onReject(s.email)} className="rounded-full bg-red-500/10 px-3 py-1.5 text-xs font-bold text-red-400 transition-all hover:bg-red-500/20">
-                  Rechazar
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-
-      <div>
-        <h3 className="mb-3 font-display text-lg font-bold text-white">Barberos verificados</h3>
-        {verified.length === 0 ? (
-          <p className="text-sm text-zinc-500">No hay barberos verificados.</p>
-        ) : (
-          <div className="space-y-2.5">
-            {verified.map((s) => (
-              <div key={s.email} className="flex items-center gap-3 rounded-2xl glass-card p-3.5">
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-500/15 text-emerald-400">
-                  <UserCheck className="h-5 w-5" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-bold text-white">{s.full_name || s.email}</p>
-                  <p className="text-xs text-zinc-500">{s.email}</p>
-                </div>
-                <button onClick={() => onReject(s.email)} className="rounded-full bg-red-500/10 px-3 py-1.5 text-xs font-bold text-red-400 transition-all hover:bg-red-500/20">
-                  Suspender
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
       </div>
     </div>
   );

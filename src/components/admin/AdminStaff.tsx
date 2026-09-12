@@ -75,6 +75,7 @@ function BarberForm({ barber, onClose, onSaved }: { barber: Barber | null; onClo
   const [name, setName] = useState(barber?.name ?? '');
   const [role, setRole] = useState(barber?.role ?? 'Barbero');
   const [id, setId] = useState(barber?.id ?? '');
+  const [googleEmail, setGoogleEmail] = useState(barber?.google_email ?? '');
   const [photoUrl, setPhotoUrl] = useState(barber?.photo_url ?? '');
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -100,10 +101,10 @@ function BarberForm({ barber, onClose, onSaved }: { barber: Barber | null; onClo
     try {
       const initials = name.trim().split(' ').map((w) => w[0]).join('').slice(0, 2).toUpperCase();
       if (barber) {
-        await supabase.from('barbers').update({ name: name.trim(), role: role.trim() || 'Barbero', initials, photo_url: photoUrl || null }).eq('id', barber.id);
+        await supabase.from('barbers').update({ name: name.trim(), role: role.trim() || 'Barbero', initials, photo_url: photoUrl || null, google_email: googleEmail.trim() || null }).eq('id', barber.id);
       } else {
         const newId = id.trim().toLowerCase().replace(/\s+/g, '-') || name.trim().toLowerCase().replace(/\s+/g, '-');
-        await supabase.from('barbers').insert({ id: newId, name: name.trim(), role: role.trim() || 'Barbero', initials, photo_url: photoUrl || null, active: true, sort_order: 99 });
+        await supabase.from('barbers').insert({ id: newId, name: name.trim(), role: role.trim() || 'Barbero', initials, photo_url: photoUrl || null, google_email: googleEmail.trim() || null, active: true, sort_order: 99 });
       }
       onSaved();
     } finally { setSaving(false); }
@@ -136,6 +137,12 @@ function BarberForm({ barber, onClose, onSaved }: { barber: Barber | null; onClo
         className="w-full rounded-xl glass-card px-4 py-3 text-sm text-white placeholder:text-zinc-600 focus:border-gold/30 focus:outline-none" />
       <input type="text" value={role} onChange={(e) => setRole(e.target.value)} placeholder="Rol (ej. Barbero, Propietario)"
         className="w-full rounded-xl glass-card px-4 py-3 text-sm text-white placeholder:text-zinc-600 focus:border-gold/30 focus:outline-none" />
+      <div>
+        <label className="mb-1.5 block text-xs font-medium uppercase tracking-wider text-zinc-500">Correo electrónico (Google)</label>
+        <input type="email" value={googleEmail} onChange={(e) => setGoogleEmail(e.target.value)} placeholder="barbero@gmail.com"
+          className="w-full rounded-xl glass-card px-4 py-3 text-sm text-white placeholder:text-zinc-600 focus:border-gold/30 focus:outline-none" />
+        <p className="mt-1.5 text-xs text-zinc-600">Si el barbero inicia sesión con este correo de Google, accederá automáticamente a su panel.</p>
+      </div>
 
       <button type="submit" disabled={saving || !name.trim()}
         className={`flex w-full items-center justify-center gap-2 rounded-full py-3.5 text-sm font-bold uppercase tracking-wider transition-all ${

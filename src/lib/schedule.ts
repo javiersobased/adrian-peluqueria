@@ -77,11 +77,19 @@ export function isSlotAvailable(
   slot: string,
   bookedSlots: Set<string>,
   slotBlocks: Set<string>,
-  timeRangeBlocks: { start: string; end: string }[]
+  timeRangeBlocks: { start: string; end: string }[],
+  selectedDate?: Date,
+  now: Date = new Date()
 ): boolean {
   if (bookedSlots.has(slot)) return false;
   if (slotBlocks.has(slot)) return false;
   if (isSlotInTimeRange(slot, timeRangeBlocks)) return false;
+  if (selectedDate && toISO(selectedDate) === toISO(now)) {
+    const [h, m] = slot.split(':').map(Number);
+    const slotMinutes = h * 60 + m;
+    const nowMinutes = now.getHours() * 60 + now.getMinutes();
+    if (slotMinutes <= nowMinutes) return false;
+  }
   return true;
 }
 

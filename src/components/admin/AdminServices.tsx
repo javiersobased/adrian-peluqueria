@@ -2,20 +2,26 @@ import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
 import { fetchAllServices } from '@/data/services';
 import type { Service } from '@/types';
-import { Scissors, Feather, CircleUserRound, Droplets, Paintbrush, UserRound, Plus, Trash2, Pencil, Check, X, type LucideIcon } from 'lucide-react';
+import { Plus, Trash2, Pencil, Check, X } from 'lucide-react';
 
-const ICON_OPTIONS: { id: string; icon: LucideIcon; label: string }[] = [
-  { id: 'scissors', icon: Scissors, label: 'Tijeras' },
-  { id: 'beard', icon: Feather, label: 'Barba' },
-  { id: 'scissors-crossed', icon: Scissors, label: 'Tijeras X' },
-  { id: 'contours', icon: CircleUserRound, label: 'Contornos' },
-  { id: 'wash', icon: Droplets, label: 'Lavado' },
-  { id: 'color', icon: Paintbrush, label: 'Color' },
-  { id: 'neck', icon: UserRound, label: 'Cuello' },
+const ICON_BASE = 'https://ghukyltijkgdbaewhmcm.supabase.co/storage/v1/object/public/service-icons';
+
+const ICON_OPTIONS: { id: string; src: string; label: string }[] = [
+  { id: 'scissors', src: `${ICON_BASE}/corte.png`, label: 'Corte' },
+  { id: 'scissors-crossed', src: `${ICON_BASE}/corte-barba.png`, label: 'Corte+Barba' },
+  { id: 'beard', src: `${ICON_BASE}/barba.png`, label: 'Barba' },
+  { id: 'color', src: `${ICON_BASE}/tinte.png`, label: 'Tinte' },
+  { id: 'contours', src: `${ICON_BASE}/peinado-estilo.png`, label: 'Peinado' },
+  { id: 'kids-cut', src: `${ICON_BASE}/corte-ninos.png`, label: 'Niños' },
+  { id: 'nose-wax', src: `${ICON_BASE}/depilado-nasal.png`, label: 'Nasal' },
+  { id: 'eyebrow-razor', src: `${ICON_BASE}/cejas-cuchilla.png`, label: 'Cejas' },
+  { id: 'clipper', src: `${ICON_BASE}/maquina-pelar.png`, label: 'Máquina' },
+  { id: 'wash', src: `${ICON_BASE}/polvos-volumen.png`, label: 'Polvos' },
+  { id: 'fade', src: `${ICON_BASE}/degradado-pelo.png`, label: 'Degradado' },
 ];
 
-const ICON_MAP: Record<string, LucideIcon> = Object.fromEntries(ICON_OPTIONS.map((o) => [o.id, o.icon]));
-function getIcon(name: string): LucideIcon { return ICON_MAP[name] ?? Scissors; }
+const ICON_MAP: Record<string, string> = Object.fromEntries(ICON_OPTIONS.map((o) => [o.id, o.src]));
+function getIconSrc(name: string): string { return ICON_MAP[name] ?? ICON_MAP.scissors; }
 
 export function AdminServices() {
   const [services, setServices] = useState<Service[]>([]);
@@ -62,11 +68,11 @@ export function AdminServices() {
 
       <div className="space-y-2.5">
         {services.map((s) => {
-          const Icon = getIcon(s.icon);
+          const iconSrc = getIconSrc(s.icon);
           return (
             <div key={s.id} className={`flex items-center gap-3 rounded-2xl glass-card p-3.5 transition-colors hover:border-gold/15 ${!s.active ? 'opacity-50' : ''}`}>
-              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gold/5 text-gold">
-                <Icon className="h-5 w-5" strokeWidth={1.6} />
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gold/5 overflow-hidden">
+                <img src={iconSrc} alt="" className="h-7 w-7 rounded-lg object-cover" />
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-bold text-white">{s.name}</p>
@@ -131,13 +137,12 @@ function ServiceForm({ service, onClose, onSaved }: { service: Service | null; o
         <p className="mb-2 text-xs text-zinc-500">Icono</p>
         <div className="grid grid-cols-4 gap-2">
           {ICON_OPTIONS.map((opt) => {
-            const Icon = opt.icon;
             return (
               <button key={opt.id} type="button" onClick={() => setIcon(opt.id)}
                 className={`flex flex-col items-center gap-1 rounded-xl py-3 text-[0.6rem] font-medium transition-all ${
                   icon === opt.id ? 'gold-gradient text-black' : 'glass-card text-zinc-400 hover:text-white'
                 }`}>
-                <Icon className="h-5 w-5" strokeWidth={1.6} />{opt.label}
+                <img src={opt.src} alt="" className="h-6 w-6 rounded-lg object-cover" />{opt.label}
               </button>
             );
           })}

@@ -32,7 +32,7 @@ export function BarberStep({ onBack, onSelect }: BarberStepProps) {
             <ArrowLeftIcon className="h-4 w-4" />
           </button>
           <div>
-            <p className="text-[0.65rem] uppercase tracking-[0.2em] text-gold">Paso 1 de 4</p>
+            <p className="text-[0.65rem] uppercase tracking-[0.2em] text-gold">Paso 2 de 4</p>
             <h2 className="font-display text-2xl font-bold leading-tight text-white">Elige tu barbero</h2>
           </div>
         </div>

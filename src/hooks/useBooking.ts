@@ -18,16 +18,16 @@ export function useBooking() {
 
   const startBooking = useCallback(() => {
     setError(null);
-    setStep('barber');
-  }, []);
-
-  const selectBarber = useCallback((b: Barber) => {
-    setBarber(b);
     setStep('service');
   }, []);
 
   const selectService = useCallback((s: Service) => {
     setService(s);
+    setStep('barber');
+  }, []);
+
+  const selectBarber = useCallback((b: Barber) => {
+    setBarber(b);
     setStep('datetime');
   }, []);
 
@@ -40,9 +40,9 @@ export function useBooking() {
   const goBack = useCallback(() => {
     setStep((prev) => {
       if (prev === 'details') return 'datetime';
-      if (prev === 'datetime') return 'service';
-      if (prev === 'service') return 'barber';
-      if (prev === 'barber') return 'landing';
+      if (prev === 'datetime') return 'barber';
+      if (prev === 'barber') return 'service';
+      if (prev === 'service') return 'landing';
       return prev;
     });
   }, []);

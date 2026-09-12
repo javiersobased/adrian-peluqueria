@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Scissors, Feather, CircleUserRound, Droplets, Paintbrush, UserRound, ChevronRight, type LucideIcon } from 'lucide-react';
+import { ChevronRight } from 'lucide-react';
 import { fetchServices } from '@/data/services';
 import type { Service } from '@/types';
 import { ArrowLeftIcon } from '@/components/icons';
@@ -9,14 +9,20 @@ interface ServiceStepProps {
   onSelect: (s: Service) => void;
 }
 
-const SERVICE_ICONS: Record<string, LucideIcon> = {
-  scissors: Scissors,
-  beard: Feather,
-  'scissors-crossed': Scissors,
-  contours: CircleUserRound,
-  wash: Droplets,
-  color: Paintbrush,
-  neck: UserRound,
+const ICON_BASE = 'https://ghukyltijkgdbaewhmcm.supabase.co/storage/v1/object/public/service-icons';
+
+const SERVICE_ICONS: Record<string, string> = {
+  scissors: `${ICON_BASE}/corte.png`,
+  'scissors-crossed': `${ICON_BASE}/corte-barba.png`,
+  beard: `${ICON_BASE}/barba.png`,
+  color: `${ICON_BASE}/tinte.png`,
+  contours: `${ICON_BASE}/peinado-estilo.png`,
+  'kids-cut': `${ICON_BASE}/corte-ninos.png`,
+  'nose-wax': `${ICON_BASE}/depilado-nasal.png`,
+  'eyebrow-razor': `${ICON_BASE}/cejas-cuchilla.png`,
+  clipper: `${ICON_BASE}/maquina-pelar.png`,
+  wash: `${ICON_BASE}/polvos-volumen.png`,
+  fade: `${ICON_BASE}/degradado-pelo.png`,
 };
 
 export function ServiceStep({ onBack, onSelect }: ServiceStepProps) {
@@ -32,7 +38,7 @@ export function ServiceStep({ onBack, onSelect }: ServiceStepProps) {
 
   return (
     <div className="min-h-screen animate-slide-in">
-      <StepHeader title="Elige tu servicio" subtitle="Paso 2 de 4" onBack={onBack} />
+      <StepHeader title="Elige tu servicio" subtitle="Paso 1 de 4" onBack={onBack} />
       <div className="px-5 pb-10 pt-4">
         <p className="mb-5 text-sm text-zinc-400">Elige el servicio que necesitas</p>
 
@@ -45,7 +51,7 @@ export function ServiceStep({ onBack, onSelect }: ServiceStepProps) {
         ) : (
           <ul className="space-y-2.5">
             {services.map((service, i) => {
-              const Icon = SERVICE_ICONS[service.icon] ?? Scissors;
+              const iconUrl = SERVICE_ICONS[service.icon] ?? SERVICE_ICONS.scissors;
               return (
               <li key={service.id}>
                 <button
@@ -53,8 +59,8 @@ export function ServiceStep({ onBack, onSelect }: ServiceStepProps) {
                   style={{ animationDelay: `${i * 0.05}s` }}
                   className="group flex w-full items-center gap-4 rounded-3xl glass-card p-4 text-left transition-all duration-300 hover:border-gold/20 hover:bg-zinc-850/80 active:scale-[0.98] animate-fade-up"
                 >
-                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-gold/5 text-gold transition-all duration-300 group-hover:bg-gold/10">
-                    <Icon className="h-6 w-6" strokeWidth={1.5} />
+                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-gold/5 transition-all duration-300 group-hover:bg-gold/10 overflow-hidden">
+                    <img src={iconUrl} alt="" className="h-8 w-8 rounded-lg object-cover" />
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="font-display text-sm font-bold leading-tight text-white">{service.name}</p>

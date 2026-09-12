@@ -176,8 +176,8 @@ export function DateTimeStep({ barber, onBack, onContinue }: DateTimeStepProps) 
                 </div>
 
                 {(() => {
-                  const morningAvail = slots.morning.filter((s) => isSlotAvailable(s, bookedSlots, slotBlocks, timeRangeBlocks));
-                  const afternoonAvail = slots.afternoon.filter((s) => isSlotAvailable(s, bookedSlots, slotBlocks, timeRangeBlocks));
+                  const morningAvail = slots.morning.filter((s) => isSlotAvailable(s, bookedSlots, slotBlocks, timeRangeBlocks, selected ?? undefined));
+                  const afternoonAvail = slots.afternoon.filter((s) => isSlotAvailable(s, bookedSlots, slotBlocks, timeRangeBlocks, selected ?? undefined));
                   const totalAvail = morningAvail.length + afternoonAvail.length;
 
                   if (totalAvail === 0) {

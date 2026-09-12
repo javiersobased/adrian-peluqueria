@@ -73,7 +73,7 @@ export function DetailsStep({ onBack, onSubmit, submitting, error }: DetailsStep
             onChange={(v) => setForm({ ...form, fullName: v })}
             onBlur={() => setTouched({ ...touched, fullName: true })}
             error={showErr('fullName') ? errors.fullName : ''}
-            placeholder="Ej. Adrián Millán"
+            placeholder="Nombre completo"
             type="text"
             autoComplete="name"
           />
@@ -84,7 +84,7 @@ export function DetailsStep({ onBack, onSubmit, submitting, error }: DetailsStep
             onChange={(v) => setForm({ ...form, phone: v })}
             onBlur={() => setTouched({ ...touched, phone: true })}
             error={showErr('phone') ? errors.phone : ''}
-            placeholder="Ej. 612 345 678 o +34 612 345 678"
+            placeholder="612 345 678"
             type="tel"
             autoComplete="tel"
           />

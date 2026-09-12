@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
 import { fetchAllBarbers } from '@/data/services';
-import type { SavedBooking, BarberBlock, Barber, StaffMember, Customer, UserRole } from '@/types';
+import type { SavedBooking, BarberBlock, Barber, Customer, UserRole } from '@/types';
 import { AdminToday } from '@/components/admin/AdminToday';
 import { AdminAgenda } from '@/components/admin/AdminAgenda';
 import { AdminManualBooking } from '@/components/admin/AdminManualBooking';
@@ -74,10 +74,10 @@ export function AdminPanel({ userRole, onSignOut, onGoPublic }: AdminPanelProps)
     setLoading(true);
     await Promise.all([fetchBookings(), fetchBlocks()]);
     if (isAdmin) {
-      await Promise.all([fetchStaff(), fetchCustomers()]);
+      await fetchCustomers();
     }
     setLoading(false);
-  }, [fetchBookings, fetchBlocks, fetchStaff, fetchCustomers, isAdmin]);
+  }, [fetchBookings, fetchBlocks, fetchCustomers, isAdmin]);
 
   useEffect(() => { refresh(); }, [refresh]);
 

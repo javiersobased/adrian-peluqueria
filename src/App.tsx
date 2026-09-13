@@ -32,20 +32,31 @@ function App() {
   const resumedRef = useRef(false);
   const roleCheckedRef = useRef(false);
 
-  // Detect #admin hash on initial load for PWA admin shortcut
+  // Detectar ruta real en lugar del hash al cargar la página
   useEffect(() => {
-    if (window.location.hash === '#admin') {
+    const path = window.location.pathname;
+    if (path === '/admin' || window.location.hash === '#admin') {
       setView('admin');
+    } else if (path === '/mis-citas') {
+      setView('my-bookings');
     }
   }, []);
 
-  // Set PWA context based on current view
+  // Inyectar el manifest correcto dinámicamente y ajustar el PWA context
   useEffect(() => {
-    if (view === 'admin') {
-      setActivePwaContext('admin');
-    } else {
-      setActivePwaContext('booking');
+    const isAppAdmin = view === 'admin';
+    
+    // Cambiar el manifest en el DOM
+    let manifestLink = document.querySelector<HTMLLinkElement>('link[rel="manifest"]');
+    if (!manifestLink) {
+      manifestLink = document.createElement('link');
+      manifestLink.rel = 'manifest';
+      document.head.appendChild(manifestLink);
     }
+    manifestLink.href = isAppAdmin ? '/manifest-admin.json' : '/manifest.json';
+
+    // Establecer el contexto PWA
+    setActivePwaContext(isAppAdmin ? 'admin' : 'booking');
   }, [view]);
 
   useEffect(() => {
@@ -54,6 +65,7 @@ function App() {
 
     if (auth.user && auth.role?.status === 'verified' && auth.role?.role) {
       setView('admin');
+      window.history.pushState({}, '', '/admin');
     }
   }, [auth.loading, auth.user, auth.role]);
 
@@ -92,15 +104,19 @@ function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [auth.loading, auth.user]);
 
+  // Funciones de navegación actualizadas para usar URLs limpias
   const goPublic = useCallback(() => {
+    window.history.pushState({}, '', '/');
     setView('public');
   }, []);
 
   const goAdmin = useCallback(() => {
+    window.history.pushState({}, '', '/admin');
     setView('admin');
   }, []);
 
   const goMyBookings = useCallback(() => {
+    window.history.pushState({}, '', '/mis-citas');
     setView('my-bookings');
   }, []);
 
@@ -122,6 +138,7 @@ function App() {
     } else {
       setNeedsAdminBootstrap(false);
       await auth.refreshRole();
+      window.history.pushState({}, '', '/admin');
       setView('admin');
     }
     setBootstrapping(false);
@@ -149,7 +166,7 @@ function App() {
     return (
       <AdminPanel
         userRole={auth.role!}
-        onSignOut={async () => { await auth.signOut(); setView('public'); }}
+        onSignOut={async () => { await auth.signOut(); goPublic(); }}
         onGoPublic={goPublic}
       />
     );

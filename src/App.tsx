@@ -198,7 +198,7 @@ function App() {
             user={auth.user}
             role={auth.role}
             onSignOut={auth.signOut}
-            onGoToMyBookings={auth.user ? goMyBookings : undefined}
+            onGoToMyBookings={auth.user && !auth.role?.role ? goMyBookings : undefined}
           />
         )}
 

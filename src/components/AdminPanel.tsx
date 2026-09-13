@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { InstallAppButton } from '@/components/InstallAppButton';
 import { setActivePwaContext } from '@/lib/pwaContext';
+import OneSignal from 'react-onesignal'; // <-- 1. Importación añadida
 
 const CATEGORIES = ['Principal', 'Control', 'Gestión'];
 
@@ -48,6 +49,32 @@ export function AdminPanel({ userRole, onSignOut }: AdminPanelProps) {
   const [search, setSearch] = useState('');
 
   useEffect(() => { setActivePwaContext('admin'); }, []);
+
+  // --- 2. INICIO DE CONFIGURACIÓN DE ONESIGNAL ---
+  useEffect(() => {
+    const initOneSignal = async () => {
+      try {
+        await OneSignal.init({
+          appId: "86a6a369-9e5f-472b-8461-cac4fb762af7",
+          allowLocalhostAsSecureOrigin: true,
+        });
+
+        // Pide permiso al usuario (barbero/admin)
+        OneSignal.Slidedown.promptPush();
+
+        // Extrae el ID del usuario (soporta user_id o id dependiendo de tu interfaz UserRole)
+        const userId = (userRole as any).user_id || (userRole as any).id;
+        if (userId) {
+          OneSignal.login(userId);
+        }
+      } catch (error) {
+        console.error("Error inicializando OneSignal:", error);
+      }
+    };
+
+    initOneSignal();
+  }, [userRole]);
+  // --- FIN DE CONFIGURACIÓN DE ONESIGNAL ---
 
   const closeSidebar = useCallback(() => {
     setSidebarOpen(false);

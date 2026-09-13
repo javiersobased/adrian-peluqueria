@@ -362,6 +362,12 @@ export function Footer() {
       <div className="mx-auto max-w-md text-center">
         <p className="font-display text-xl font-bold text-white">Peluquería Adrián Millán</p>
         <p className="mt-1 text-xs text-zinc-500">Barbería y peluquería · Huelva</p>
+        <a
+          href="/legal/"
+          className="mt-4 inline-block text-[0.7rem] font-medium text-zinc-500 underline decoration-zinc-700 underline-offset-2 transition-colors hover:text-gold"
+        >
+          Aviso legal, privacidad y términos de reserva
+        </a>
         <p className="mt-6 text-[0.7rem] text-zinc-600">© {new Date().getFullYear()} Peluquería Adrián Millán. Todos los derechos reservados.</p>
       </div>
     </footer>

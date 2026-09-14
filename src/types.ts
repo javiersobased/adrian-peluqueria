@@ -104,3 +104,24 @@ export interface UserRole {
   barber_id: string | null;
   email: string | null;
 }
+
+export interface StoreCategory {
+  id: string;
+  name: string;
+  slug: string;
+  sort_order: number;
+  active: boolean;
+  created_at: string;
+}
+
+export interface StoreProduct {
+  id: string;
+  category_id: string;
+  name: string;
+  description: string | null;
+  price: number;
+  image_url: string | null;
+  sort_order: number;
+  active: boolean;
+  created_at: string;
+}

@@ -10,6 +10,7 @@ import { FloatingButtons } from '@/components/FloatingButtons';
 import { AdminPanel } from '@/components/AdminPanel';
 import { LoginModal } from '@/components/LoginModal';
 import { MyBookings } from '@/components/MyBookings';
+import { Catalog } from '@/components/Catalog';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import type { SavedBooking } from '@/types';
 import { getPendingBooking, clearPendingBooking, savePendingBooking } from '@/lib/pendingBooking';
@@ -17,7 +18,7 @@ import { createBooking } from '@/lib/bookings';
 import { hasAdmin, claimAdmin } from '@/lib/auth';
 import { setActivePwaContext } from '@/lib/pwaContext';
 
-type View = 'public' | 'admin' | 'my-bookings';
+type View = 'public' | 'admin' | 'my-bookings' | 'catalog';
 
 function App() {
   const booking = useBooking();
@@ -32,31 +33,20 @@ function App() {
   const resumedRef = useRef(false);
   const roleCheckedRef = useRef(false);
 
-  // Detectar ruta real en lugar del hash al cargar la página
+  // Detect #admin hash on initial load for PWA admin shortcut
   useEffect(() => {
-    const path = window.location.pathname;
-    if (path === '/admin' || window.location.hash === '#admin') {
+    if (window.location.hash === '#admin') {
       setView('admin');
-    } else if (path === '/mis-citas') {
-      setView('my-bookings');
     }
   }, []);
 
-  // Inyectar el manifest correcto dinámicamente y ajustar el PWA context
+  // Set PWA context based on current view
   useEffect(() => {
-    const isAppAdmin = view === 'admin';
-    
-    // Cambiar el manifest en el DOM
-    let manifestLink = document.querySelector<HTMLLinkElement>('link[rel="manifest"]');
-    if (!manifestLink) {
-      manifestLink = document.createElement('link');
-      manifestLink.rel = 'manifest';
-      document.head.appendChild(manifestLink);
+    if (view === 'admin') {
+      setActivePwaContext('admin');
+    } else {
+      setActivePwaContext('booking');
     }
-    manifestLink.href = isAppAdmin ? '/manifest-admin.json' : '/manifest.json';
-
-    // Establecer el contexto PWA
-    setActivePwaContext(isAppAdmin ? 'admin' : 'booking');
   }, [view]);
 
   useEffect(() => {
@@ -65,7 +55,6 @@ function App() {
 
     if (auth.user && auth.role?.status === 'verified' && auth.role?.role) {
       setView('admin');
-      window.history.pushState({}, '', '/admin');
     }
   }, [auth.loading, auth.user, auth.role]);
 
@@ -104,20 +93,20 @@ function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [auth.loading, auth.user]);
 
-  // Funciones de navegación actualizadas para usar URLs limpias
   const goPublic = useCallback(() => {
-    window.history.pushState({}, '', '/');
     setView('public');
   }, []);
 
   const goAdmin = useCallback(() => {
-    window.history.pushState({}, '', '/admin');
     setView('admin');
   }, []);
 
   const goMyBookings = useCallback(() => {
-    window.history.pushState({}, '', '/mis-citas');
     setView('my-bookings');
+  }, []);
+
+  const goCatalog = useCallback(() => {
+    setView('catalog');
   }, []);
 
   const handleGoogleSignIn = useCallback(async () => {
@@ -138,7 +127,6 @@ function App() {
     } else {
       setNeedsAdminBootstrap(false);
       await auth.refreshRole();
-      window.history.pushState({}, '', '/admin');
       setView('admin');
     }
     setBootstrapping(false);
@@ -166,9 +154,30 @@ function App() {
     return (
       <AdminPanel
         userRole={auth.role!}
-        onSignOut={async () => { await auth.signOut(); goPublic(); }}
+        onSignOut={async () => { await auth.signOut(); setView('public'); }}
         onGoPublic={goPublic}
       />
+    );
+  }
+
+  // Catalog view — same fluid layout as public
+  if (view === 'catalog') {
+    return (
+      <div className="relative min-h-screen bg-ink text-zinc-200">
+        <div className="fixed inset-0 -z-20">
+          <img
+            src="https://images.pexels.com/photos/7195803/pexels-photo-7195803.jpeg?auto=compress&cs=tinysrgb&w=1260&h=1680"
+            alt=""
+            aria-hidden="true"
+            className="h-full w-full object-cover"
+          />
+          <div className="absolute inset-0 bg-black/85" />
+          <div className="absolute inset-0 backdrop-blur-xl" />
+        </div>
+        <div className="relative z-10 mx-auto w-full max-w-5xl">
+          <Catalog onBack={goPublic} />
+        </div>
+      </div>
     );
   }
 
@@ -215,7 +224,8 @@ function App() {
             user={auth.user}
             role={auth.role}
             onSignOut={auth.signOut}
-            onGoToMyBookings={auth.user && !auth.role?.role ? goMyBookings : undefined}
+            onGoToMyBookings={auth.user ? goMyBookings : undefined}
+            onGoToCatalog={goCatalog}
           />
         )}
 

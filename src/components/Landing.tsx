@@ -1,5 +1,5 @@
 import { CalendarIcon, MapPinIcon, ClockIcon, ChevronRightIcon } from '@/components/icons';
-import { Star, LogIn, LayoutDashboard, Scissors, ChevronDown, CalendarDays } from 'lucide-react';
+import { Star, LogIn, LayoutDashboard, Scissors, ChevronDown, CalendarDays, ShoppingBag } from 'lucide-react';
 import { OPENING_HOURS, SALON_MAPS_URL, SALON_ADDRESS } from '@/data/services';
 import { useState, useEffect } from 'react';
 import ScrollFloat from '@/components/reactbits/ScrollFloat';
@@ -7,7 +7,7 @@ import ScrollReveal from '@/components/reactbits/ScrollReveal';
 import Dock from '@/components/reactbits/Dock';
 import CountUp from '@/components/reactbits/CountUp';
 import { InstallAppButton } from '@/components/InstallAppButton';
-import { Home, Clock, MapPin, Calendar } from 'lucide-react';
+import { Home, Clock, MapPin, Calendar, ShoppingBag as ShoppingBagIcon } from 'lucide-react';
 import type { User as SupabaseUser } from '@supabase/supabase-js';
 import type { UserRole } from '@/types';
 import { safeInitial } from '@/lib/calendar';
@@ -20,6 +20,7 @@ interface LandingProps {
   role?: UserRole | null;
   onSignOut?: () => void;
   onGoToMyBookings?: () => void;
+  onGoToCatalog?: () => void;
 }
 
 const REVIEWS = [
@@ -34,7 +35,7 @@ const REVIEWS = [
 
 const REVIEW_URL = 'https://search.google.com/local/writereview?placeid=ChIJZQ8TpTLPEQ0RDdVh6plIAsU';
 
-export function Landing({ onBook, onSignIn, onGoToPanel, user, role, onSignOut, onGoToMyBookings }: LandingProps) {
+export function Landing({ onBook, onSignIn, onGoToPanel, user, role, onSignOut, onGoToMyBookings, onGoToCatalog }: LandingProps) {
   const [showAccountMenu, setShowAccountMenu] = useState(false);
   const [reviewIndex, setReviewIndex] = useState(0);
 
@@ -46,6 +47,7 @@ export function Landing({ onBook, onSignIn, onGoToPanel, user, role, onSignOut, 
     { icon: <Home size={18} />, label: 'Inicio', onClick: () => window.scrollTo({ top: 0, behavior: 'smooth' }) },
     { icon: <Clock size={18} />, label: 'Horarios', onClick: () => scrollToSection('horarios') },
     { icon: <MapPin size={18} />, label: 'Ubicación', onClick: () => scrollToSection('ubicacion') },
+    { icon: <ShoppingBagIcon size={18} />, label: 'Productos', onClick: () => onGoToCatalog?.() },
     { icon: <Calendar size={16} />, label: 'Reservar', onClick: onBook, highlight: true },
   ];
 
@@ -187,6 +189,41 @@ export function Landing({ onBook, onSignIn, onGoToPanel, user, role, onSignOut, 
           <span>Reserva online en menos de un minuto</span>
         </div>
       </header>
+
+      {/* Products CTA */}
+      {onGoToCatalog && (
+        <section className="px-6 py-16">
+          <div className="mx-auto max-w-5xl">
+            <div className="relative overflow-hidden rounded-3xl border border-gold/20 bg-zinc-900/70 backdrop-blur-xl shadow-2xl">
+              <div className="absolute inset-0 -z-10 opacity-20">
+                <img
+                  src="https://images.pexels.com/photos/47047/photo-47047.jpeg?auto=compress&cs=tinysrgb&w=1260&h=1680"
+                  alt=""
+                  aria-hidden="true"
+                  className="h-full w-full object-cover"
+                />
+              </div>
+              <div className="relative flex flex-col items-center gap-5 p-8 text-center md:flex-row md:text-left">
+                <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl gold-gradient">
+                  <ShoppingBag className="h-8 w-8 text-black" />
+                </div>
+                <div className="flex-1">
+                  <p className="mb-1 text-xs font-semibold uppercase tracking-[0.3em] text-gold">Novedad</p>
+                  <h3 className="font-display text-xl font-bold text-white sm:text-2xl">Descubre nuestros productos</h3>
+                  <p className="mt-1.5 text-sm text-zinc-400">Teléfonos reacondicionados, perfumes, reparaciones y mucho más.</p>
+                </div>
+                <button
+                  onClick={onGoToCatalog}
+                  className="group flex shrink-0 items-center gap-2.5 rounded-full gold-gradient px-6 py-3.5 text-sm font-bold uppercase tracking-wider text-black transition-all duration-300 hover:brightness-110 active:scale-95 gold-glow"
+                >
+                  Ver productos
+                  <ChevronRightIcon className="h-4 w-4 transition-transform duration-300 group-hover:translate-x-1" />
+                </button>
+              </div>
+            </div>
+          </div>
+        </section>
+      )}
 
       {/* About + Hours — grid on desktop */}
       <section className="px-6 py-20">
@@ -362,12 +399,6 @@ export function Footer() {
       <div className="mx-auto max-w-md text-center">
         <p className="font-display text-xl font-bold text-white">Peluquería Adrián Millán</p>
         <p className="mt-1 text-xs text-zinc-500">Barbería y peluquería · Huelva</p>
-        <a
-          href="/legal/"
-          className="mt-4 inline-block text-[0.7rem] font-medium text-zinc-500 underline decoration-zinc-700 underline-offset-2 transition-colors hover:text-gold"
-        >
-          Aviso legal, privacidad y términos de reserva
-        </a>
         <p className="mt-6 text-[0.7rem] text-zinc-600">© {new Date().getFullYear()} Peluquería Adrián Millán. Todos los derechos reservados.</p>
       </div>
     </footer>

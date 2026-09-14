@@ -2,7 +2,12 @@ import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
 import { fetchAllBarbers } from '@/data/services';
 import type { Barber } from '@/types';
-import { Plus, Trash2, Pencil, Check, X, Upload, UserRound } from 'lucide-react';
+import { Plus, Trash2, Pencil, Check, X, Upload, UserRound, ShieldCheck, Mail } from 'lucide-react';
+
+const MASTER_ADMINS = [
+  { name: 'Adrián Millán (Dueño)', email: 'adrian.millan.peguero@hotmail.com' },
+  { name: 'Francisco Javier (Soporte técnico)', email: 'franciscojavierfarinapadilla@gmail.com' },
+];
 
 export function AdminStaff() {
   const [barbers, setBarbers] = useState<Barber[]>([]);
@@ -19,9 +24,15 @@ export function AdminStaff() {
 
   useEffect(() => { load(); }, [load]);
 
-  const handleDelete = async (id: string) => {
-    if (!confirm('¿Eliminar este barbero? Esta acción no se puede deshacer.')) return;
-    await supabase.from('barbers').delete().eq('id', id);
+  const handleDelete = async (b: Barber) => {
+    if (!confirm(`¿Eliminar al barbero "${b.name}"? Esta acción revocará de inmediato cualquier acceso al panel.`)) return;
+    await supabase.from('barbers').delete().eq('id', b.id);
+    if (b.google_email) {
+      const cleanEmail = b.google_email.toLowerCase().trim();
+      if (!MASTER_ADMINS.some((a) => a.email === cleanEmail)) {
+        await supabase.from('staff').delete().eq('email', cleanEmail);
+      }
+    }
     load();
   };
 
@@ -30,42 +41,93 @@ export function AdminStaff() {
   }
 
   return (
-    <div className="mx-auto max-w-2xl space-y-4">
-      <button
-        onClick={() => { setCreating(true); setEditing(null); }}
-        className="flex w-full items-center justify-center gap-2 rounded-full gold-gradient py-3.5 text-sm font-bold uppercase tracking-wider text-black transition-all hover:brightness-110 active:scale-[0.98] gold-glow"
-      >
-        <Plus className="h-4 w-4" />Nuevo barbero
-      </button>
-
-      {(creating || editing) && (
-        <BarberForm barber={editing} onClose={() => { setCreating(false); setEditing(null); }} onSaved={() => { setCreating(false); setEditing(null); load(); }} />
-      )}
-
-      <div className="space-y-2.5">
-        {barbers.map((b) => (
-          <div key={b.id} className="flex items-center gap-3 rounded-2xl glass-card p-3.5 transition-colors hover:border-gold/15">
-            {b.photo_url ? (
-              <img src={b.photo_url} alt={b.name} className="h-12 w-12 shrink-0 rounded-xl object-cover ring-1 ring-white/10" />
-            ) : (
-              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl gold-gradient font-display text-base font-bold text-black">
-                {b.initials}
+    <div className="mx-auto max-w-2xl space-y-6">
+      {/* Master Admins Section */}
+      <div className="rounded-3xl border border-gold/20 bg-zinc-900/60 p-5 shadow-lg backdrop-blur-xl">
+        <div className="flex items-center gap-2 mb-3">
+          <ShieldCheck className="h-5 w-5 text-gold" />
+          <h4 className="font-display text-sm font-bold text-white uppercase tracking-wider">Administradores del sistema</h4>
+        </div>
+        <p className="text-xs text-zinc-400 mb-4">
+          Tienen acceso total incondicional al panel de administración (precios, horarios, tienda, clientes y citas).
+        </p>
+        <div className="space-y-2">
+          {MASTER_ADMINS.map((admin) => (
+            <div key={admin.email} className="flex items-center justify-between rounded-xl bg-white/5 px-3.5 py-2.5 text-xs">
+              <div>
+                <p className="font-bold text-white">{admin.name}</p>
+                <p className="text-[0.7rem] text-zinc-400">{admin.email}</p>
               </div>
-            )}
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-bold text-white">{b.name}</p>
-              <p className="text-xs text-zinc-500">{b.role}</p>
+              <span className="rounded-full bg-gold/15 px-2.5 py-0.5 text-[0.65rem] font-bold uppercase tracking-wider text-gold">
+                Admin
+              </span>
             </div>
-            <button onClick={() => { setEditing(b); setCreating(false); }} aria-label="Editar"
-              className="flex h-8 w-8 items-center justify-center rounded-full glass-card text-zinc-400 hover:text-white">
-              <Pencil className="h-4 w-4" />
-            </button>
-            <button onClick={() => handleDelete(b.id)} aria-label="Eliminar"
-              className="flex h-8 w-8 items-center justify-center rounded-full bg-red-500/10 text-red-400 hover:bg-red-500/20">
-              <Trash2 className="h-4 w-4" />
-            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Barbers / Staff List */}
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="font-display text-base font-bold text-white">Equipo de Barberos</h3>
+            <p className="text-xs text-zinc-400">Personal visible en la web para reservas y con acceso limitado a su agenda.</p>
           </div>
-        ))}
+          <button
+            onClick={() => { setCreating(true); setEditing(null); }}
+            className="inline-flex items-center gap-2 rounded-full gold-gradient px-4 py-2 text-xs font-bold uppercase tracking-wider text-black transition-all hover:brightness-110 active:scale-95 shadow-md"
+          >
+            <Plus className="h-4 w-4" />Nuevo barbero
+          </button>
+        </div>
+
+        {(creating || editing) && (
+          <BarberForm
+            barber={editing}
+            onClose={() => { setCreating(false); setEditing(null); }}
+            onSaved={() => { setCreating(false); setEditing(null); load(); }}
+          />
+        )}
+
+        <div className="space-y-2.5">
+          {barbers.map((b) => (
+            <div key={b.id} className="flex items-center gap-3.5 rounded-2xl glass-card p-3.5 transition-colors hover:border-gold/20">
+              {b.photo_url ? (
+                <img src={b.photo_url} alt={b.name} className="h-12 w-12 shrink-0 rounded-xl object-cover ring-1 ring-white/10" />
+              ) : (
+                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl gold-gradient font-display text-base font-bold text-black">
+                  {b.initials}
+                </div>
+              )}
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-bold text-white truncate">{b.name}</p>
+                <p className="text-xs text-zinc-400">{b.role}</p>
+                {b.google_email ? (
+                  <div className="flex items-center gap-1.5 mt-0.5 text-[0.7rem] text-gold">
+                    <Mail className="h-3 w-3" />
+                    <span className="truncate">{b.google_email}</span>
+                  </div>
+                ) : (
+                  <p className="text-[0.65rem] text-zinc-600">Sin acceso a panel asignado</p>
+                )}
+              </div>
+              <button
+                onClick={() => { setEditing(b); setCreating(false); }}
+                aria-label="Editar"
+                className="flex h-8 w-8 items-center justify-center rounded-full glass-card text-zinc-400 hover:text-white transition-colors"
+              >
+                <Pencil className="h-4 w-4" />
+              </button>
+              <button
+                onClick={() => handleDelete(b)}
+                aria-label="Eliminar"
+                className="flex h-8 w-8 items-center justify-center rounded-full bg-red-500/10 text-red-400 hover:bg-red-500/20 transition-colors"
+              >
+                <Trash2 className="h-4 w-4" />
+              </button>
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   );
@@ -100,11 +162,36 @@ function BarberForm({ barber, onClose, onSaved }: { barber: Barber | null; onClo
     setSaving(true);
     try {
       const initials = name.trim().split(' ').map((w) => w[0]).join('').slice(0, 2).toUpperCase();
+      const cleanNewEmail = googleEmail.trim().toLowerCase() || null;
+      const cleanOldEmail = barber?.google_email?.trim().toLowerCase() || null;
+
+      // If email was changed or removed, revoke old access from staff
+      if (cleanOldEmail && cleanOldEmail !== cleanNewEmail) {
+        if (!MASTER_ADMINS.some((a) => a.email === cleanOldEmail)) {
+          await supabase.from('staff').delete().eq('email', cleanOldEmail);
+        }
+      }
+
       if (barber) {
-        await supabase.from('barbers').update({ name: name.trim(), role: role.trim() || 'Barbero', initials, photo_url: photoUrl || null, google_email: googleEmail.trim() || null }).eq('id', barber.id);
+        await supabase.from('barbers').update({
+          name: name.trim(),
+          role: role.trim() || 'Barbero',
+          initials,
+          photo_url: photoUrl || null,
+          google_email: cleanNewEmail,
+        }).eq('id', barber.id);
       } else {
         const newId = id.trim().toLowerCase().replace(/\s+/g, '-') || name.trim().toLowerCase().replace(/\s+/g, '-');
-        await supabase.from('barbers').insert({ id: newId, name: name.trim(), role: role.trim() || 'Barbero', initials, photo_url: photoUrl || null, google_email: googleEmail.trim() || null, active: true, sort_order: 99 });
+        await supabase.from('barbers').insert({
+          id: newId,
+          name: name.trim(),
+          role: role.trim() || 'Barbero',
+          initials,
+          photo_url: photoUrl || null,
+          google_email: cleanNewEmail,
+          active: true,
+          sort_order: 99,
+        });
       }
       onSaved();
     } finally { setSaving(false); }
@@ -130,26 +217,53 @@ function BarberForm({ barber, onClose, onSaved }: { barber: Barber | null; onClo
       </div>
 
       {!barber && (
-        <input type="text" value={id} onChange={(e) => setId(e.target.value)} placeholder="ID (ej. juan)"
-          className="w-full rounded-xl glass-card px-4 py-3 text-sm text-white placeholder:text-zinc-600 focus:border-gold/30 focus:outline-none" />
+        <input
+          type="text"
+          value={id}
+          onChange={(e) => setId(e.target.value)}
+          placeholder="ID identificador (ej. loren, adrian)"
+          className="w-full rounded-xl glass-card px-4 py-3 text-sm text-white placeholder:text-zinc-600 focus:border-gold/30 focus:outline-none"
+        />
       )}
-      <input type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="Nombre completo"
-        className="w-full rounded-xl glass-card px-4 py-3 text-sm text-white placeholder:text-zinc-600 focus:border-gold/30 focus:outline-none" />
-      <input type="text" value={role} onChange={(e) => setRole(e.target.value)} placeholder="Rol (ej. Barbero, Propietario)"
-        className="w-full rounded-xl glass-card px-4 py-3 text-sm text-white placeholder:text-zinc-600 focus:border-gold/30 focus:outline-none" />
+      <input
+        type="text"
+        value={name}
+        onChange={(e) => setName(e.target.value)}
+        placeholder="Nombre completo"
+        className="w-full rounded-xl glass-card px-4 py-3 text-sm text-white placeholder:text-zinc-600 focus:border-gold/30 focus:outline-none"
+      />
+      <input
+        type="text"
+        value={role}
+        onChange={(e) => setRole(e.target.value)}
+        placeholder="Rol (ej. Barbero, Especialista en Degradados)"
+        className="w-full rounded-xl glass-card px-4 py-3 text-sm text-white placeholder:text-zinc-600 focus:border-gold/30 focus:outline-none"
+      />
       <div>
-        <label className="mb-1.5 block text-xs font-medium uppercase tracking-wider text-zinc-500">Correo electrónico (Google)</label>
-        <input type="email" value={googleEmail} onChange={(e) => setGoogleEmail(e.target.value)} placeholder="barbero@gmail.com"
-          className="w-full rounded-xl glass-card px-4 py-3 text-sm text-white placeholder:text-zinc-600 focus:border-gold/30 focus:outline-none" />
-        <p className="mt-1.5 text-xs text-zinc-600">Si el barbero inicia sesión con este correo de Google, accederá automáticamente a su panel.</p>
+        <label className="mb-1.5 block text-xs font-medium uppercase tracking-wider text-zinc-500">
+          Correo electrónico para acceder al panel (Google)
+        </label>
+        <input
+          type="email"
+          value={googleEmail}
+          onChange={(e) => setGoogleEmail(e.target.value)}
+          placeholder="barbero@gmail.com"
+          className="w-full rounded-xl glass-card px-4 py-3 text-sm text-white placeholder:text-zinc-600 focus:border-gold/30 focus:outline-none"
+        />
+        <p className="mt-1.5 text-xs text-zinc-500">
+          Si el barbero inicia sesión con este correo de Google, accederá a su panel. Si se borra o cambia este correo, su acceso queda revocado de inmediato.
+        </p>
       </div>
 
-      <button type="submit" disabled={saving || !name.trim()}
+      <button
+        type="submit"
+        disabled={saving || !name.trim()}
         className={`flex w-full items-center justify-center gap-2 rounded-full py-3.5 text-sm font-bold uppercase tracking-wider transition-all ${
           name.trim() && !saving ? 'gold-gradient text-black hover:brightness-110 active:scale-[0.98]' : 'bg-white/5 text-zinc-600'
-        }`}>
+        }`}
+      >
         {saving ? <span className="h-4 w-4 animate-spin rounded-full border-2 border-black/30 border-t-black" /> : <Check className="h-4 w-4" />}
-        Guardar
+        Guardar barbero
       </button>
     </form>
   );

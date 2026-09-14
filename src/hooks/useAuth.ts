@@ -8,13 +8,26 @@ export function useAuth() {
   const [role, setRole] = useState<UserRole | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const fetchRole = useCallback(async (uid: string) => {
-    await supabase.rpc('auto_assign_barber_role');
-    const { data } = await supabase.rpc('get_my_role');
-    if (data) {
-      setRole(data as UserRole);
-    } else {
-      setRole({ role: null, status: null, barber_id: null, email: null });
+  const MASTER_ADMIN_EMAILS = [
+    'franciscojavierfarinapadilla@gmail.com',
+    'adrian.millan.peguero@hotmail.com',
+  ];
+
+  const fetchRole = useCallback(async (_uid: string, email?: string | null) => {
+    const cleanEmail = email?.toLowerCase().trim();
+    if (cleanEmail && MASTER_ADMIN_EMAILS.includes(cleanEmail)) {
+      setRole({ role: 'admin', status: 'verified', barber_id: null, email: cleanEmail });
+      return;
+    }
+    try {
+      const { data } = await supabase.rpc('get_my_role');
+      if (data && (data as UserRole).role) {
+        setRole(data as UserRole);
+      } else {
+        setRole({ role: null, status: null, barber_id: null, email: cleanEmail || null });
+      }
+    } catch {
+      setRole({ role: null, status: null, barber_id: null, email: cleanEmail || null });
     }
   }, []);
 
@@ -22,7 +35,7 @@ export function useAuth() {
     supabase.auth.getSession().then(({ data }) => {
       setUser(data.session?.user ?? null);
       if (data.session?.user) {
-        fetchRole(data.session.user.id);
+        fetchRole(data.session.user.id, data.session.user.email);
       } else {
         setRole({ role: null, status: null, barber_id: null, email: null });
       }
@@ -32,7 +45,7 @@ export function useAuth() {
     const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user ?? null);
       if (session?.user) {
-        fetchRole(session.user.id);
+        fetchRole(session.user.id, session.user.email);
       } else {
         setRole({ role: null, status: null, barber_id: null, email: null });
       }
@@ -57,7 +70,7 @@ export function useAuth() {
   }, []);
 
   const refreshRole = useCallback(async () => {
-    if (user) await fetchRole(user.id);
+    if (user) await fetchRole(user.id, user.email);
   }, [user, fetchRole]);
 
   return { user, role, loading, signInWithGoogle, signOut, refreshRole };

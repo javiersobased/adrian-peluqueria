@@ -125,3 +125,11 @@ export interface StoreProduct {
   active: boolean;
   created_at: string;
 }
+
+export interface GalleryPhoto {
+  id: string;
+  image_url: string;
+  title?: string | null;
+  barber_id?: string | null;
+  created_at: string;
+}

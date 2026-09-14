@@ -48,10 +48,10 @@ export const INSTAGRAM_HANDLE = 'barberiaadrianmillan_';
 export const INSTAGRAM_URL = `https://instagram.com/${INSTAGRAM_HANDLE}`;
 export const WHATSAPP_URL = `https://wa.me/${WHATSAPP_NUMBER.replace(/[^0-9]/g, '')}`;
 
-export const SALON_LAT = 37.2664;
-export const SALON_LNG = -6.9424;
-export const SALON_ADDRESS = 'Calle Palacio 13, 21001 Huelva';
-export const SALON_MAPS_URL = `https://www.google.com/maps/search/?api=1&query=${SALON_LAT},${SALON_LNG}`;
+export const SALON_LAT = 37.2776532;
+export const SALON_LNG = -6.9385425;
+export const SALON_ADDRESS = 'Calle Artesanos 6, 21005 Huelva';
+export const SALON_MAPS_URL = 'https://maps.app.goo.gl/VVebf6S9uxo3F5rC9';
 
 export const OPENING_HOURS = [
   { day: 'Lunes', hours: '9:30 – 13:30 · 16:30 – 20:30' },

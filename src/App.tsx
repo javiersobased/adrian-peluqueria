@@ -11,6 +11,7 @@ import { AdminPanel } from '@/components/AdminPanel';
 import { LoginModal } from '@/components/LoginModal';
 import { MyBookings } from '@/components/MyBookings';
 import { Catalog } from '@/components/Catalog';
+import { Gallery } from '@/components/Gallery';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import type { SavedBooking } from '@/types';
 import { getPendingBooking, clearPendingBooking, savePendingBooking } from '@/lib/pendingBooking';
@@ -18,7 +19,7 @@ import { createBooking } from '@/lib/bookings';
 import { hasAdmin, claimAdmin } from '@/lib/auth';
 import { setActivePwaContext } from '@/lib/pwaContext';
 
-type View = 'public' | 'admin' | 'my-bookings' | 'catalog';
+type View = 'public' | 'admin' | 'my-bookings' | 'catalog' | 'gallery';
 
 function App() {
   const booking = useBooking();
@@ -33,10 +34,12 @@ function App() {
   const resumedRef = useRef(false);
   const roleCheckedRef = useRef(false);
 
-  // Detect #admin hash on initial load for PWA admin shortcut
+  // Detect #admin or #galeria hash on initial load
   useEffect(() => {
     if (window.location.hash === '#admin') {
       setView('admin');
+    } else if (window.location.hash === '#galeria' || window.location.hash === '#gallery') {
+      setView('gallery');
     }
   }, []);
 
@@ -107,6 +110,10 @@ function App() {
 
   const goCatalog = useCallback(() => {
     setView('catalog');
+  }, []);
+
+  const goGallery = useCallback(() => {
+    setView('gallery');
   }, []);
 
   const handleGoogleSignIn = useCallback(async () => {
@@ -202,6 +209,35 @@ function App() {
     );
   }
 
+  // Haircuts Gallery view
+  if (view === 'gallery') {
+    return (
+      <div className="relative min-h-screen bg-ink text-zinc-200">
+        <div className="fixed inset-0 -z-20">
+          <img
+            src="https://images.pexels.com/photos/7195803/pexels-photo-7195803.jpeg?auto=compress&cs=tinysrgb&w=1260&h=1680"
+            alt=""
+            aria-hidden="true"
+            className="h-full w-full object-cover"
+          />
+          <div className="absolute inset-0 bg-black/85" />
+          <div className="absolute inset-0 backdrop-blur-xl" />
+        </div>
+        <div className="relative z-10">
+          <Gallery
+            onBack={goPublic}
+            onBook={() => {
+              goPublic();
+              booking.startBooking();
+            }}
+            userRole={auth.role}
+            userEmail={auth.user?.email}
+          />
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="relative min-h-screen bg-ink text-zinc-200">
       <div className="fixed inset-0 -z-20">
@@ -226,6 +262,7 @@ function App() {
             onSignOut={auth.signOut}
             onGoToMyBookings={auth.user ? goMyBookings : undefined}
             onGoToCatalog={goCatalog}
+            onGoToGallery={goGallery}
           />
         )}
 

@@ -1,6 +1,13 @@
-import { createClient } from '@supabase/supabase-js'
+import { createClient } from '@supabase/supabase-js';
 
-const supabaseUrl = 'https://ghukyltijkgdbaewhmcm.supabase.co'
-const supabaseAnonKey = 'sb_publishable_GQZocmXSG5-sda85TtAFsg_7DizUgnk'
+const supabaseUrl = 'https://ghukyltijkgdbaewhmcm.supabase.co';
+const supabaseAnonKey = 'sb_publishable_GQZocmXSG5-sda85TtAFsg_7DizUgnk';
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey)
+export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+  auth: {
+    persistSession: true,
+    autoRefreshToken: true,
+    detectSessionInUrl: true,
+    storage: typeof window !== 'undefined' ? window.localStorage : undefined,
+  },
+});

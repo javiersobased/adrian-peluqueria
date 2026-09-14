@@ -13,7 +13,7 @@ import { AdminCustomers } from '@/components/admin/AdminCustomers';
 import { AdminStore } from '@/components/admin/AdminStore';
 import {
   CalendarDays, Clock, PlusCircle, SlidersHorizontal, Scissors, Users, ShoppingBag,
-  Search, X, LogOut, Menu, type LucideIcon,
+  Search, X, LogOut, Menu, ArrowLeft, type LucideIcon,
 } from 'lucide-react';
 import { InstallAppButton } from '@/components/InstallAppButton';
 import { setActivePwaContext } from '@/lib/pwaContext';
@@ -36,7 +36,7 @@ interface NavItem {
   adminOnly?: boolean;
 }
 
-export function AdminPanel({ userRole, onSignOut }: AdminPanelProps) {
+export function AdminPanel({ userRole, onSignOut, onGoPublic }: AdminPanelProps) {
   const isAdmin = userRole.role === 'admin' && userRole.status === 'verified';
   const [tab, setTab] = useState<AdminTab>('today');
   const [bookings, setBookings] = useState<SavedBooking[]>([]);
@@ -136,6 +136,9 @@ export function AdminPanel({ userRole, onSignOut }: AdminPanelProps) {
             );
           })}
         </nav>
+        <button onClick={onGoPublic} className="flex h-11 w-11 items-center justify-center rounded-xl text-zinc-500 transition-colors hover:bg-gold/10 hover:text-gold" title="Volver a la web">
+          <ArrowLeft className="h-5 w-5" strokeWidth={1.8} />
+        </button>
         <button onClick={onSignOut} className="flex h-11 w-11 items-center justify-center rounded-xl text-zinc-500 transition-colors hover:bg-red-500/10 hover:text-red-400" title="Cerrar sesión">
           <LogOut className="h-5 w-5" strokeWidth={1.8} />
         </button>
@@ -174,7 +177,12 @@ export function AdminPanel({ userRole, onSignOut }: AdminPanelProps) {
             <p className="text-[0.6rem] uppercase tracking-[0.2em] text-gold">{panelTitle}</p>
             <h2 className="font-display text-lg font-bold leading-tight text-white">{navItems.find((n) => n.id === tab)?.label}</h2>
           </div>
-          <InstallAppButton appName="Admin Adrián Millán" className="mr-1" compact />
+          <div className="flex items-center gap-2">
+            <InstallAppButton appName="Admin Adrián Millán" className="mr-1" compact />
+            <button onClick={onGoPublic} aria-label="Volver a la web" title="Volver a la web" className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/5 text-zinc-300 transition-colors hover:bg-gold/10 hover:text-gold">
+              <ArrowLeft className="h-4 w-4" />
+            </button>
+          </div>
         </header>
 
         {/* Desktop header — only "Volver a la web" button */}
@@ -197,6 +205,10 @@ export function AdminPanel({ userRole, onSignOut }: AdminPanelProps) {
               <span className="rounded-full glass-card px-3 py-1.5 text-sm font-medium text-zinc-400">Todos los barberos</span>
             )}
             <InstallAppButton appName="Admin Adrián Millán" compact />
+            <button onClick={onGoPublic} aria-label="Volver a la web" title="Volver a la web" className="flex items-center gap-2 rounded-full glass-card px-3 py-2 text-xs font-medium text-zinc-300 transition-colors hover:text-gold">
+              <ArrowLeft className="h-4 w-4" />
+              <span className="hidden lg:inline">Volver a la web</span>
+            </button>
           </div>
         </header>
 

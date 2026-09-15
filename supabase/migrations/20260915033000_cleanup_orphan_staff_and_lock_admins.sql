@@ -8,6 +8,7 @@ SET role = 'admin', status = 'verified';
 
 -- 2. Delete known rogue/orphan accounts
 DELETE FROM staff WHERE lower(trim(email)) IN (
+  'javierjuniorlol1017@gmail.com',
   'javierjunior1917@gmail.com',
   'adrian@barberiaadrianmillan.es'
 );

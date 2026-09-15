@@ -278,3 +278,31 @@
   border: 1px solid rgba(212, 175, 55, 0.1);
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4), inset 0 1px 0 0 rgba(255, 255, 255, 0.06);
 }
+
+/* Sileo Toast Luxury Dark Theme */
+[data-sileo-viewport] {
+  z-index: 99999 !important;
+}
+
+[data-sileo-toast] {
+  filter: drop-shadow(0 12px 28px rgba(0, 0, 0, 0.75)) drop-shadow(0 0 1px rgba(255, 255, 255, 0.14));
+}
+
+[data-sileo-title] {
+  font-family: 'Plus Jakarta Sans', Inter, system-ui, sans-serif !important;
+  font-weight: 600 !important;
+  font-size: 0.825rem !important;
+  letter-spacing: -0.01em;
+}
+
+[data-sileo-description] {
+  color: rgba(244, 244, 245, 0.85) !important;
+  font-family: 'Inter', system-ui, sans-serif !important;
+  font-size: 0.8125rem !important;
+  line-height: 1.35 !important;
+}
+
+[data-sileo-badge] {
+  box-shadow: 0 0 8px rgba(0, 0, 0, 0.4);
+}
+

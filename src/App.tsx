@@ -18,7 +18,6 @@ import { getPendingBooking, clearPendingBooking, savePendingBooking } from '@/li
 import { createBooking } from '@/lib/bookings';
 import { setActivePwaContext } from '@/lib/pwaContext';
 import { supabase } from '@/lib/supabase';
-import { Toaster } from 'sileo';
 import { ScreenLoader } from '@/components/ui/LoadingSpinner';
 
 type View = 'public' | 'admin' | 'my-bookings' | 'catalog' | 'gallery';
@@ -300,8 +299,6 @@ function App() {
       {resumingBooking && (
         <ScreenLoader message="Confirmando tu reserva…" />
       )}
-
-      <Toaster position="top-right" theme="dark" />
     </div>
   );
 }

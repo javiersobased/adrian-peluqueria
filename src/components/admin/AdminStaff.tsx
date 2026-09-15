@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
 import { fetchAllBarbers } from '@/data/services';
 import type { Barber } from '@/types';
-import { Plus, Trash2, Pencil, Check, X, Upload, UserRound, ShieldCheck, Mail } from 'lucide-react';
+import { Plus, Trash2, Pencil, Check, X, Upload, UserRound, Mail } from 'lucide-react';
 import { notify } from '@/lib/notify';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 
@@ -55,30 +55,6 @@ export function AdminStaff() {
 
   return (
     <div className="mx-auto max-w-2xl space-y-6">
-      {/* Master Admins Section */}
-      <div className="rounded-3xl border border-gold/20 bg-zinc-900/60 p-5 shadow-lg backdrop-blur-xl">
-        <div className="flex items-center gap-2 mb-3">
-          <ShieldCheck className="h-5 w-5 text-gold" />
-          <h4 className="font-display text-sm font-bold text-white uppercase tracking-wider">Administradores del sistema</h4>
-        </div>
-        <p className="text-xs text-zinc-400 mb-4">
-          Tienen acceso total incondicional al panel de administración (precios, horarios, tienda, clientes y citas).
-        </p>
-        <div className="space-y-2">
-          {MASTER_ADMINS.map((admin) => (
-            <div key={admin.email} className="flex items-center justify-between rounded-xl bg-white/5 px-3.5 py-2.5 text-xs">
-              <div>
-                <p className="font-bold text-white">{admin.name}</p>
-                <p className="text-[0.7rem] text-zinc-400">{admin.email}</p>
-              </div>
-              <span className="rounded-full bg-gold/15 px-2.5 py-0.5 text-[0.65rem] font-bold uppercase tracking-wider text-gold">
-                Admin
-              </span>
-            </div>
-          ))}
-        </div>
-      </div>
-
       {/* Barbers / Staff List */}
       <div className="space-y-4">
         <div className="flex items-center justify-between">

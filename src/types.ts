@@ -20,6 +20,8 @@ export interface Barber {
 }
 
 export interface BookingForm {
+  firstName?: string;
+  lastName?: string;
   fullName: string;
   phone: string;
   comments: string;

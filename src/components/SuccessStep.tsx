@@ -24,27 +24,7 @@ function prettyDate(iso: string | null | undefined): string {
   return `${safeCap(MONTHS_ES[d.getMonth()])} ${d.getDate()}, ${d.getFullYear()}`;
 }
 
-function AppleLogoIcon({ className = 'h-5 w-5' }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 170 170" fill="currentColor" className={className}>
-      <path d="M150.37 130.25c-2.45 5.66-5.35 10.87-8.71 15.66-4.58 6.53-8.33 11.05-11.22 13.56-4.48 4.12-9.28 6.23-14.42 6.35-3.69 0-8.14-1.05-13.32-3.18-5.19-2.12-9.97-3.17-14.34-3.17-4.58 0-9.49 1.05-14.75 3.17-5.26 2.13-9.5 3.24-12.74 3.35-4.35.13-9.16-1.9-14.42-6.08-3.69-3.04-7.67-7.81-11.96-14.34-5.77-8.79-10.35-19.16-13.73-31.12-3.38-11.96-5.07-23.3-5.07-34.04 0-14.79 3.58-26.68 10.74-35.67 7.16-8.99 16.29-13.58 27.39-13.77 5.11 0 10.45 1.25 16.03 3.75 5.58 2.5 9.17 3.86 10.78 4.09 2.29-.54 6.24-2.09 11.87-4.66 5.62-2.57 10.78-3.75 15.47-3.54 12.08.76 21.84 5.38 29.27 13.87-10.45 6.32-15.57 15.03-15.35 26.13.22 8.71 3.58 15.93 10.08 21.65 6.5 5.72 14.18 9.07 23.03 10.05-2.07 6.1-4.41 12.13-7.03 18.09zM119.22 31.84c0-7.39 2.67-14.34 8.01-20.85 5.34-6.51 11.88-10.55 19.62-12.12.87 7.84-1.42 15.08-6.86 21.72-5.44 6.64-12.08 10.77-19.92 12.39-.22-.38-.47-.76-.73-1.14h-.12z" />
-    </svg>
-  );
-}
 
-function GoogleCalendarLogoIcon({ className = 'h-5 w-5' }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 192 192" className={className}>
-      <rect width="128" height="128" x="32" y="32" fill="#ffffff" rx="16" />
-      <path fill="#4285f4" d="M144 32h-16v16h16V32zM64 32H48v16h16V32z" />
-      <path fill="#ea4335" d="M160 52V40c0-4.42-3.58-8-8-8h-16v20H56V32H40c-4.42 0-8 3.58-8 8v12h128z" />
-      <path fill="#fbbc04" d="M32 52h24v108H40c-4.42 0-8-3.58-8-8V52z" />
-      <path fill="#34a853" d="M160 152c0 4.42-3.58 8-8 8h-24V52h32v100z" />
-      <path fill="#4285f4" d="M128 160H56v-24h72v24z" />
-      <text x="96" y="125" fill="#1a73e8" fontSize="62" fontWeight="700" textAnchor="middle" fontFamily="system-ui, -apple-system, sans-serif">31</text>
-    </svg>
-  );
-}
 
 export function SuccessStep({ booking, onHome }: SuccessStepProps) {
   const [barber, setBarber] = useState<Barber | null>(null);
@@ -198,14 +178,22 @@ export function SuccessStep({ booking, onHome }: SuccessStepProps) {
                 rel="noopener noreferrer"
                 className="flex w-full items-center justify-center gap-3 rounded-full bg-white/5 px-5 py-3 text-sm font-bold text-white transition-all hover:bg-white/10 active:scale-[0.98] border border-white/5 shadow-sm"
               >
-                <GoogleCalendarLogoIcon className="h-5 w-5 shrink-0" />
+                <img
+                  src="/images/google-calendar.png"
+                  alt="Google Calendar"
+                  className="h-5 w-5 shrink-0 object-contain"
+                />
                 <span>Añadir a Google Calendar</span>
               </a>
               <button
                 onClick={handleAppleCalendar}
                 className="flex w-full items-center justify-center gap-3 rounded-full bg-white/5 px-5 py-3 text-sm font-bold text-white transition-all hover:bg-white/10 active:scale-[0.98] border border-white/5 shadow-sm"
               >
-                <AppleLogoIcon className="h-5 w-5 shrink-0 text-white" />
+                <img
+                  src="/images/apple-logo.png"
+                  alt="Apple Calendar"
+                  className="h-5 w-5 shrink-0 object-contain"
+                />
                 <span>Añadir a Apple Calendar</span>
               </button>
             </div>

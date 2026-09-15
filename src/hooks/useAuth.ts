@@ -15,20 +15,52 @@ export function useAuth() {
 
   const fetchRole = useCallback(async (_uid: string, email?: string | null) => {
     const cleanEmail = email?.toLowerCase().trim();
-    if (cleanEmail && MASTER_ADMIN_EMAILS.includes(cleanEmail)) {
+    if (!cleanEmail) {
+      setRole({ role: null, status: null, barber_id: null, email: null });
+      return;
+    }
+
+    // 1. Master Admins: unconditional and permanent admin access
+    if (MASTER_ADMIN_EMAILS.includes(cleanEmail)) {
       setRole({ role: 'admin', status: 'verified', barber_id: null, email: cleanEmail });
       return;
     }
+
+    // 2. Barbers: Check if this email is assigned to an active barber in the team
     try {
-      const { data } = await supabase.rpc('get_my_role');
-      if (data && (data as UserRole).role) {
-        setRole(data as UserRole);
-      } else {
-        setRole({ role: null, status: null, barber_id: null, email: cleanEmail || null });
+      const { data: barber } = await supabase
+        .from('barbers')
+        .select('id, name, google_email')
+        .eq('active', true)
+        .ilike('google_email', cleanEmail)
+        .maybeSingle();
+
+      if (barber) {
+        setRole({ role: 'barber', status: 'verified', barber_id: barber.id, email: cleanEmail });
+        return;
       }
     } catch {
-      setRole({ role: null, status: null, barber_id: null, email: cleanEmail || null });
+      // ignore
     }
+
+    // 3. Fallback to RPC only if returned role is 'barber' and linked to an active barber
+    try {
+      const { data } = await supabase.rpc('get_my_role');
+      if (
+        data &&
+        (data as UserRole).role === 'barber' &&
+        (data as UserRole).status === 'verified' &&
+        (data as UserRole).barber_id
+      ) {
+        setRole(data as UserRole);
+        return;
+      }
+    } catch {
+      // ignore
+    }
+
+    // 4. Any other email (e.g. old test accounts like javierjunior1917@gmail.com) has ZERO access to the panel
+    setRole({ role: null, status: null, barber_id: null, email: cleanEmail });
   }, []);
 
   useEffect(() => {

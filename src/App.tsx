@@ -16,7 +16,6 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import type { SavedBooking } from '@/types';
 import { getPendingBooking, clearPendingBooking, savePendingBooking } from '@/lib/pendingBooking';
 import { createBooking } from '@/lib/bookings';
-import { hasAdmin, claimAdmin } from '@/lib/auth';
 import { setActivePwaContext } from '@/lib/pwaContext';
 
 type View = 'public' | 'admin' | 'my-bookings' | 'catalog' | 'gallery';
@@ -29,8 +28,6 @@ function App() {
   const [loginPurpose, setLoginPurpose] = useState<'booking' | 'general'>('general');
   const [signingIn, setSigningIn] = useState(false);
   const [resumingBooking, setResumingBooking] = useState(false);
-  const [needsAdminBootstrap, setNeedsAdminBootstrap] = useState(false);
-  const [bootstrapping, setBootstrapping] = useState(false);
   const resumedRef = useRef(false);
   const roleCheckedRef = useRef(false);
 
@@ -61,14 +58,6 @@ function App() {
     }
   }, [auth.loading, auth.user, auth.role]);
 
-  useEffect(() => {
-    if (auth.loading || !auth.user) return;
-    hasAdmin().then((exists) => {
-      if (!exists && auth.role?.role !== 'admin') {
-        setNeedsAdminBootstrap(true);
-      }
-    });
-  }, [auth.loading, auth.user, auth.role]);
 
   useEffect(() => {
     if (auth.loading || !auth.user || resumedRef.current) return;
@@ -126,18 +115,6 @@ function App() {
     setShowLoginModal(true);
   }, []);
 
-  const handleAdminBootstrap = useCallback(async () => {
-    setBootstrapping(true);
-    const { error } = await claimAdmin();
-    if (error) {
-      alert(error);
-    } else {
-      setNeedsAdminBootstrap(false);
-      await auth.refreshRole();
-      setView('admin');
-    }
-    setBootstrapping(false);
-  }, [auth]);
 
   const handleDetailsSubmit = useCallback(
     async (form: { fullName: string; phone: string; comments: string }) => {
@@ -294,31 +271,7 @@ function App() {
 
       <FloatingButtons />
 
-      {needsAdminBootstrap && auth.user && !isVerifiedStaff && (
-        <div className="fixed inset-0 z-[95] flex items-center justify-center px-6">
-          <div className="absolute inset-0 bg-black/80 backdrop-blur-md" />
-          <div className="relative w-full max-w-sm rounded-3xl border border-gold/20 bg-zinc-900/90 p-6 shadow-2xl backdrop-blur-xl animate-scale-in text-center">
-            <h3 className="mb-2 font-display text-xl font-bold text-white">Configurar administrador</h3>
-            <p className="mb-5 text-sm leading-relaxed text-zinc-400">
-              No hay ningún administrador configurado todavía. ¿Quieres convertir tu cuenta en el administrador principal?
-            </p>
-            <button
-              onClick={handleAdminBootstrap}
-              disabled={bootstrapping}
-              className="flex w-full items-center justify-center gap-2 rounded-full gold-gradient py-3.5 text-sm font-bold uppercase tracking-wider text-black transition-all hover:brightness-110 active:scale-[0.98] disabled:opacity-60"
-            >
-              {bootstrapping ? <span className="h-4 w-4 animate-spin rounded-full border-2 border-black/30 border-t-black" /> : null}
-              Hacerme administrador
-            </button>
-            <button
-              onClick={() => setNeedsAdminBootstrap(false)}
-              className="mt-3 w-full rounded-full px-4 py-2 text-xs font-medium text-zinc-500 transition-colors hover:text-white"
-            >
-              Ahora no
-            </button>
-          </div>
-        </div>
-      )}
+
 
       {showLoginModal && (
         <LoginModal

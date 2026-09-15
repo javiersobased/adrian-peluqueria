@@ -44,7 +44,57 @@ export async function createBooking(payload: PendingBookingPayload): Promise<{ b
     res = await callRpc();
   }
 
+  // If RPC failed (e.g. 404 function signature mismatch in schema cache),
+  // fallback directly to standard RLS insert which authenticated clients have permission for
   if (res.error) {
+    console.warn('create_booking RPC failed, attempting direct table insert fallback...', res.error);
+    const { data: sessionData } = await supabase.auth.getSession();
+    const userId = sessionData?.session?.user?.id ?? null;
+    const userEmail = sessionData?.session?.user?.email ?? null;
+
+    if (userId) {
+      // Double check if booking was already created
+      const existing = await findExistingBooking(payload.barber, payload.booking_date, payload.booking_time);
+      if (existing) {
+        return { booking: existing, error: null };
+      }
+
+      const { data: inserted, error: insertError } = await supabase
+        .from('bookings')
+        .insert({
+          service: payload.service,
+          service_price: payload.service_price,
+          barber: payload.barber,
+          booking_date: payload.booking_date,
+          booking_time: payload.booking_time,
+          full_name: payload.full_name.trim(),
+          phone: payload.phone.trim(),
+          email: userEmail,
+          comments: payload.comments?.trim() || null,
+          status: 'pending',
+          user_id: userId,
+        })
+        .select('*')
+        .single();
+
+      if (!insertError && inserted) {
+        // Opportunistically save or update customer details
+        try {
+          await supabase.from('customers').upsert({
+            user_id: userId,
+            full_name: payload.full_name.trim(),
+            phone: payload.phone.trim(),
+            email: userEmail,
+            comments: payload.comments?.trim() || null,
+            updated_at: new Date().toISOString(),
+          });
+        } catch {
+          // ignore
+        }
+        return { booking: inserted as SavedBooking, error: null };
+      }
+    }
+
     // Double check if booking was actually created despite error response
     const existing = await findExistingBooking(payload.barber, payload.booking_date, payload.booking_time);
     if (existing) {

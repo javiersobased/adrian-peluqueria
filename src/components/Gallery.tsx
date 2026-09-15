@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { ArrowLeft, Camera, ImagePlus, Trash2, X, Plus, Sparkles, ZoomIn, Calendar, Upload } from 'lucide-react';
 import type { GalleryPhoto, UserRole } from '@/types';
 import { fetchGalleryPhotos, uploadGalleryPhoto, deleteGalleryPhoto } from '@/lib/gallery';
+import { useLockScroll } from '@/components/SmoothScroll';
 
 interface GalleryProps {
   onBack: () => void;
@@ -17,6 +18,7 @@ export function Gallery({ onBack, onBook, userRole, userEmail }: GalleryProps) {
 
   // Upload modal state
   const [showUploadModal, setShowUploadModal] = useState(false);
+  useLockScroll(Boolean(activePhoto || showUploadModal));
   const [uploading, setUploading] = useState(false);
   const [photoTitle, setPhotoTitle] = useState('');
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -238,6 +240,7 @@ export function Gallery({ onBack, onBook, userRole, userEmail }: GalleryProps) {
           onClick={() => setActivePhoto(null)}
         >
           <div
+            data-lenis-prevent
             className="relative max-h-[90vh] max-w-3xl overflow-hidden rounded-3xl border border-white/15 bg-zinc-950 p-2 shadow-2xl animate-scale-in"
             onClick={(e) => e.stopPropagation()}
           >
@@ -283,6 +286,7 @@ export function Gallery({ onBack, onBook, userRole, userEmail }: GalleryProps) {
           onClick={() => !uploading && setShowUploadModal(false)}
         >
           <div
+            data-lenis-prevent
             className="w-full max-w-sm rounded-3xl border border-gold/30 bg-zinc-950 p-6 shadow-2xl animate-scale-in text-left text-white"
             onClick={(e) => e.stopPropagation()}
           >

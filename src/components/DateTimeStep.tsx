@@ -108,7 +108,7 @@ export function DateTimeStep({ barber, onBack, onContinue }: DateTimeStepProps) 
     <div className="flex h-[100dvh] max-h-[100dvh] flex-col animate-slide-in overflow-hidden">
       <StepHeader title="Fecha y hora" subtitle="Paso 3 de 4" onBack={onBack} />
 
-      <div className="flex-1 overflow-y-auto px-4 pb-4 pt-2 sm:px-5 sm:pt-3">
+      <div data-lenis-prevent className="flex-1 overflow-y-auto px-4 pb-4 pt-2 sm:px-5 sm:pt-3">
         {/* Compact barber chip */}
         <div className="mb-3 flex items-center justify-between gap-3 rounded-2xl glass-card px-3 py-2 text-xs">
           <div className="flex items-center gap-2.5 min-w-0">
@@ -138,7 +138,7 @@ export function DateTimeStep({ barber, onBack, onContinue }: DateTimeStepProps) 
             {/* Horizontal day pills */}
             <div className="mb-3">
               <p className="mb-1.5 text-[0.6rem] font-semibold uppercase tracking-[0.2em] text-zinc-500">Elige el día</p>
-              <div ref={scrollRef} className="no-scrollbar -mx-4 sm:-mx-5 flex gap-1.5 overflow-x-auto px-4 sm:px-5 pb-1">
+              <div data-lenis-prevent ref={scrollRef} className="no-scrollbar -mx-4 sm:-mx-5 flex gap-1.5 overflow-x-auto px-4 sm:px-5 pb-1">
                 {dayPills.map((d) => {
                   const daySchedule = schedules.find((s) => s.weekday === d.getDay());
                   const disabled = !isDayAvailable(d, today, daySchedule, blocks, vacations);

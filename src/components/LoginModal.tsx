@@ -1,4 +1,5 @@
 import { ShieldCheck, LogIn, X } from 'lucide-react';
+import { useLockScroll } from '@/components/SmoothScroll';
 
 interface LoginModalProps {
   onGoogleSignIn: () => void;
@@ -19,10 +20,11 @@ function GoogleGlyph() {
 }
 
 export function LoginModal({ onGoogleSignIn, onClose, signingIn, purpose }: LoginModalProps) {
+  useLockScroll(true);
   return (
     <div className="fixed inset-0 z-[90] flex items-center justify-center px-6" role="dialog" aria-modal="true">
       <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative w-full max-w-sm rounded-3xl border border-white/10 bg-zinc-900/70 p-6 shadow-2xl backdrop-blur-xl animate-scale-in">
+      <div data-lenis-prevent className="relative w-full max-w-sm rounded-3xl border border-white/10 bg-zinc-900/70 p-6 shadow-2xl backdrop-blur-xl animate-scale-in">
         <button
           onClick={onClose}
           aria-label="Cerrar"

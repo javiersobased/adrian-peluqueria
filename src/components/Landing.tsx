@@ -13,6 +13,7 @@ import type { User as SupabaseUser } from '@supabase/supabase-js';
 import type { UserRole, GalleryPhoto } from '@/types';
 import { safeInitial } from '@/lib/calendar';
 import { fetchGalleryPhotos } from '@/lib/gallery';
+import { useLenis, useLockScroll } from '@/components/SmoothScroll';
 
 interface LandingProps {
   onBook: () => void;
@@ -44,12 +45,31 @@ export function Landing({ onBook, onSignIn, onGoToPanel, user, role, onSignOut, 
   const [galleryPreview, setGalleryPreview] = useState<GalleryPhoto[]>([]);
   const [reviewIndex, setReviewIndex] = useState(0);
 
+  const lenis = useLenis();
+  useLockScroll(showInstallModal);
+
   const scrollToSection = (id: string) => {
-    document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' });
+    const el = document.getElementById(id);
+    if (!el) return;
+    if (lenis) {
+      lenis.scrollTo(el, { offset: -24, duration: 1.2 });
+    } else {
+      el.scrollIntoView({ behavior: 'smooth' });
+    }
   };
 
   const dockItems = [
-    { icon: <Home size={18} />, label: 'Inicio', onClick: () => window.scrollTo({ top: 0, behavior: 'smooth' }) },
+    {
+      icon: <Home size={18} />,
+      label: 'Inicio',
+      onClick: () => {
+        if (lenis) {
+          lenis.scrollTo(0, { duration: 1.2 });
+        } else {
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+      },
+    },
     { icon: <Camera size={18} />, label: 'Cortes', onClick: () => onGoToGallery?.() },
     { icon: <Download size={18} />, label: 'Instalar app', onClick: () => setShowInstallModal(true) },
     { icon: <ShoppingBagIcon size={18} />, label: 'Productos', onClick: () => onGoToCatalog?.() },

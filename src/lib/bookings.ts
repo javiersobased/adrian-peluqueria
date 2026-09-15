@@ -86,6 +86,7 @@ export async function createBooking(payload: PendingBookingPayload): Promise<{ b
       full_name: payload.full_name,
       phone: payload.phone,
       email: sessionData?.session?.user?.email ?? null,
+      user_id: sessionData?.session?.user?.id ?? null,
       comments: payload.comments ?? null,
       status: 'pending',
       created_at: new Date().toISOString(),

@@ -3,6 +3,7 @@ import { ArrowLeft, ShoppingBag, X, MessageCircle } from 'lucide-react';
 import { fetchStoreCategories, fetchProductsByCategory } from '@/lib/store';
 import { WHATSAPP_NUMBER } from '@/data/services';
 import type { StoreCategory, StoreProduct } from '@/types';
+import { useLockScroll } from '@/components/SmoothScroll';
 
 interface CatalogProps {
   onBack: () => void;
@@ -14,6 +15,7 @@ export function Catalog({ onBack }: CatalogProps) {
   const [products, setProducts] = useState<StoreProduct[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedProduct, setSelectedProduct] = useState<StoreProduct | null>(null);
+  useLockScroll(Boolean(selectedProduct));
   const tabsRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -71,6 +73,7 @@ export function Catalog({ onBack }: CatalogProps) {
       {/* Tabs */}
       {categories.length > 0 && (
         <div
+          data-lenis-prevent
           ref={tabsRef}
           className="no-scrollbar sticky top-[72px] z-20 flex gap-2 overflow-x-auto bg-ink/80 px-5 py-3 backdrop-blur-xl"
         >
@@ -149,6 +152,7 @@ export function Catalog({ onBack }: CatalogProps) {
           onClick={() => setSelectedProduct(null)}
         >
           <div
+            data-lenis-prevent
             className="relative w-full max-w-md overflow-hidden rounded-t-3xl border border-gold/20 bg-zinc-900 shadow-2xl animate-slide-up sm:rounded-3xl"
             onClick={(e) => e.stopPropagation()}
           >
@@ -170,7 +174,7 @@ export function Catalog({ onBack }: CatalogProps) {
               )}
             </div>
 
-            <div className="max-h-[40vh] overflow-y-auto p-5">
+            <div data-lenis-prevent className="max-h-[40vh] overflow-y-auto p-5">
               <h3 className="font-display text-xl font-bold leading-tight text-white">{selectedProduct.name}</h3>
               {selectedProduct.price > 0 && (
                 <p className="mt-2 font-display text-2xl font-bold text-gold">{selectedProduct.price}€</p>

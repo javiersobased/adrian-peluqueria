@@ -184,7 +184,7 @@ export function DetailsStep({ onBack, onSubmit, submitting, error }: DetailsStep
       <StepHeader title="Tus datos" subtitle="Paso 4 de 4" onBack={onBack} />
 
       <form onSubmit={handleSubmit} className="flex flex-1 flex-col overflow-hidden">
-        <div className="flex-1 overflow-y-auto px-4 py-2 sm:px-5 sm:py-3 space-y-2.5">
+        <div data-lenis-prevent className="flex-1 overflow-y-auto px-4 py-2 sm:px-5 sm:py-3 space-y-2.5">
           {prefilledFromGoogle ? (
             <div className="flex items-center gap-2 rounded-xl border border-gold/20 bg-gold/10 px-3 py-1.5 text-[0.7rem] text-gold">
               <Sparkles className="h-3.5 w-3.5 shrink-0 text-gold" />
@@ -366,7 +366,7 @@ export function DetailsStep({ onBack, onSubmit, submitting, error }: DetailsStep
             </div>
 
             {/* Lista de países */}
-            <div className="flex-1 overflow-y-auto space-y-1.5 pr-1 max-h-[50vh]">
+            <div data-lenis-prevent className="flex-1 overflow-y-auto space-y-1.5 pr-1 max-h-[50vh]">
               {filteredCountries.length === 0 ? (
                 <p className="py-6 text-center text-xs text-zinc-500">
                   No se encontraron países que coincidan con tu búsqueda.

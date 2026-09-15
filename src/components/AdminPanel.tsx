@@ -256,7 +256,7 @@ function SidebarContent({
         </div>
       </div>
 
-      <nav className="flex-1 overflow-y-auto px-3 pb-4">
+      <nav data-lenis-prevent className="flex-1 overflow-y-auto px-3 pb-4">
         {CATEGORIES.map((cat) => {
           const items = filteredNav.filter((n) => n.category === cat);
           if (items.length === 0) return null;

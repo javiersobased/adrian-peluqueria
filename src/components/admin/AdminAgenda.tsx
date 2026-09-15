@@ -67,7 +67,7 @@ export function AdminAgenda({ bookings, loading, onRefresh }: AdminAgendaProps) 
         <h3 className="font-display text-xl font-bold text-white">Próximas citas</h3>
       </div>
 
-      <div className="max-h-[70vh] space-y-6 overflow-y-auto pr-2">
+      <div data-lenis-prevent className="max-h-[70vh] space-y-6 overflow-y-auto pr-2">
         {groupedBookings.map((group) => (
           <div key={group.date}>
             <div className="sticky top-0 z-10 mb-2 rounded-xl bg-zinc-900/80 px-4 py-2 backdrop-blur-sm">

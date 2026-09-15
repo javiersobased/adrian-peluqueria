@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { X, Share, PlusSquare, Smartphone, Chrome, Download, CheckCircle2, ChevronLeft, ChevronRight, Sparkles } from 'lucide-react';
 import { usePwaInstall } from '@/hooks/usePwaInstall';
+import { useLockScroll } from '@/components/SmoothScroll';
 
 interface InstallAppModalProps {
   isOpen: boolean;
@@ -9,6 +10,7 @@ interface InstallAppModalProps {
 }
 
 export function InstallAppModal({ isOpen, onClose, appName = 'Adrián Millán' }: InstallAppModalProps) {
+  useLockScroll(isOpen);
   const { canPromptInstall, isIOS, promptInstall } = usePwaInstall();
   const isAndroidInitial = typeof navigator !== 'undefined' && /android/i.test(navigator.userAgent);
   const [platform, setPlatform] = useState<'ios' | 'android'>(isIOS ? 'ios' : isAndroidInitial ? 'android' : 'ios');
@@ -83,6 +85,7 @@ export function InstallAppModal({ isOpen, onClose, appName = 'Adrián Millán' }
       onClick={onClose}
     >
       <div
+        data-lenis-prevent
         className="relative w-full max-w-sm overflow-hidden rounded-[2rem] border border-gold/25 bg-zinc-950 p-5 shadow-2xl animate-scale-in text-left text-white max-h-[94vh] flex flex-col"
         onClick={(e) => e.stopPropagation()}
         onMouseEnter={() => setIsPaused(true)}

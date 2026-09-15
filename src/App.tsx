@@ -17,6 +17,7 @@ import type { SavedBooking } from '@/types';
 import { getPendingBooking, clearPendingBooking, savePendingBooking } from '@/lib/pendingBooking';
 import { createBooking } from '@/lib/bookings';
 import { setActivePwaContext } from '@/lib/pwaContext';
+import { supabase } from '@/lib/supabase';
 
 type View = 'public' | 'admin' | 'my-bookings' | 'catalog' | 'gallery';
 

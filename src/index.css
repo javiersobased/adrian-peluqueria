@@ -17,7 +17,11 @@
     -webkit-tap-highlight-color: transparent;
   }
 
-  html {
+  html.lenis {
+    scroll-behavior: auto !important;
+  }
+
+  html:not(.lenis) {
     scroll-behavior: smooth;
   }
 

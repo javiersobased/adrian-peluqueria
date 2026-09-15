@@ -4,8 +4,8 @@ import './index.css';
 
 const rootEl = document.getElementById('root')!;
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://ghukyltijkgdbaewhmcm.supabase.co';
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'sb_publishable_GQZocmXSG5-sda85TtAFsg_7DizUgnk';
 const missingEnv = !supabaseUrl || !supabaseAnonKey;
 
 // Loading the real app (and therefore src/lib/supabase.ts, which calls
@@ -28,11 +28,15 @@ if (missingEnv) {
     </div>
   `;
 } else {
-  import('./App.tsx').then(({ default: App }) => {
-    createRoot(rootEl).render(
-      <StrictMode>
-        <App />
-      </StrictMode>
-    );
-  });
+  Promise.all([import('./App.tsx'), import('./components/SmoothScroll.tsx')]).then(
+    ([{ default: App }, { SmoothScroll }]) => {
+      createRoot(rootEl).render(
+        <StrictMode>
+          <SmoothScroll>
+            <App />
+          </SmoothScroll>
+        </StrictMode>
+      );
+    }
+  );
 }

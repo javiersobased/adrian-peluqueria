@@ -4,6 +4,8 @@ import { fetchAllBarbers } from '@/data/services';
 import type { Barber, BarberSchedule } from '@/types';
 import { WEEKDAY_NAMES } from '@/lib/schedule';
 import { Save, Check } from 'lucide-react';
+import { notify } from '@/lib/notify';
+import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 
 export function AdminStaffSchedule() {
   const [barbers, setBarbers] = useState<Barber[]>([]);
@@ -62,12 +64,21 @@ export function AdminStaffSchedule() {
           });
         }
       }
-      setSaved(true); setTimeout(() => setSaved(false), 2000);
+      setSaved(true);
+      notify.success('Horario guardado', 'La configuración semanal ha sido actualizada');
+      setTimeout(() => setSaved(false), 2000);
+    } catch (err: any) {
+      console.error('Error al guardar horario:', err);
+      notify.error('Error al guardar', err?.message || 'No se pudo actualizar el horario');
     } finally { setSaving(false); }
   };
 
   if (loading) {
-    return <div className="flex justify-center py-20"><span className="h-6 w-6 animate-spin rounded-full border-2 border-zinc-700 border-t-gold" /></div>;
+    return (
+      <div className="flex justify-center py-20">
+        <LoadingSpinner size="lg" label="Cargando horarios…" />
+      </div>
+    );
   }
 
   return (

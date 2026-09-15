@@ -4,6 +4,7 @@ import { fetchAllBarbers } from '@/data/services';
 import type { BarberBlock, Barber, BarberVacation } from '@/types';
 import { Trash2, CalendarOff, Clock, Plane } from 'lucide-react';
 import { ALL_TIME_SLOTS, toISO } from '@/lib/schedule';
+import { notify } from '@/lib/notify';
 
 interface AdminAvailabilityProps {
   blocks: BarberBlock[];
@@ -42,20 +43,48 @@ export function AdminAvailability({ blocks, onRefresh }: AdminAvailabilityProps)
     setSaving(true);
     try {
       if (mode === 'day_full') {
-        await supabase.from('barber_blocks').insert({ barber, block_type: 'day_off', block_date: date, note: reason.trim() || null });
+        const { error } = await supabase.from('barber_blocks').insert({ barber, block_type: 'day_off', block_date: date, note: reason.trim() || null });
+        if (error) throw error;
+        notify.success('Día bloqueado', `Bloqueo para el ${date}`);
       } else if (mode === 'time_range') {
         if (!startTime || !endTime) { setSaving(false); return; }
-        await supabase.from('barber_blocks').insert({ barber, block_type: 'time_range', block_date: date, block_start_time: startTime, block_end_time: endTime, note: reason.trim() || null });
+        const { error } = await supabase.from('barber_blocks').insert({ barber, block_type: 'time_range', block_date: date, block_start_time: startTime, block_end_time: endTime, note: reason.trim() || null });
+        if (error) throw error;
+        notify.success('Horario bloqueado', `${date} de ${startTime} a ${endTime}h`);
       } else if (mode === 'vacation') {
-        await supabase.from('barber_vacations').insert({ barber, start_date: date, end_date: endDate, reason: reason.trim() || null });
+        const { error } = await supabase.from('barber_vacations').insert({ barber, start_date: date, end_date: endDate, reason: reason.trim() || null });
+        if (error) throw error;
+        notify.success('Vacaciones añadidas', `${date} al ${endDate}`);
       }
       setReason(''); setStartTime(''); setEndTime('');
       onRefresh(); fetchVacations();
+    } catch (err: any) {
+      console.error('Error al guardar bloqueo:', err);
+      notify.error('Error al guardar', err?.message || 'No se pudo aplicar el bloqueo');
     } finally { setSaving(false); }
   };
 
-  const handleDeleteBlock = async (id: string) => { await supabase.from('barber_blocks').delete().eq('id', id); onRefresh(); };
-  const handleDeleteVacation = async (id: string) => { await supabase.from('barber_vacations').delete().eq('id', id); fetchVacations(); };
+  const handleDeleteBlock = async (id: string) => {
+    try {
+      const { error } = await supabase.from('barber_blocks').delete().eq('id', id);
+      if (error) throw error;
+      notify.success('Bloqueo eliminado', 'El tramo vuelve a estar disponible');
+      onRefresh();
+    } catch (err: any) {
+      notify.error('Error al eliminar', err?.message || 'No se pudo eliminar el bloqueo');
+    }
+  };
+
+  const handleDeleteVacation = async (id: string) => {
+    try {
+      const { error } = await supabase.from('barber_vacations').delete().eq('id', id);
+      if (error) throw error;
+      notify.success('Vacaciones eliminadas', 'Se ha eliminado el período');
+      fetchVacations();
+    } catch (err: any) {
+      notify.error('Error al eliminar', err?.message || 'No se pudo eliminar las vacaciones');
+    }
+  };
 
   const modeButtons: { id: BlockMode; label: string; icon: typeof CalendarOff }[] = [
     { id: 'day_full', label: 'Día completo', icon: CalendarOff },

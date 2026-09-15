@@ -3,6 +3,8 @@ import { ArrowLeft, Camera, ImagePlus, Trash2, X, Plus, Sparkles, ZoomIn, Calend
 import type { GalleryPhoto, UserRole } from '@/types';
 import { fetchGalleryPhotos, uploadGalleryPhoto, deleteGalleryPhoto } from '@/lib/gallery';
 import { useLockScroll } from '@/components/SmoothScroll';
+import { notify } from '@/lib/notify';
+import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 
 interface GalleryProps {
   onBack: () => void;
@@ -65,12 +67,14 @@ export function Gallery({ onBack, onBook, userRole, userEmail }: GalleryProps) {
     const { photo, error } = await uploadGalleryPhoto(selectedFile, photoTitle, userRole?.barber_id);
     if (error) {
       setUploadError(error);
+      notify.error('Error al subir imagen', error);
       setUploading(false);
       return;
     }
 
     if (photo) {
       setPhotos((prev) => [photo, ...prev.filter((p) => p.id !== photo.id)]);
+      notify.success('Fotografía publicada', 'La imagen ya está visible en la galería');
     }
 
     setUploading(false);
@@ -85,9 +89,10 @@ export function Gallery({ onBack, onBook, userRole, userEmail }: GalleryProps) {
     if (!confirm('¿Eliminar esta fotografía de la galería?')) return;
     const { error } = await deleteGalleryPhoto(id, imageUrl);
     if (error) {
-      alert('No se pudo eliminar: ' + error);
+      notify.error('Error al eliminar', error);
       return;
     }
+    notify.success('Fotografía eliminada', 'Se ha eliminado de la galería');
     setPhotos((prev) => prev.filter((p) => p.id !== id));
     if (activePhoto?.id === id) setActivePhoto(null);
   };
@@ -180,7 +185,7 @@ export function Gallery({ onBack, onBook, userRole, userEmail }: GalleryProps) {
         {/* Gallery Grid */}
         {loading ? (
           <div className="flex justify-center py-24">
-            <span className="h-8 w-8 animate-spin rounded-full border-2 border-zinc-700 border-t-gold" />
+            <LoadingSpinner size="lg" label="Cargando galería…" />
           </div>
         ) : photos.length === 0 ? (
           <div className="rounded-3xl border border-white/10 bg-zinc-900/50 p-12 text-center">

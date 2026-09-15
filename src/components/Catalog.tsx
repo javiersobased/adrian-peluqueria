@@ -4,6 +4,7 @@ import { fetchStoreCategories, fetchProductsByCategory } from '@/lib/store';
 import { WHATSAPP_NUMBER } from '@/data/services';
 import type { StoreCategory, StoreProduct } from '@/types';
 import { useLockScroll } from '@/components/SmoothScroll';
+import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 
 interface CatalogProps {
   onBack: () => void;
@@ -100,7 +101,7 @@ export function Catalog({ onBack }: CatalogProps) {
       <div className="px-5 pb-28 pt-4">
         {loading ? (
           <div className="flex justify-center py-20">
-            <span className="h-6 w-6 animate-spin rounded-full border-2 border-zinc-700 border-t-gold" />
+            <LoadingSpinner size="lg" label="Cargando productos…" />
           </div>
         ) : categories.length === 0 ? (
           <div className="py-20 text-center">

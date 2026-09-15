@@ -18,6 +18,8 @@ import { getPendingBooking, clearPendingBooking, savePendingBooking } from '@/li
 import { createBooking } from '@/lib/bookings';
 import { setActivePwaContext } from '@/lib/pwaContext';
 import { supabase } from '@/lib/supabase';
+import { Toaster } from 'sileo';
+import { ScreenLoader } from '@/components/ui/LoadingSpinner';
 
 type View = 'public' | 'admin' | 'my-bookings' | 'catalog' | 'gallery';
 
@@ -296,11 +298,10 @@ function App() {
       )}
 
       {resumingBooking && (
-        <div className="fixed inset-0 z-[95] flex flex-col items-center justify-center gap-3 bg-black/80 backdrop-blur-md">
-          <span className="h-8 w-8 animate-spin rounded-full border-2 border-gold/30 border-t-gold" />
-          <p className="text-sm text-zinc-300">Confirmando tu reserva…</p>
-        </div>
+        <ScreenLoader message="Confirmando tu reserva…" />
       )}
+
+      <Toaster position="top-right" theme="dark" />
     </div>
   );
 }

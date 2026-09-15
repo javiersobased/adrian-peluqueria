@@ -46,38 +46,74 @@ export default function ScrollFloat({
     const el = containerRef.current;
     if (!el) return;
 
-    const scroller = scrollContainerRef?.current ?? window;
     const charElements = el.querySelectorAll('.char');
+    if (!charElements.length) return;
 
-    const anim = gsap.fromTo(
-      charElements,
-      {
-        willChange: 'opacity, transform',
-        opacity: 0,
-        yPercent: 50,
-        scaleY: 1.5,
-        scaleX: 0.9,
-        transformOrigin: '50% 0%',
-      },
-      {
-        duration: animationDuration,
-        ease,
-        opacity: 1,
-        yPercent: 0,
-        scaleY: 1,
-        scaleX: 1,
-        stagger,
-        scrollTrigger: {
-          trigger: el,
-          scroller,
-          start: 'top bottom-=10%',
-          end: 'center center',
-          scrub: 0.5,
+    const rect = el.getBoundingClientRect();
+    const inInitialView = rect.top < window.innerHeight && window.scrollY < 100;
+
+    let anim: gsap.core.Tween | gsap.core.Timeline;
+
+    if (inInitialView) {
+      // Direct stagger entrance float so the user visibly sees it on page load
+      anim = gsap.fromTo(
+        charElements,
+        {
+          willChange: 'opacity, transform',
+          opacity: 0,
+          yPercent: 70,
+          scaleY: 1.4,
+          scaleX: 0.9,
+          transformOrigin: '50% 0%',
         },
-      }
-    );
+        {
+          duration: animationDuration,
+          ease: 'power3.out',
+          opacity: 1,
+          yPercent: 0,
+          scaleY: 1,
+          scaleX: 1,
+          stagger,
+          delay: 0.2,
+        }
+      );
+    } else {
+      const scroller = scrollContainerRef?.current ?? window;
+      anim = gsap.fromTo(
+        charElements,
+        {
+          willChange: 'opacity, transform',
+          opacity: 0,
+          yPercent: 60,
+          scaleY: 1.4,
+          scaleX: 0.9,
+          transformOrigin: '50% 0%',
+        },
+        {
+          duration: animationDuration,
+          ease,
+          opacity: 1,
+          yPercent: 0,
+          scaleY: 1,
+          scaleX: 1,
+          stagger,
+          scrollTrigger: {
+            trigger: el,
+            scroller,
+            start: scrollStart,
+            end: scrollEnd,
+            scrub: 0.5,
+          },
+        }
+      );
+    }
 
-    return () => { anim.scrollTrigger?.kill(); anim.kill(); };
+    return () => {
+      if ((anim as any).scrollTrigger) {
+        (anim as any).scrollTrigger.kill();
+      }
+      anim.kill();
+    };
   }, [scrollContainerRef, animationDuration, ease, scrollStart, scrollEnd, stagger]);
 
   return (

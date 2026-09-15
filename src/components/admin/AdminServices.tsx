@@ -3,6 +3,8 @@ import { supabase } from '@/lib/supabase';
 import { fetchAllServices } from '@/data/services';
 import type { Service } from '@/types';
 import { Plus, Trash2, Pencil, Check, X } from 'lucide-react';
+import { notify } from '@/lib/notify';
+import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 
 const ICON_BASE = 'https://ghukyltijkgdbaewhmcm.supabase.co/storage/v1/object/public/service-icons';
 
@@ -42,23 +44,30 @@ export function AdminServices() {
     if (!confirm('¿Eliminar este servicio?')) return;
     const { error } = await supabase.from('services').delete().eq('id', id);
     if (error) {
-      alert('No se pudo eliminar el servicio: ' + error.message);
+      notify.error('Error al eliminar', error.message);
       return;
     }
+    notify.success('Servicio eliminado', 'El servicio fue eliminado correctamente');
     load();
   };
 
   const handleToggleActive = async (s: Service) => {
-    const { error } = await supabase.from('services').update({ active: !s.active }).eq('id', s.id);
+    const nextState = !s.active;
+    const { error } = await supabase.from('services').update({ active: nextState }).eq('id', s.id);
     if (error) {
-      alert('No se pudo actualizar el estado: ' + error.message);
+      notify.error('Error al actualizar', error.message);
       return;
     }
+    notify.info('Estado actualizado', `${s.name} marcado como ${nextState ? 'activo' : 'inactivo'}`);
     load();
   };
 
   if (loading) {
-    return <div className="flex justify-center py-20"><span className="h-6 w-6 animate-spin rounded-full border-2 border-zinc-700 border-t-gold" /></div>;
+    return (
+      <div className="flex justify-center py-20">
+        <LoadingSpinner size="lg" label="Cargando servicios…" />
+      </div>
+    );
   }
 
   return (
@@ -123,14 +132,17 @@ function ServiceForm({ service, onClose, onSaved }: { service: Service | null; o
       if (service) {
         const { error } = await supabase.from('services').update(payload).eq('id', service.id);
         if (error) throw error;
+        notify.success('Servicio actualizado', payload.name);
       } else {
         const { error } = await supabase.from('services').insert({ ...payload, active: true, sort_order: 99 });
         if (error) throw error;
+        notify.success('Servicio creado', payload.name);
       }
       onSaved();
-    } catch (err) {
+    } catch (err: any) {
       const msg = err instanceof Error ? err.message : 'Error al guardar el servicio';
       setFormError(msg);
+      notify.error('Error al guardar', msg);
     } finally { setSaving(false); }
   };
 

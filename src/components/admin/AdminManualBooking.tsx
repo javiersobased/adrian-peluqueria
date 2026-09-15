@@ -4,6 +4,7 @@ import { fetchAllBarbers, fetchAllServices } from '@/data/services';
 import type { Barber, Service } from '@/types';
 import { Check, Calendar, Clock, User, Plus } from 'lucide-react';
 import { ALL_TIME_SLOTS, toISO } from '@/lib/schedule';
+import { notify } from '@/lib/notify';
 
 interface AdminManualBookingProps {
   onCreated: () => void;
@@ -43,11 +44,14 @@ export function AdminManualBooking({ onCreated }: AdminManualBookingProps) {
       });
       if (insertError) throw insertError;
       setSuccess(true);
+      notify.success('Cita registrada', `${fullName.trim()} · ${date} a las ${time}h`);
       setFullName('');
       setTime('');
       onCreated();
-    } catch {
-      setError('No se pudo registrar la cita.');
+    } catch (err: any) {
+      const msg = err?.message || 'No se pudo registrar la cita.';
+      setError(msg);
+      notify.error('Error al registrar', msg);
     } finally {
       setSaving(false);
     }

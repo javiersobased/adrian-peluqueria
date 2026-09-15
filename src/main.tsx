@@ -1,11 +1,12 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import './index.css';
+import 'sileo/styles.css';
 
 const rootEl = document.getElementById('root')!;
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://ghukyltijkgdbaewhmcm.supabase.co';
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'sb_publishable_GQZocmXSG5-sda85TtAFsg_7DizUgnk';
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 const missingEnv = !supabaseUrl || !supabaseAnonKey;
 
 // Loading the real app (and therefore src/lib/supabase.ts, which calls

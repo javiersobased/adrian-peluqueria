@@ -3,6 +3,8 @@ import { supabase } from '@/lib/supabase';
 import { fetchAllBarbers } from '@/data/services';
 import type { Barber } from '@/types';
 import { Plus, Trash2, Pencil, Check, X, Upload, UserRound, ShieldCheck, Mail } from 'lucide-react';
+import { notify } from '@/lib/notify';
+import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 
 const MASTER_ADMINS = [
   { name: 'Adrián Millán (Dueño)', email: 'adrian.millan.peguero@hotmail.com' },
@@ -26,22 +28,29 @@ export function AdminStaff() {
 
   const handleDelete = async (b: Barber) => {
     if (!confirm(`¿Eliminar al barbero "${b.name}"? Esta acción revocará de inmediato cualquier acceso al panel.`)) return;
-    const { error: delError } = await supabase.from('barbers').delete().eq('id', b.id);
-    if (delError) {
-      alert('No se pudo eliminar al barbero: ' + delError.message);
-      return;
-    }
-    if (b.google_email) {
-      const cleanEmail = b.google_email.toLowerCase().trim();
-      if (!MASTER_ADMINS.some((a) => a.email === cleanEmail)) {
-        await supabase.from('staff').delete().eq('email', cleanEmail);
+    try {
+      const { error: delError } = await supabase.from('barbers').delete().eq('id', b.id);
+      if (delError) throw delError;
+
+      if (b.google_email) {
+        const cleanEmail = b.google_email.toLowerCase().trim();
+        if (!MASTER_ADMINS.some((a) => a.email === cleanEmail)) {
+          await supabase.from('staff').delete().eq('email', cleanEmail);
+        }
       }
+      notify.success('Barbero eliminado', `${b.name} y sus permisos fueron revocados`);
+      load();
+    } catch (err: any) {
+      notify.error('Error al eliminar barbero', err?.message || 'No se pudo eliminar al barbero');
     }
-    load();
   };
 
   if (loading) {
-    return <div className="flex justify-center py-20"><span className="h-6 w-6 animate-spin rounded-full border-2 border-zinc-700 border-t-gold" /></div>;
+    return (
+      <div className="flex justify-center py-20">
+        <LoadingSpinner size="lg" label="Cargando barberos…" />
+      </div>
+    );
   }
 
   return (
@@ -158,7 +167,10 @@ function BarberForm({ barber, onClose, onSaved }: { barber: Barber | null; onClo
       if (uploadError) throw uploadError;
       const { data: urlData } = supabase.storage.from('barber-photos').getPublicUrl(fileName);
       setPhotoUrl(urlData.publicUrl);
-    } catch { alert('Error al subir la foto'); } finally { setUploading(false); }
+      notify.success('Foto subida', 'Imagen actualizada correctamente');
+    } catch (err: any) {
+      notify.error('Error al subir foto', err?.message || 'No se pudo subir la foto');
+    } finally { setUploading(false); }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -186,6 +198,7 @@ function BarberForm({ barber, onClose, onSaved }: { barber: Barber | null; onClo
           google_email: cleanNewEmail,
         }).eq('id', barber.id);
         if (updateError) throw updateError;
+        notify.success('Barbero actualizado', name.trim());
       } else {
         const newId = id.trim().toLowerCase().replace(/\s+/g, '-') || name.trim().toLowerCase().replace(/\s+/g, '-');
         const { error: insertError } = await supabase.from('barbers').insert({
@@ -199,11 +212,13 @@ function BarberForm({ barber, onClose, onSaved }: { barber: Barber | null; onClo
           sort_order: 99,
         });
         if (insertError) throw insertError;
+        notify.success('Barbero creado', name.trim());
       }
       onSaved();
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Error al guardar el barbero';
       setFormError(msg);
+      notify.error('Error al guardar', msg);
     } finally { setSaving(false); }
   };
 

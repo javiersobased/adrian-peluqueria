@@ -3,6 +3,7 @@ import { ChevronRight } from 'lucide-react';
 import { fetchServices } from '@/data/services';
 import type { Service } from '@/types';
 import { ArrowLeftIcon } from '@/components/icons';
+import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 
 interface ServiceStepProps {
   onBack: () => void;
@@ -44,7 +45,7 @@ export function ServiceStep({ onBack, onSelect }: ServiceStepProps) {
 
         {loading ? (
           <div className="flex justify-center py-20">
-            <span className="h-6 w-6 animate-spin rounded-full border-2 border-zinc-700 border-t-gold" />
+            <LoadingSpinner size="lg" label="Cargando servicios…" />
           </div>
         ) : services.length === 0 ? (
           <p className="py-20 text-center text-sm text-zinc-500">No hay servicios disponibles.</p>

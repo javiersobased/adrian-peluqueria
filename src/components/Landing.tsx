@@ -188,13 +188,13 @@ export function Landing({ onBook, onSignIn, onGoToPanel, user, role, onSignOut, 
           <p className="mb-3 text-xs font-semibold uppercase tracking-[0.35em] text-gold">Huelva</p>
           <ScrollFloat
             as="h1"
-            animationDuration={1}
+            animationDuration={1.1}
             ease="back.inOut(2)"
-            stagger={0.03}
-            containerClassName="font-display text-2xl sm:text-4xl md:text-6xl font-bold leading-tight text-white whitespace-normal break-words max-w-full"
+            stagger={0.035}
+            containerClassName="font-display text-3xl sm:text-5xl md:text-7xl font-bold leading-tight text-white whitespace-normal break-words max-w-full tracking-tight"
             textClassName="inline-block"
           >
-            Peluquería Adrián Millán
+            Adrián Millán
           </ScrollFloat>
           <div className="mx-auto mt-4 flex items-center justify-center gap-3">
             <span className="h-px w-10 bg-gold/60" />
@@ -277,11 +277,12 @@ export function Landing({ onBook, onSignIn, onGoToPanel, user, role, onSignOut, 
 
           {/* Organic preview grid */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5">
-            {galleryPreview.slice(0, 4).map((p) => (
+            {galleryPreview.slice(0, 4).map((p, idx) => (
               <div
                 key={p.id}
                 onClick={onGoToGallery}
-                className="group relative aspect-[3/4] overflow-hidden rounded-3xl border border-white/10 bg-zinc-900 cursor-pointer shadow-xl transition-all duration-300 hover:border-gold/40 hover:shadow-gold/10 hover:-translate-y-1"
+                style={{ animationDelay: `${idx * 0.08}s` }}
+                className="group relative aspect-[3/4] overflow-hidden rounded-3xl border border-white/10 bg-zinc-900 cursor-pointer shadow-xl transition-all duration-300 hover:border-gold/40 hover:shadow-gold/10 hover:-translate-y-1 animate-fade-up"
               >
                 <img
                   src={p.image_url}

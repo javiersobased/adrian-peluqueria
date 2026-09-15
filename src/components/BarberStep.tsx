@@ -3,6 +3,7 @@ import { fetchBarbers } from '@/data/services';
 import type { Barber } from '@/types';
 import { StepHeader } from '@/components/ServiceStep';
 import { Check } from 'lucide-react';
+import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 
 interface BarberStepProps {
   onBack: () => void;
@@ -29,7 +30,7 @@ export function BarberStep({ onBack, onSelect }: BarberStepProps) {
 
         {loading ? (
           <div className="flex justify-center py-20">
-            <span className="h-6 w-6 animate-spin rounded-full border-2 border-zinc-700 border-t-gold" />
+            <LoadingSpinner size="lg" label="Cargando barberos…" />
           </div>
         ) : barbers.length === 0 ? (
           <p className="py-20 text-center text-sm text-zinc-500">No hay barberos disponibles.</p>

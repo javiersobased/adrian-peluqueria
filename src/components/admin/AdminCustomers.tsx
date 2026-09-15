@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
 import type { Customer } from '@/types';
 import { Search, Users, Phone, Mail, MessageSquare } from 'lucide-react';
+import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 
 interface AdminCustomersProps {
   customers: Customer[];
@@ -28,7 +29,11 @@ export function AdminCustomers({ customers, loading, onRefresh }: AdminCustomers
   )();
 
   if (loading) {
-    return <div className="flex justify-center py-20"><span className="h-6 w-6 animate-spin rounded-full border-2 border-zinc-700 border-t-gold" /></div>;
+    return (
+      <div className="flex justify-center py-20">
+        <LoadingSpinner size="lg" label="Cargando clientes…" />
+      </div>
+    );
   }
 
   return (

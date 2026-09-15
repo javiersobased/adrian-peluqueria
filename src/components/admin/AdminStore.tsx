@@ -3,6 +3,8 @@ import { supabase } from '@/lib/supabase';
 import { fetchAllStoreCategories, fetchAllStoreProducts, uploadProductImage } from '@/lib/store';
 import type { StoreCategory, StoreProduct } from '@/types';
 import { Plus, Trash2, Pencil, Check, X, ShoppingBag, ArrowUp, ArrowDown, Image as ImageIcon } from 'lucide-react';
+import { notify } from '@/lib/notify';
+import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 
 export function AdminStore() {
   const [categories, setCategories] = useState<StoreCategory[]>([]);
@@ -29,9 +31,15 @@ export function AdminStore() {
 
   const handleDeleteCategory = async (id: string) => {
     if (!confirm('¿Eliminar esta categoría y todos sus productos?')) return;
-    await supabase.from('store_categories').delete().eq('id', id);
-    if (selectedCategory === id) setSelectedCategory(null);
-    load();
+    try {
+      const { error } = await supabase.from('store_categories').delete().eq('id', id);
+      if (error) throw error;
+      notify.success('Categoría eliminada', 'Se eliminó la categoría y sus productos asociados');
+      if (selectedCategory === id) setSelectedCategory(null);
+      load();
+    } catch (err: any) {
+      notify.error('Error al eliminar categoría', err?.message || 'No se pudo eliminar la categoría');
+    }
   };
 
   const handleMoveCategory = async (cat: StoreCategory, dir: -1 | 1) => {
@@ -48,13 +56,26 @@ export function AdminStore() {
 
   const handleDeleteProduct = async (id: string) => {
     if (!confirm('¿Eliminar este producto?')) return;
-    await supabase.from('store_products').delete().eq('id', id);
-    load();
+    try {
+      const { error } = await supabase.from('store_products').delete().eq('id', id);
+      if (error) throw error;
+      notify.success('Producto eliminado', 'El producto fue eliminado correctamente');
+      load();
+    } catch (err: any) {
+      notify.error('Error al eliminar producto', err?.message || 'No se pudo eliminar el producto');
+    }
   };
 
   const handleToggleProductActive = async (p: StoreProduct) => {
-    await supabase.from('store_products').update({ active: !p.active }).eq('id', p.id);
-    load();
+    const nextState = !p.active;
+    try {
+      const { error } = await supabase.from('store_products').update({ active: nextState }).eq('id', p.id);
+      if (error) throw error;
+      notify.info('Estado actualizado', `${p.name} marcado como ${nextState ? 'activo' : 'inactivo'}`);
+      load();
+    } catch (err: any) {
+      notify.error('Error al actualizar estado', err?.message || 'No se pudo actualizar el estado');
+    }
   };
 
   const handleMoveProduct = async (prod: StoreProduct, dir: -1 | 1) => {
@@ -70,7 +91,11 @@ export function AdminStore() {
   };
 
   if (loading) {
-    return <div className="flex justify-center py-20"><span className="h-6 w-6 animate-spin rounded-full border-2 border-zinc-700 border-t-gold" /></div>;
+    return (
+      <div className="flex justify-center py-20">
+        <LoadingSpinner size="lg" label="Cargando catálogo de tienda…" />
+      </div>
+    );
   }
 
   return (
@@ -216,13 +241,19 @@ function CategoryForm({ category, onClose, onSaved }: { category: StoreCategory 
     setSaving(true);
     try {
       if (category) {
-        await supabase.from('store_categories').update({ name: name.trim(), slug: slugify(name.trim()) }).eq('id', category.id);
+        const { error } = await supabase.from('store_categories').update({ name: name.trim(), slug: slugify(name.trim()) }).eq('id', category.id);
+        if (error) throw error;
+        notify.success('Categoría actualizada', name.trim());
       } else {
         const { data: maxOrder } = await supabase.from('store_categories').select('sort_order').order('sort_order', { ascending: false }).limit(1).maybeSingle();
         const nextOrder = (maxOrder as StoreCategory | null)?.sort_order ?? -1;
-        await supabase.from('store_categories').insert({ name: name.trim(), slug: slugify(name.trim()), sort_order: nextOrder + 1, active: true });
+        const { error } = await supabase.from('store_categories').insert({ name: name.trim(), slug: slugify(name.trim()), sort_order: nextOrder + 1, active: true });
+        if (error) throw error;
+        notify.success('Categoría creada', name.trim());
       }
       onSaved();
+    } catch (err: any) {
+      notify.error('Error al guardar categoría', err?.message || 'No se pudo guardar');
     } finally { setSaving(false); }
   };
 
@@ -256,9 +287,17 @@ function ProductForm({ product, categoryId, onClose, onSaved }: { product: Store
     const file = e.target.files?.[0];
     if (!file) return;
     setUploading(true);
-    const url = await uploadProductImage(file);
-    if (url) setImageUrl(url);
-    setUploading(false);
+    try {
+      const url = await uploadProductImage(file);
+      if (url) {
+        setImageUrl(url);
+        notify.success('Imagen subida', 'Foto del producto lista para guardar');
+      }
+    } catch (err: any) {
+      notify.error('Error al subir imagen', err?.message || 'No se pudo subir la imagen');
+    } finally {
+      setUploading(false);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -273,13 +312,19 @@ function ProductForm({ product, categoryId, onClose, onSaved }: { product: Store
         image_url: imageUrl || null,
       };
       if (product) {
-        await supabase.from('store_products').update(payload).eq('id', product.id);
+        const { error } = await supabase.from('store_products').update(payload).eq('id', product.id);
+        if (error) throw error;
+        notify.success('Producto actualizado', payload.name);
       } else {
         const { data: maxOrder } = await supabase.from('store_products').select('sort_order').eq('category_id', categoryId).order('sort_order', { ascending: false }).limit(1).maybeSingle();
         const nextOrder = (maxOrder as StoreProduct | null)?.sort_order ?? -1;
-        await supabase.from('store_products').insert({ ...payload, category_id: categoryId, sort_order: nextOrder + 1, active: true });
+        const { error } = await supabase.from('store_products').insert({ ...payload, category_id: categoryId, sort_order: nextOrder + 1, active: true });
+        if (error) throw error;
+        notify.success('Producto creado', payload.name);
       }
       onSaved();
+    } catch (err: any) {
+      notify.error('Error al guardar producto', err?.message || 'No se pudo guardar');
     } finally { setSaving(false); }
   };
 

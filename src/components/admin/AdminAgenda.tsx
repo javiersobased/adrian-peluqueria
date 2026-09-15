@@ -4,6 +4,8 @@ import { supabase } from '@/lib/supabase';
 import { fetchAllBarbers } from '@/data/services';
 import type { SavedBooking, Barber } from '@/types';
 import { WEEKDAY_SHORT, MONTH_SHORT } from '@/lib/schedule';
+import { notify } from '@/lib/notify';
+import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 
 interface AdminAgendaProps {
   bookings: SavedBooking[];
@@ -34,8 +36,14 @@ export function AdminAgenda({ bookings, loading, onRefresh }: AdminAgendaProps) 
 
   const handleCancel = async (id: string) => {
     if (!confirm('¿Cancelar esta cita?')) return;
-    await supabase.from('bookings').update({ status: 'cancelled' }).eq('id', id);
-    onRefresh();
+    try {
+      const { error } = await supabase.from('bookings').update({ status: 'cancelled' }).eq('id', id);
+      if (error) throw error;
+      notify.success('Cita cancelada', 'La cita fue marcada como cancelada');
+      onRefresh();
+    } catch (err: any) {
+      notify.error('Error al cancelar', err?.message || 'No se pudo cancelar la cita');
+    }
   };
 
   const getBarber = (id: string) => barbers.find((b) => b.id === id);
@@ -46,7 +54,11 @@ export function AdminAgenda({ bookings, loading, onRefresh }: AdminAgendaProps) 
   };
 
   if (loading) {
-    return <div className="flex items-center justify-center py-20"><span className="h-6 w-6 animate-spin rounded-full border-2 border-zinc-700 border-t-gold" /></div>;
+    return (
+      <div className="flex items-center justify-center py-20">
+        <LoadingSpinner size="lg" label="Cargando agenda…" />
+      </div>
+    );
   }
 
   if (groupedBookings.length === 0) {

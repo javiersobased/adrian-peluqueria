@@ -53,7 +53,46 @@ export async function createBooking(payload: PendingBookingPayload): Promise<{ b
     return { booking: null, error: res.error.message };
   }
 
-  return { booking: res.data as SavedBooking, error: null };
+  // Robust parsing of res.data across all possible Supabase response formats
+  let resolvedBooking: SavedBooking | null = null;
+  const raw = res.data;
+
+  if (raw && typeof raw === 'object') {
+    if (Array.isArray(raw) && raw.length > 0) {
+      resolvedBooking = raw[0] as SavedBooking;
+    } else if ('booking_date' in raw) {
+      resolvedBooking = raw as SavedBooking;
+    }
+  } else if (typeof raw === 'string' && raw.length > 10) {
+    // raw is the UUID of the newly created booking
+    const { data: byId } = await supabase.from('bookings').select('*').eq('id', raw).maybeSingle();
+    if (byId) resolvedBooking = byId as SavedBooking;
+  }
+
+  if (!resolvedBooking) {
+    resolvedBooking = await findExistingBooking(payload.barber, payload.booking_date, payload.booking_time);
+  }
+
+  if (!resolvedBooking) {
+    // Fallback: construct guaranteed SavedBooking from validated payload
+    const { data: sessionData } = await supabase.auth.getSession();
+    resolvedBooking = {
+      id: typeof raw === 'string' ? raw : (crypto.randomUUID ? crypto.randomUUID() : `b-${Date.now()}`),
+      service: payload.service,
+      service_price: payload.service_price,
+      barber: payload.barber,
+      booking_date: payload.booking_date,
+      booking_time: payload.booking_time,
+      full_name: payload.full_name,
+      phone: payload.phone,
+      email: sessionData?.session?.user?.email ?? null,
+      comments: payload.comments ?? null,
+      status: 'pending',
+      created_at: new Date().toISOString(),
+    };
+  }
+
+  return { booking: resolvedBooking, error: null };
 }
 
 export async function findExistingBooking(

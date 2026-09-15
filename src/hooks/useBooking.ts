@@ -75,12 +75,17 @@ export function useBooking() {
         const { booking, error: rpcError } = await createBooking(payload);
         if (rpcError) throw new Error(rpcError);
         clearPendingBooking();
-        if (booking && typeof booking === 'object' && 'booking_date' in booking) {
+        if (booking) {
           setConfirmation(booking);
           setStep('success');
         } else {
-          console.error('create_booking no devolvió una fila de reserva completa:', booking);
-          setError('Tu cita se ha guardado, pero no hemos podido cargar el resumen.');
+          const fallback = await findExistingBooking(payload.barber, payload.booking_date, payload.booking_time);
+          if (fallback) {
+            setConfirmation(fallback);
+            setStep('success');
+          } else {
+            setError('No se pudo confirmar la reserva. Inténtalo de nuevo en unos segundos.');
+          }
         }
       } catch (e) {
         console.error('Error al crear reserva:', e);

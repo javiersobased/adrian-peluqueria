@@ -50,7 +50,7 @@ export function Landing({ onBook, onSignIn, onGoToPanel, user, role, onSignOut, 
 
   const dockItems = [
     { icon: <Home size={18} />, label: 'Inicio', onClick: () => window.scrollTo({ top: 0, behavior: 'smooth' }) },
-    { icon: <Clock size={18} />, label: 'Horarios', onClick: () => scrollToSection('horarios') },
+    { icon: <Camera size={18} />, label: 'Cortes', onClick: () => onGoToGallery?.() },
     { icon: <Download size={18} />, label: 'Instalar app', onClick: () => setShowInstallModal(true) },
     { icon: <ShoppingBagIcon size={18} />, label: 'Productos', onClick: () => onGoToCatalog?.() },
     { icon: <Calendar size={16} />, label: 'Reservar', onClick: onBook, highlight: true },

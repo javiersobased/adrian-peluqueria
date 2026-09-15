@@ -53,11 +53,12 @@ function App() {
     if (auth.loading || roleCheckedRef.current) return;
     roleCheckedRef.current = true;
 
-    if (auth.user && auth.role?.status === 'verified' && auth.role?.role) {
+    // Do NOT navigate to admin if the user was in the middle of a booking
+    const hasPending = Boolean(getPendingBooking());
+    if (auth.user && auth.role?.status === 'verified' && auth.role?.role && !hasPending) {
       setView('admin');
     }
   }, [auth.loading, auth.user, auth.role]);
-
 
   useEffect(() => {
     if (auth.loading || !auth.user || resumedRef.current) return;
@@ -65,25 +66,36 @@ function App() {
     if (!pending) return;
 
     resumedRef.current = true;
-    clearPendingBooking();
     setResumingBooking(true);
     setShowLoginModal(false);
 
     (async () => {
       try {
+        // Ensure Supabase session token is fully attached
+        const { data: sessionData } = await supabase.auth.getSession();
+        if (!sessionData.session) {
+          await new Promise((r) => setTimeout(r, 300));
+        }
+
         const { booking: saved, error } = await createBooking(pending);
         if (error) throw new Error(error);
         if (saved) {
+          clearPendingBooking();
+          setView('public');
           booking.applyExternalConfirmation(saved as SavedBooking);
+        } else {
+          throw new Error('No se recibió la confirmación de la cita');
         }
-      } catch {
-        // Customer is now logged in; a manual retry will work
+      } catch (err) {
+        console.error('Error al reanudar reserva tras login:', err);
+        // If automatic creation hit an issue, restore the user's booking step and details
+        await booking.restorePending(pending);
+        setView('public');
       } finally {
         setResumingBooking(false);
       }
     })();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [auth.loading, auth.user]);
+  }, [auth.loading, auth.user, booking]);
 
   const goPublic = useCallback(() => {
     setView('public');

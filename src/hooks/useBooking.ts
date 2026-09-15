@@ -3,6 +3,7 @@ import type { Service, Barber, BookingForm, SavedBooking } from '@/types';
 import type { PendingBookingPayload } from '@/lib/pendingBooking';
 import { clearPendingBooking } from '@/lib/pendingBooking';
 import { createBooking, findExistingBooking } from '@/lib/bookings';
+import { fetchAllServices, fetchAllBarbers } from '@/data/services';
 
 export type BookingStep = 'landing' | 'barber' | 'service' | 'datetime' | 'details' | 'success';
 
@@ -112,6 +113,33 @@ export function useBooking() {
     setStep('success');
   }, []);
 
+  const restorePending = useCallback(async (payload: PendingBookingPayload) => {
+    try {
+      const [services, barbers] = await Promise.all([
+        fetchAllServices(),
+        fetchAllBarbers(),
+      ]);
+      const s = services.find((x) => x.name === payload.service) || {
+        id: 'custom',
+        name: payload.service,
+        price: payload.service_price,
+        duration: '30 min',
+        icon: 'scissors',
+        sort_order: 1,
+        active: true,
+      };
+      const b = barbers.find((x) => x.id === payload.barber) || null;
+      setService(s);
+      setBarber(b);
+      setDate(payload.booking_date);
+      setTime(payload.booking_time);
+      setError('Por favor, confirma tu cita ahora que has iniciado sesión.');
+      setStep('details');
+    } catch {
+      setStep('landing');
+    }
+  }, []);
+
   const reset = useCallback(() => {
     clearPendingBooking();
     setBarber(null);
@@ -140,6 +168,7 @@ export function useBooking() {
     buildPayload,
     submitBooking,
     applyExternalConfirmation,
+    restorePending,
     reset,
   };
 }

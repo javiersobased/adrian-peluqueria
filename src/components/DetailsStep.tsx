@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { StepHeader } from '@/components/ServiceStep';
 import { UserIcon, PhoneIcon, CheckIcon } from '@/components/icons';
 import { supabase } from '@/lib/supabase';
+import { getPendingBooking } from '@/lib/pendingBooking';
 import type { BookingForm } from '@/types';
 
 const SPANISH_PHONE_REGEX = /^(\+34\s?|0034\s?)?[6789]\d{2}(\s?\d{2}){3}$/;
@@ -35,6 +36,16 @@ export function DetailsStep({ onBack, onSubmit, submitting, error }: DetailsStep
           comments: data.comments ?? '',
         });
         setPrefilled(true);
+      } else {
+        const pending = getPendingBooking();
+        if (pending && (pending.full_name || pending.phone)) {
+          setForm({
+            fullName: pending.full_name ?? '',
+            phone: pending.phone ?? '',
+            comments: pending.comments ?? '',
+          });
+          setPrefilled(true);
+        }
       }
     })();
   }, []);

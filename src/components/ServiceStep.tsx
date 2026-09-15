@@ -91,18 +91,18 @@ export function StepHeader({
   onBack: () => void;
 }) {
   return (
-    <div className="sticky top-0 z-30 glass-panel px-5 pb-4 pt-5">
+    <div className="sticky top-0 z-30 glass-panel px-4 py-2.5 sm:px-5 sm:py-3.5">
       <div className="flex items-center gap-3">
         <button
           onClick={onBack}
           aria-label="Volver"
-          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white/5 text-zinc-300 transition-colors hover:bg-white/10 active:scale-90"
+          className="flex h-8 w-8 sm:h-9 sm:w-9 shrink-0 items-center justify-center rounded-full bg-white/5 text-zinc-300 transition-colors hover:bg-white/10 active:scale-90"
         >
           <ArrowLeftIcon className="h-4 w-4" />
         </button>
         <div>
-          <p className="text-[0.65rem] uppercase tracking-[0.2em] text-gold">{subtitle}</p>
-          <h2 className="font-display text-2xl font-bold leading-tight text-white">{title}</h2>
+          <p className="text-[0.6rem] sm:text-[0.65rem] uppercase tracking-[0.2em] text-gold">{subtitle}</p>
+          <h2 className="font-display text-lg sm:text-2xl font-bold leading-tight text-white">{title}</h2>
         </div>
       </div>
     </div>

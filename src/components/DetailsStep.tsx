@@ -180,26 +180,26 @@ export function DetailsStep({ onBack, onSubmit, submitting, error }: DetailsStep
   }, [searchQuery]);
 
   return (
-    <div className="min-h-screen animate-slide-in">
+    <div className="flex h-[100dvh] max-h-[100dvh] flex-col animate-slide-in overflow-hidden">
       <StepHeader title="Tus datos" subtitle="Paso 4 de 4" onBack={onBack} />
 
-      <form onSubmit={handleSubmit} className="px-5 pb-32">
-        {prefilledFromGoogle ? (
-          <div className="mb-5 flex items-center gap-2 rounded-2xl border border-gold/20 bg-gold/10 px-4 py-2.5 text-xs text-gold">
-            <Sparkles className="h-4 w-4 shrink-0 text-gold" />
-            <span>
-              Hemos autocompletado tu nombre desde tu cuenta de Google. Puedes editarlo libremente.
-            </span>
-          </div>
-        ) : (
-          <p className="mb-6 text-sm text-zinc-400">
-            Necesitamos tus datos de contacto para confirmar tu reserva en Adrián Millán Peluquería.
-          </p>
-        )}
+      <form onSubmit={handleSubmit} className="flex flex-1 flex-col overflow-hidden">
+        <div className="flex-1 overflow-y-auto px-4 py-2 sm:px-5 sm:py-3 space-y-2.5">
+          {prefilledFromGoogle ? (
+            <div className="flex items-center gap-2 rounded-xl border border-gold/20 bg-gold/10 px-3 py-1.5 text-[0.7rem] text-gold">
+              <Sparkles className="h-3.5 w-3.5 shrink-0 text-gold" />
+              <span>
+                Nombre autocompletado de Google. Puedes editarlo libremente.
+              </span>
+            </div>
+          ) : (
+            <p className="text-xs text-zinc-400">
+              Introduce tus datos de contacto para confirmar tu reserva en Adrián Millán Peluquería.
+            </p>
+          )}
 
-        <div className="space-y-4">
           {/* Nombre y Apellidos divididos en dos campos */}
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
             <Field
               label="Nombre"
               icon={<UserIcon className="h-4 w-4" />}
@@ -233,11 +233,11 @@ export function DetailsStep({ onBack, onSubmit, submitting, error }: DetailsStep
 
           {/* Teléfono con selector de país internacional */}
           <div>
-            <label className="mb-1.5 block text-xs font-medium uppercase tracking-wider text-zinc-500">
+            <label className="mb-1 block text-[0.65rem] font-medium uppercase tracking-wider text-zinc-500">
               Número de teléfono
             </label>
             <div
-              className={`flex items-center rounded-2xl glass-card transition-colors focus-within:border-gold/30 ${
+              className={`flex items-center rounded-xl glass-card transition-colors focus-within:border-gold/30 ${
                 touched.phone && errors.phone ? 'border-red-500/30' : ''
               }`}
             >
@@ -245,10 +245,10 @@ export function DetailsStep({ onBack, onSubmit, submitting, error }: DetailsStep
               <button
                 type="button"
                 onClick={() => setShowCountryModal(true)}
-                className="flex items-center gap-1.5 border-r border-white/10 px-3.5 py-3.5 text-sm font-medium text-white transition-colors hover:bg-white/5 active:scale-95 shrink-0"
+                className="flex items-center gap-1.5 border-r border-white/10 px-3 py-2.5 text-xs font-medium text-white transition-colors hover:bg-white/5 active:scale-95 shrink-0"
                 title="Cambiar prefijo internacional"
               >
-                <span className="text-xl leading-none">{selectedCountry.flag}</span>
+                <span className="text-lg leading-none">{selectedCountry.flag}</span>
                 <span className="font-mono text-xs font-semibold text-zinc-300">
                   {selectedCountry.dialCode}
                 </span>
@@ -256,7 +256,7 @@ export function DetailsStep({ onBack, onSubmit, submitting, error }: DetailsStep
               </button>
 
               {/* Input para el número nacional */}
-              <div className="flex flex-1 items-center px-3.5 py-3.5">
+              <div className="flex flex-1 items-center px-3 py-2.5">
                 <input
                   type="tel"
                   value={nationalNumber}
@@ -264,14 +264,14 @@ export function DetailsStep({ onBack, onSubmit, submitting, error }: DetailsStep
                   onBlur={() => setTouched((t) => ({ ...t, phone: true }))}
                   placeholder={selectedCountry.placeholder}
                   autoComplete="tel-national"
-                  className="w-full bg-transparent font-mono text-sm text-white placeholder:text-zinc-600 focus:outline-none"
+                  className="w-full bg-transparent font-mono text-xs sm:text-sm text-white placeholder:text-zinc-600 focus:outline-none"
                 />
               </div>
             </div>
             {touched.phone && errors.phone ? (
-              <p className="mt-1.5 text-xs text-red-400">{errors.phone}</p>
+              <p className="mt-1 text-xs text-red-400">{errors.phone}</p>
             ) : (
-              <p className="mt-1 text-[0.7rem] text-zinc-500">
+              <p className="mt-1 text-[0.65rem] text-zinc-500">
                 Se guardará como: <span className="font-mono text-zinc-400">{phoneValidation.formattedE164 || `${selectedCountry.dialCode} ...`}</span>
               </p>
             )}
@@ -279,30 +279,30 @@ export function DetailsStep({ onBack, onSubmit, submitting, error }: DetailsStep
 
           {/* Comentarios opcionales */}
           <div>
-            <label className="mb-1.5 block text-xs font-medium uppercase tracking-wider text-zinc-500">
+            <label className="mb-1 block text-[0.65rem] font-medium uppercase tracking-wider text-zinc-500">
               Comentarios <span className="text-zinc-600 normal-case">(opcional)</span>
             </label>
             <textarea
               value={comments}
               onChange={(e) => setComments(e.target.value)}
-              rows={3}
+              rows={2}
               placeholder="¿Alguna preferencia o indicación para tu cita?"
-              className="w-full resize-none rounded-2xl glass-card px-4 py-3 text-sm text-white placeholder:text-zinc-600 transition-colors focus:border-gold/30 focus:outline-none"
+              className="w-full resize-none rounded-xl glass-card px-3 py-2 text-xs sm:text-sm text-white placeholder:text-zinc-600 transition-colors focus:border-gold/30 focus:outline-none"
             />
           </div>
+
+          {error && (
+            <div className="rounded-xl border border-red-500/20 bg-red-500/10 px-3 py-2 text-xs text-red-400">
+              {error}
+            </div>
+          )}
         </div>
 
-        {error && (
-          <div className="mt-5 rounded-2xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-400">
-            {error}
-          </div>
-        )}
-
-        <div className="fixed inset-x-0 bottom-0 z-30 glass-panel px-5 pb-6 pt-4">
+        <div className="sticky bottom-0 z-30 mt-auto glass-panel px-4 pt-2 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
           <button
             type="submit"
             disabled={submitting || !isValid}
-            className={`flex w-full items-center justify-center gap-2 rounded-full py-4 text-sm font-bold uppercase tracking-wider transition-all duration-300 ${
+            className={`flex w-full items-center justify-center gap-2 rounded-2xl py-3 sm:py-3.5 text-xs sm:text-sm font-bold uppercase tracking-wider transition-all duration-300 ${
               isValid && !submitting
                 ? 'gold-gradient text-black hover:brightness-110 active:scale-[0.98] gold-glow'
                 : 'bg-white/5 text-zinc-600'
@@ -429,11 +429,11 @@ function Field({
 }) {
   return (
     <div>
-      <label className="mb-1.5 block text-xs font-medium uppercase tracking-wider text-zinc-500">
+      <label className="mb-1 block text-[0.65rem] font-medium uppercase tracking-wider text-zinc-500">
         {label}
       </label>
       <div
-        className={`flex items-center gap-3 rounded-2xl glass-card px-4 py-3.5 transition-colors focus-within:border-gold/30 ${
+        className={`flex items-center gap-2.5 rounded-xl glass-card px-3 py-2.5 transition-colors focus-within:border-gold/30 ${
           error ? 'border-red-500/30' : ''
         }`}
       >
@@ -445,7 +445,7 @@ function Field({
           onBlur={onBlur}
           placeholder={placeholder}
           autoComplete={autoComplete}
-          className="w-full bg-transparent text-sm text-white placeholder:text-zinc-600 focus:outline-none"
+          className="w-full bg-transparent text-xs sm:text-sm text-white placeholder:text-zinc-600 focus:outline-none"
         />
       </div>
       {error && <p className="mt-1 text-xs text-red-400">{error}</p>}

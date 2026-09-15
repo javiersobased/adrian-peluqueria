@@ -281,7 +281,7 @@ function App() {
         )}
       </div>
 
-      <FloatingButtons />
+      {booking.step === 'landing' && view === 'public' && <FloatingButtons />}
 
 
 

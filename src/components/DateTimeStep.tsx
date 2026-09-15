@@ -105,38 +105,40 @@ export function DateTimeStep({ barber, onBack, onContinue }: DateTimeStepProps) 
     `${WEEKDAY_SHORT[(date.getDay() + 6) % 7]} ${date.getDate()} ${MONTH_NAMES[date.getMonth()]}`;
 
   return (
-    <div className="flex min-h-screen animate-slide-in flex-col">
+    <div className="flex h-[100dvh] max-h-[100dvh] flex-col animate-slide-in overflow-hidden">
       <StepHeader title="Fecha y hora" subtitle="Paso 3 de 4" onBack={onBack} />
 
-      <div className="flex-1 overflow-y-auto px-5 pb-28">
-        {/* Barber header card */}
-        <div className="mb-5 flex items-center gap-4 rounded-3xl glass-card p-4">
-          {barber.photo_url ? (
-            <img src={barber.photo_url} alt={barber.name} className="h-14 w-14 shrink-0 rounded-2xl object-cover ring-1 ring-white/10" />
-          ) : (
-            <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl gold-gradient font-display text-base font-bold text-black/80">
-              {barber.initials}
+      <div className="flex-1 overflow-y-auto px-4 pb-4 pt-2 sm:px-5 sm:pt-3">
+        {/* Compact barber chip */}
+        <div className="mb-3 flex items-center justify-between gap-3 rounded-2xl glass-card px-3 py-2 text-xs">
+          <div className="flex items-center gap-2.5 min-w-0">
+            {barber.photo_url ? (
+              <img src={barber.photo_url} alt={barber.name} className="h-8 w-8 shrink-0 rounded-xl object-cover ring-1 ring-white/10" />
+            ) : (
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl gold-gradient font-display text-xs font-bold text-black/80">
+                {barber.initials}
+              </div>
+            )}
+            <div className="min-w-0">
+              <p className="font-display text-xs sm:text-sm font-bold text-white truncate">{barber.name}</p>
+              <p className="text-[0.65rem] text-zinc-400 truncate">{barber.role}</p>
             </div>
-          )}
-          <div className="flex-1">
-            <p className="font-display text-base font-bold text-white">{barber.name}</p>
-            <p className="text-xs text-zinc-400">{barber.role}</p>
           </div>
-          <span className="rounded-full bg-gold/10 px-3 py-1 text-[0.6rem] font-semibold uppercase tracking-wider text-gold">
+          <span className="shrink-0 rounded-full bg-gold/10 px-2.5 py-0.5 text-[0.6rem] font-semibold uppercase tracking-wider text-gold">
             Seleccionado
           </span>
         </div>
 
         {loading ? (
-          <div className="flex justify-center py-16">
+          <div className="flex justify-center py-12">
             <span className="h-6 w-6 animate-spin rounded-full border-2 border-zinc-700 border-t-gold" />
           </div>
         ) : (
           <>
             {/* Horizontal day pills */}
-            <div className="mb-6">
-              <p className="mb-3 text-[0.65rem] font-semibold uppercase tracking-[0.2em] text-zinc-500">Elige el día</p>
-              <div ref={scrollRef} className="no-scrollbar -mx-5 flex gap-2 overflow-x-auto px-5 pb-1">
+            <div className="mb-3">
+              <p className="mb-1.5 text-[0.6rem] font-semibold uppercase tracking-[0.2em] text-zinc-500">Elige el día</p>
+              <div ref={scrollRef} className="no-scrollbar -mx-4 sm:-mx-5 flex gap-1.5 overflow-x-auto px-4 sm:px-5 pb-1">
                 {dayPills.map((d) => {
                   const daySchedule = schedules.find((s) => s.weekday === d.getDay());
                   const disabled = !isDayAvailable(d, today, daySchedule, blocks, vacations);
@@ -146,19 +148,19 @@ export function DateTimeStep({ barber, onBack, onContinue }: DateTimeStepProps) 
                       key={toISO(d)}
                       onClick={() => handleSelectDay(d)}
                       disabled={disabled}
-                      className={`flex shrink-0 flex-col items-center justify-center gap-0.5 rounded-2xl px-4 py-3 transition-all duration-200 ${
+                      className={`flex shrink-0 flex-col items-center justify-center gap-0.5 rounded-xl px-2.5 py-1.5 sm:px-3 sm:py-2 transition-all duration-200 ${
                         isSel
-                          ? 'gold-gradient text-black gold-glow'
+                          ? 'gold-gradient text-black gold-glow scale-[1.02]'
                           : disabled
-                          ? 'bg-zinc-900/50 text-zinc-700 cursor-not-allowed'
+                          ? 'bg-zinc-900/40 text-zinc-700 cursor-not-allowed'
                           : 'glass-card text-zinc-300 hover:border-gold/20 active:scale-95'
                       }`}
                     >
-                      <span className="text-[0.6rem] font-semibold uppercase tracking-wider opacity-70">
+                      <span className="text-[0.55rem] font-semibold uppercase tracking-wider opacity-75">
                         {DAY_LABELS[(d.getDay() + 6) % 7]}
                       </span>
-                      <span className="font-display text-lg font-bold leading-none">{d.getDate()}</span>
-                      <span className="text-[0.55rem] uppercase opacity-50">{MONTH_SHORT[d.getMonth()]}</span>
+                      <span className="font-display text-base sm:text-lg font-bold leading-none">{d.getDate()}</span>
+                      <span className="text-[0.5rem] uppercase opacity-60">{MONTH_SHORT[d.getMonth()]}</span>
                     </button>
                   );
                 })}
@@ -168,9 +170,9 @@ export function DateTimeStep({ barber, onBack, onContinue }: DateTimeStepProps) 
             {/* Time slots — only available slots shown */}
             {selected ? (
               <div className="animate-fade-in">
-                <div className="mb-3 flex items-center gap-2">
-                  <ClockIcon className="h-4 w-4 text-gold" />
-                  <p className="text-sm font-medium text-zinc-300">
+                <div className="mb-2 flex items-center gap-1.5">
+                  <ClockIcon className="h-3.5 w-3.5 text-gold" />
+                  <p className="text-xs font-medium text-zinc-300">
                     Horas disponibles · <span className="capitalize">{prettyDate(selected)}</span>
                   </p>
                 </div>
@@ -182,8 +184,8 @@ export function DateTimeStep({ barber, onBack, onContinue }: DateTimeStepProps) 
 
                   if (totalAvail === 0) {
                     return (
-                      <div className="rounded-2xl glass-card px-5 py-8 text-center">
-                        <p className="text-sm text-zinc-500">No hay horas disponibles este día.</p>
+                      <div className="rounded-2xl glass-card px-4 py-6 text-center">
+                        <p className="text-xs sm:text-sm text-zinc-500">No hay horas disponibles este día.</p>
                       </div>
                     );
                   }
@@ -205,11 +207,11 @@ export function DateTimeStep({ barber, onBack, onContinue }: DateTimeStepProps) 
         )}
       </div>
 
-      <div className="fixed inset-x-0 bottom-0 z-30 glass-panel px-5 pb-6 pt-4">
+      <div className="sticky bottom-0 z-30 mt-auto glass-panel px-4 pt-2.5 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
         <button
           onClick={() => canContinue && onContinue(toISO(selected!), selectedTime)}
           disabled={!canContinue}
-          className={`flex w-full items-center justify-center gap-2 rounded-full py-4 text-sm font-bold uppercase tracking-wider transition-all duration-300 ${
+          className={`flex w-full items-center justify-center gap-2 rounded-2xl py-3 sm:py-3.5 text-xs sm:text-sm font-bold uppercase tracking-wider transition-all duration-300 ${
             canContinue ? 'gold-gradient text-black hover:brightness-110 active:scale-[0.98] gold-glow' : 'bg-white/5 text-zinc-600'
           }`}
         >
@@ -227,16 +229,16 @@ function SlotGroup({
   label: string; slots: string[]; selected: string; onSelect: (s: string) => void;
 }) {
   return (
-    <div className="mb-5">
-      <p className="mb-2.5 text-[0.65rem] font-semibold uppercase tracking-[0.2em] text-zinc-500">{label}</p>
-      <div className="grid grid-cols-4 gap-2">
+    <div className="mb-3">
+      <p className="mb-1 text-[0.6rem] font-semibold uppercase tracking-[0.2em] text-zinc-500">{label}</p>
+      <div className="grid grid-cols-4 sm:grid-cols-6 gap-1.5">
         {slots.map((slot) => {
           const isSel = selected === slot;
           return (
             <button
               key={slot}
               onClick={() => onSelect(slot)}
-              className={`rounded-2xl py-3 text-sm font-semibold transition-all duration-200 active:scale-90 ${
+              className={`rounded-xl py-2 sm:py-2.5 text-xs sm:text-sm font-semibold transition-all duration-200 active:scale-90 ${
                 isSel ? 'gold-gradient text-black gold-glow'
                 : 'glass-card text-zinc-300 hover:border-gold/20 hover:text-white'
               }`}

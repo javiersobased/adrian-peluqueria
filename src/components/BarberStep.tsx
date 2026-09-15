@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { fetchBarbers } from '@/data/services';
 import type { Barber } from '@/types';
-import { ArrowLeftIcon } from '@/components/icons';
+import { StepHeader } from '@/components/ServiceStep';
 import { Check } from 'lucide-react';
 
 interface BarberStepProps {
@@ -22,24 +22,10 @@ export function BarberStep({ onBack, onSelect }: BarberStepProps) {
 
   return (
     <div className="min-h-screen animate-slide-in">
-      <div className="sticky top-0 z-30 glass-panel px-5 pb-4 pt-5">
-        <div className="flex items-center gap-3">
-          <button
-            onClick={onBack}
-            aria-label="Volver"
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white/5 text-zinc-300 transition-colors hover:bg-white/10 active:scale-90"
-          >
-            <ArrowLeftIcon className="h-4 w-4" />
-          </button>
-          <div>
-            <p className="text-[0.65rem] uppercase tracking-[0.2em] text-gold">Paso 2 de 4</p>
-            <h2 className="font-display text-2xl font-bold leading-tight text-white">Elige tu barbero</h2>
-          </div>
-        </div>
-      </div>
+      <StepHeader title="Elige tu barbero" subtitle="Paso 2 de 4" onBack={onBack} />
 
-      <div className="px-5 pb-10 pt-4">
-        <p className="mb-5 text-sm text-zinc-400">¿Con quién prefieres que te atiendan?</p>
+      <div className="px-4 pb-10 pt-2 sm:px-5 sm:pt-4">
+        <p className="mb-3 text-xs sm:text-sm text-zinc-400">¿Con quién prefieres que te atiendan?</p>
 
         {loading ? (
           <div className="flex justify-center py-20">

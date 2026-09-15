@@ -40,12 +40,20 @@ export function AdminServices() {
 
   const handleDelete = async (id: string) => {
     if (!confirm('¿Eliminar este servicio?')) return;
-    await supabase.from('services').delete().eq('id', id);
+    const { error } = await supabase.from('services').delete().eq('id', id);
+    if (error) {
+      alert('No se pudo eliminar el servicio: ' + error.message);
+      return;
+    }
     load();
   };
 
   const handleToggleActive = async (s: Service) => {
-    await supabase.from('services').update({ active: !s.active }).eq('id', s.id);
+    const { error } = await supabase.from('services').update({ active: !s.active }).eq('id', s.id);
+    if (error) {
+      alert('No se pudo actualizar el estado: ' + error.message);
+      return;
+    }
     load();
   };
 
@@ -103,16 +111,26 @@ function ServiceForm({ service, onClose, onSaved }: { service: Service | null; o
   const [duration, setDuration] = useState(service?.duration ?? '45min');
   const [icon, setIcon] = useState(service?.icon ?? 'scissors');
   const [saving, setSaving] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim()) return;
     setSaving(true);
+    setFormError(null);
     try {
       const payload = { name: name.trim(), price: Number(price) || 0, duration: duration.trim() || '45min', icon };
-      if (service) { await supabase.from('services').update(payload).eq('id', service.id); }
-      else { await supabase.from('services').insert({ ...payload, active: true, sort_order: 99 }); }
+      if (service) {
+        const { error } = await supabase.from('services').update(payload).eq('id', service.id);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase.from('services').insert({ ...payload, active: true, sort_order: 99 });
+        if (error) throw error;
+      }
       onSaved();
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Error al guardar el servicio';
+      setFormError(msg);
     } finally { setSaving(false); }
   };
 
@@ -148,6 +166,12 @@ function ServiceForm({ service, onClose, onSaved }: { service: Service | null; o
           })}
         </div>
       </div>
+
+      {formError && (
+        <p className="text-xs text-red-400 bg-red-500/10 p-2.5 rounded-xl border border-red-500/20">
+          {formError}
+        </p>
+      )}
 
       <button type="submit" disabled={saving || !name.trim()}
         className={`flex w-full items-center justify-center gap-2 rounded-full py-3.5 text-sm font-bold uppercase tracking-wider transition-all ${

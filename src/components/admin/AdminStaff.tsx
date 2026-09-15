@@ -26,7 +26,11 @@ export function AdminStaff() {
 
   const handleDelete = async (b: Barber) => {
     if (!confirm(`¿Eliminar al barbero "${b.name}"? Esta acción revocará de inmediato cualquier acceso al panel.`)) return;
-    await supabase.from('barbers').delete().eq('id', b.id);
+    const { error: delError } = await supabase.from('barbers').delete().eq('id', b.id);
+    if (delError) {
+      alert('No se pudo eliminar al barbero: ' + delError.message);
+      return;
+    }
     if (b.google_email) {
       const cleanEmail = b.google_email.toLowerCase().trim();
       if (!MASTER_ADMINS.some((a) => a.email === cleanEmail)) {
@@ -141,6 +145,7 @@ function BarberForm({ barber, onClose, onSaved }: { barber: Barber | null; onClo
   const [photoUrl, setPhotoUrl] = useState(barber?.photo_url ?? '');
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
 
   const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -173,16 +178,17 @@ function BarberForm({ barber, onClose, onSaved }: { barber: Barber | null; onClo
       }
 
       if (barber) {
-        await supabase.from('barbers').update({
+        const { error: updateError } = await supabase.from('barbers').update({
           name: name.trim(),
           role: role.trim() || 'Barbero',
           initials,
           photo_url: photoUrl || null,
           google_email: cleanNewEmail,
         }).eq('id', barber.id);
+        if (updateError) throw updateError;
       } else {
         const newId = id.trim().toLowerCase().replace(/\s+/g, '-') || name.trim().toLowerCase().replace(/\s+/g, '-');
-        await supabase.from('barbers').insert({
+        const { error: insertError } = await supabase.from('barbers').insert({
           id: newId,
           name: name.trim(),
           role: role.trim() || 'Barbero',
@@ -192,8 +198,12 @@ function BarberForm({ barber, onClose, onSaved }: { barber: Barber | null; onClo
           active: true,
           sort_order: 99,
         });
+        if (insertError) throw insertError;
       }
       onSaved();
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Error al guardar el barbero';
+      setFormError(msg);
     } finally { setSaving(false); }
   };
 
@@ -254,6 +264,12 @@ function BarberForm({ barber, onClose, onSaved }: { barber: Barber | null; onClo
           Si el barbero inicia sesión con este correo de Google, accederá a su panel. Si se borra o cambia este correo, su acceso queda revocado de inmediato.
         </p>
       </div>
+
+      {formError && (
+        <p className="text-xs text-red-400 bg-red-500/10 p-2.5 rounded-xl border border-red-500/20">
+          {formError}
+        </p>
+      )}
 
       <button
         type="submit"

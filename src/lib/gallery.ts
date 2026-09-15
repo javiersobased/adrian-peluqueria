@@ -46,7 +46,21 @@ export const DEFAULT_GALLERY_PHOTOS: GalleryPhoto[] = [
   },
 ];
 
+function isUUID(str: string): boolean {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str);
+}
+
+function getDeletedSeedIds(): string[] {
+  try {
+    const raw = typeof window !== 'undefined' ? localStorage.getItem('am_deleted_seed_photos') : null;
+    return raw ? (JSON.parse(raw) as string[]) : [];
+  } catch {
+    return [];
+  }
+}
+
 export async function fetchGalleryPhotos(): Promise<GalleryPhoto[]> {
+  const deletedSeeds = getDeletedSeedIds();
   try {
     const { data, error } = await supabase
       .from('gallery_photos')
@@ -55,17 +69,17 @@ export async function fetchGalleryPhotos(): Promise<GalleryPhoto[]> {
 
     if (error) {
       console.warn('Error fetching gallery_photos, using default seed photos:', error.message);
-      return DEFAULT_GALLERY_PHOTOS;
+      return DEFAULT_GALLERY_PHOTOS.filter((p) => !deletedSeeds.includes(p.id));
     }
 
     if (!data || data.length === 0) {
-      return DEFAULT_GALLERY_PHOTOS;
+      return DEFAULT_GALLERY_PHOTOS.filter((p) => !deletedSeeds.includes(p.id));
     }
 
     return data as GalleryPhoto[];
   } catch (err) {
     console.warn('Network error fetching gallery photos:', err);
-    return DEFAULT_GALLERY_PHOTOS;
+    return DEFAULT_GALLERY_PHOTOS.filter((p) => !deletedSeeds.includes(p.id));
   }
 }
 
@@ -86,7 +100,8 @@ export async function uploadGalleryPhoto(
       });
 
     if (uploadError) {
-      return { photo: null, error: uploadError.message };
+      console.error('Error uploading to gallery-photos bucket:', uploadError);
+      return { photo: null, error: `Error de almacenamiento: ${uploadError.message}` };
     }
 
     const { data: urlData } = supabase.storage
@@ -106,7 +121,8 @@ export async function uploadGalleryPhoto(
       .single();
 
     if (insertError) {
-      return { photo: null, error: insertError.message };
+      console.error('Error inserting into gallery_photos table:', insertError);
+      return { photo: null, error: `Error de base de datos: ${insertError.message}` };
     }
 
     return { photo: insertData as GalleryPhoto, error: null };
@@ -118,6 +134,18 @@ export async function uploadGalleryPhoto(
 
 export async function deleteGalleryPhoto(id: string, imageUrl?: string): Promise<{ error: string | null }> {
   try {
+    // If it is a seed demo photo (not a database UUID)
+    if (!isUUID(id)) {
+      try {
+        const deleted = getDeletedSeedIds();
+        if (!deleted.includes(id)) {
+          deleted.push(id);
+          localStorage.setItem('am_deleted_seed_photos', JSON.stringify(deleted));
+        }
+      } catch { /* ignore */ }
+      return { error: null };
+    }
+
     if (imageUrl && imageUrl.includes('/gallery-photos/')) {
       const parts = imageUrl.split('/gallery-photos/');
       if (parts[1]) {

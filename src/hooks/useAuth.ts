@@ -56,10 +56,15 @@ export function useAuth() {
   }, [fetchRole]);
 
   const signInWithGoogle = useCallback(async () => {
+    const isLocalhost =
+      typeof window !== 'undefined' &&
+      (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+    const redirectTo = isLocalhost ? window.location.origin : 'https://www.adrianmillan.es';
+
     await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: window.location.origin,
+        redirectTo,
       },
     });
   }, []);

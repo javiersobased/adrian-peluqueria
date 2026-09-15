@@ -2,6 +2,11 @@
 <html lang="es">
   <head>
     <meta charset="UTF-8" />
+    <script>
+      if (window.location.hostname.endsWith('.vercel.app')) {
+        window.location.replace('https://www.adrianmillan.es' + window.location.pathname + window.location.search + window.location.hash);
+      }
+    </script>
     <meta name="google-site-verification" content="p_aUO87K1OHqHos3232sKDPMoKPrOU9Syu3ynewquvU" />
     <link rel="icon" type="image/png" href="/icon-512.png" />
     <link rel="apple-touch-icon" href="/icon-512.png" />

@@ -226,7 +226,7 @@ export function Landing({ onBook, onSignIn, onGoToPanel, user, role, onSignOut, 
             <div className="relative overflow-hidden rounded-3xl border border-gold/20 bg-zinc-900/70 backdrop-blur-xl shadow-2xl">
               <div className="absolute inset-0 -z-10 opacity-20">
                 <img
-                  src="https://images.pexels.com/photos/47047/photo-47047.jpeg?auto=compress&cs=tinysrgb&w=1260&h=1680"
+                  src="https://images.unsplash.com/photo-1503951914875-452162b0f3f1?auto=format&fit=crop&w=1200&q=80"
                   alt=""
                   aria-hidden="true"
                   className="h-full w-full object-cover"

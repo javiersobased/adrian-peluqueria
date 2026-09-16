@@ -33,13 +33,26 @@ function App() {
   const resumedRef = useRef(false);
   const roleCheckedRef = useRef(false);
 
-  // Detect #admin or #galeria hash on initial load
+  // Detect hash changes for direct linking (#admin, #galeria, #catalogo, #mis-citas)
   useEffect(() => {
-    if (window.location.hash === '#admin') {
-      setView('admin');
-    } else if (window.location.hash === '#galeria' || window.location.hash === '#gallery') {
-      setView('gallery');
-    }
+    const handleHash = () => {
+      const h = window.location.hash.toLowerCase();
+      if (h === '#admin') {
+        setView('admin');
+      } else if (h === '#galeria' || h === '#gallery' || h === '#cortes') {
+        setView('gallery');
+      } else if (h === '#catalogo' || h === '#tienda' || h === '#productos') {
+        setView('catalog');
+      } else if (h === '#mis-citas' || h === '#citas') {
+        setView('my-bookings');
+      } else if (h === '#inicio' || h === '' || h === '#') {
+        setView('public');
+      }
+    };
+
+    handleHash();
+    window.addEventListener('hashchange', handleHash);
+    return () => window.removeEventListener('hashchange', handleHash);
   }, []);
 
   // Set PWA context based on current view
@@ -58,14 +71,17 @@ function App() {
     // Do NOT navigate to admin if the user was in the middle of a booking
     const hasPending = Boolean(getPendingBooking());
     if (auth.user && auth.role?.status === 'verified' && auth.role?.role && !hasPending) {
-      setView('admin');
+      if (window.location.hash === '#admin') {
+        setView('admin');
+      }
     }
-  }, [auth.loading, auth.user, auth.role]);
+  }, [auth.loading, auth.role, auth.user]);
 
+  // Restore pending booking after login redirect
   useEffect(() => {
-    if (auth.loading || !auth.user || resumedRef.current) return;
+    if (auth.loading || resumedRef.current) return;
     const pending = getPendingBooking();
-    if (!pending) return;
+    if (!pending || !auth.user) return;
 
     resumedRef.current = true;
     setResumingBooking(true);
@@ -100,22 +116,29 @@ function App() {
   }, [auth.loading, auth.user, booking]);
 
   const goPublic = useCallback(() => {
+    if (window.location.hash && window.location.hash !== '#') {
+      history.pushState(null, '', window.location.pathname);
+    }
     setView('public');
   }, []);
 
   const goAdmin = useCallback(() => {
+    window.location.hash = '#admin';
     setView('admin');
   }, []);
 
   const goMyBookings = useCallback(() => {
+    window.location.hash = '#mis-citas';
     setView('my-bookings');
   }, []);
 
   const goCatalog = useCallback(() => {
+    window.location.hash = '#catalogo';
     setView('catalog');
   }, []);
 
   const goGallery = useCallback(() => {
+    window.location.hash = '#galeria';
     setView('gallery');
   }, []);
 

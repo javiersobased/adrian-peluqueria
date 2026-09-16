@@ -177,13 +177,13 @@ export function AdminStaffSchedule() {
   }
 
   return (
-    <div className="mx-auto max-w-2xl space-y-4">
+    <div className="mx-auto max-w-2xl w-full min-w-0 space-y-4">
       <div>
         <label className="mb-1.5 block text-xs text-zinc-500">Barbero</label>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           {barbers.map((b) => (
             <button key={b.id} type="button" onClick={() => setBarber(b.id)}
-              className={`flex-1 rounded-xl py-2.5 text-sm font-medium transition-all ${
+              className={`flex-1 min-w-[80px] truncate rounded-xl py-2 sm:py-2.5 px-2 text-xs sm:text-sm font-medium transition-all ${
                 barber === b.id ? 'gold-gradient text-black' : 'glass-card text-zinc-400 hover:text-white'
               }`}>{b.name}</button>
           ))}

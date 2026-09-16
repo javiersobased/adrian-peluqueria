@@ -320,12 +320,13 @@ function SlotGroup({
             <button
               key={slot}
               onClick={() => onSelect(slot)}
-              className={`rounded-xl py-2 sm:py-2.5 text-xs sm:text-sm font-semibold transition-all duration-200 active:scale-90 ${
+              className={`inline-flex items-baseline justify-center rounded-xl py-2 sm:py-2.5 px-1 text-xs sm:text-sm font-semibold transition-all duration-200 active:scale-90 ${
                 isSel ? 'gold-gradient text-black gold-glow'
                 : 'glass-card text-zinc-300 hover:border-gold/20 hover:text-white'
               }`}
             >
-              {slot}
+              <span>{slot}</span>
+              <span className={`ml-0.5 text-[0.6rem] font-medium lowercase ${isSel ? 'text-black/80' : 'text-zinc-500'}`}>h</span>
             </button>
           );
         })}

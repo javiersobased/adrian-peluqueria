@@ -66,7 +66,7 @@ export function AdminStaff() {
   }
 
   return (
-    <div className="mx-auto max-w-2xl space-y-6">
+    <div className="mx-auto max-w-2xl w-full min-w-0 space-y-6">
       {/* Barbers / Staff List */}
       <div className="space-y-4">
         <div className="flex items-center justify-between">
@@ -76,7 +76,7 @@ export function AdminStaff() {
           </div>
           <button
             onClick={() => { setCreating(true); setEditing(null); }}
-            className="inline-flex items-center gap-2 rounded-full gold-gradient px-4 py-2 text-xs font-bold uppercase tracking-wider text-black transition-all hover:brightness-110 active:scale-95 shadow-md"
+            className="inline-flex items-center gap-2 rounded-full gold-gradient px-4 py-2 text-xs font-bold uppercase tracking-wider text-black transition-all hover:brightness-110 active:scale-95 shadow-md shrink-0"
           >
             <Plus className="h-4 w-4" />Nuevo barbero
           </button>
@@ -92,16 +92,16 @@ export function AdminStaff() {
 
         <div className="space-y-2.5">
           {barbers.map((b) => (
-            <div key={b.id} className="flex items-center gap-3.5 rounded-2xl glass-card p-3.5 transition-colors hover:border-gold/20">
+            <div key={b.id} className="flex items-center gap-2.5 sm:gap-3.5 rounded-2xl glass-card p-3 sm:p-3.5 transition-colors hover:border-gold/20">
               {b.photo_url ? (
-                <img src={b.photo_url} alt={b.name} className="h-12 w-12 shrink-0 rounded-xl object-cover ring-1 ring-white/10" />
+                <img src={b.photo_url} alt={b.name} className="h-11 w-11 sm:h-12 sm:w-12 shrink-0 rounded-xl object-cover ring-1 ring-white/10" />
               ) : (
-                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl gold-gradient font-display text-base font-bold text-black">
+                <div className="flex h-11 w-11 sm:h-12 sm:w-12 shrink-0 items-center justify-center rounded-xl gold-gradient font-display text-base font-bold text-black">
                   {b.initials}
                 </div>
               )}
               <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-1.5 min-w-0">
                   <p className="text-sm font-bold text-white truncate">{b.name}</p>
                   {isAdrian(b) && (
                     <span className="inline-flex items-center gap-1 rounded-full bg-gold/15 px-2 py-0.5 text-[0.65rem] font-bold text-gold border border-gold/30 shrink-0">
@@ -109,9 +109,9 @@ export function AdminStaff() {
                     </span>
                   )}
                 </div>
-                <p className="text-xs text-zinc-400">{b.role}</p>
+                <p className="text-xs text-zinc-400 truncate">{b.role}</p>
                 {isAdrian(b) ? (
-                  <div className="mt-1 flex items-center gap-1.5 text-[0.7rem] text-gold">
+                  <div className="mt-1 flex items-center gap-1.5 text-[0.7rem] text-gold min-w-0">
                     <Mail className="h-3 w-3 shrink-0" />
                     <span className="truncate">
                       {Array.isArray(b.admin_emails) && b.admin_emails.length > 0
@@ -120,38 +120,40 @@ export function AdminStaff() {
                     </span>
                   </div>
                 ) : b.google_email ? (
-                  <div className="flex items-center gap-1.5 mt-0.5 text-[0.7rem] text-gold">
-                    <Mail className="h-3 w-3" />
+                  <div className="flex items-center gap-1.5 mt-0.5 text-[0.7rem] text-gold min-w-0">
+                    <Mail className="h-3 w-3 shrink-0" />
                     <span className="truncate">{b.google_email}</span>
                   </div>
                 ) : (
                   <p className="text-[0.65rem] text-zinc-600">Sin acceso a panel asignado</p>
                 )}
               </div>
-              <button
-                onClick={() => { setEditing(b); setCreating(false); }}
-                aria-label="Editar"
-                className="flex h-8 w-8 items-center justify-center rounded-full glass-card text-zinc-400 hover:text-white transition-colors"
-                title="Modificar perfil"
-              >
-                <Pencil className="h-4 w-4" />
-              </button>
-              {isAdrian(b) ? (
-                <div
-                  title="El perfil principal de Adrián está protegido y nunca puede ser eliminado"
-                  className="flex h-8 w-8 items-center justify-center rounded-full bg-gold/10 text-gold/60 cursor-not-allowed border border-gold/20"
-                >
-                  <ShieldCheck className="h-4 w-4 text-gold" />
-                </div>
-              ) : (
+              <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
                 <button
-                  onClick={() => handleDelete(b)}
-                  aria-label="Eliminar"
-                  className="flex h-8 w-8 items-center justify-center rounded-full bg-red-500/10 text-red-400 hover:bg-red-500/20 transition-colors"
+                  onClick={() => { setEditing(b); setCreating(false); }}
+                  aria-label="Editar"
+                  className="flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-full glass-card text-zinc-400 hover:text-white transition-colors"
+                  title="Modificar perfil"
                 >
-                  <Trash2 className="h-4 w-4" />
+                  <Pencil className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                 </button>
-              )}
+                {isAdrian(b) ? (
+                  <div
+                    title="El perfil principal de Adrián está protegido y nunca puede ser eliminado"
+                    className="flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-full bg-gold/10 text-gold/60 cursor-not-allowed border border-gold/20"
+                  >
+                    <ShieldCheck className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-gold" />
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => handleDelete(b)}
+                    aria-label="Eliminar"
+                    className="flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-full bg-red-500/10 text-red-400 hover:bg-red-500/20 transition-colors"
+                  >
+                    <Trash2 className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                  </button>
+                )}
+              </div>
             </div>
           ))}
         </div>

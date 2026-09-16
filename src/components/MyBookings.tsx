@@ -141,8 +141,9 @@ export function MyBookings({ onBack, userEmail }: MyBookingsProps) {
     return (
       <div key={b.id} className="rounded-2xl glass-card p-4 transition-colors hover:border-gold/15">
         <div className="flex items-start gap-3">
-          <div className="flex w-14 shrink-0 flex-col items-center justify-center rounded-xl bg-gold/5 py-2">
-            <span className="font-display text-sm font-bold text-gold">{b.booking_time}</span>
+          <div className="self-start shrink-0 inline-flex items-baseline justify-center rounded-xl bg-gold/10 px-2 sm:px-2.5 py-1 sm:py-1.5 border border-gold/20 shadow-sm">
+            <span className="font-display text-xs sm:text-sm font-bold text-gold tracking-tight">{b.booking_time}</span>
+            <span className="ml-0.5 text-[0.6rem] sm:text-[0.65rem] font-semibold text-gold/70 lowercase">h</span>
           </div>
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2">

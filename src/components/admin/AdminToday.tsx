@@ -138,17 +138,19 @@ export function AdminToday({ bookings, loading, onRefresh }: AdminTodayProps) {
             return (
               <div
                 key={b.id}
-                className={`flex items-stretch gap-3 rounded-2xl glass-card p-3.5 transition-all hover:border-gold/30 ${
+                className={`flex items-start gap-2.5 sm:gap-3 rounded-2xl glass-card p-3 sm:p-3.5 transition-all hover:border-gold/30 ${
                   isNext ? 'border-gold/30 bg-gold/[0.03] ring-1 ring-gold/20' : ''
                 }`}
               >
-                <div className={`flex w-16 shrink-0 flex-col items-center justify-center rounded-xl py-2.5 ${
-                  isNext ? 'bg-gold/15 text-gold' : 'bg-gold/5 text-gold'
-                }`}>
-                  <span className="font-display text-base font-bold">{b.booking_time}</span>
-                  <span className="text-[0.55rem] uppercase text-zinc-400">h</span>
+                <div className="self-start shrink-0 flex flex-col items-center gap-1">
+                  <div className={`inline-flex items-baseline justify-center rounded-xl px-2 sm:px-2.5 py-1 sm:py-1.5 border shadow-sm ${
+                    isNext ? 'bg-gold/20 text-gold border-gold/40' : 'bg-gold/10 text-gold border-gold/20'
+                  }`}>
+                    <span className="font-display text-xs sm:text-sm font-bold tracking-tight">{b.booking_time}</span>
+                    <span className="ml-0.5 text-[0.6rem] sm:text-[0.65rem] font-semibold text-gold/70 lowercase">h</span>
+                  </div>
                   {isNext && (
-                    <span className="mt-0.5 rounded px-1 text-[0.5rem] font-bold uppercase tracking-wider bg-gold text-black">
+                    <span className="rounded px-1.5 py-0.5 text-[0.55rem] font-bold uppercase tracking-wider bg-gold text-black">
                       Próxima
                     </span>
                   )}
@@ -232,11 +234,11 @@ export function AdminToday({ bookings, loading, onRefresh }: AdminTodayProps) {
                     key={b.id}
                     className="flex items-center gap-3 rounded-xl border border-white/5 bg-zinc-950/40 p-3 opacity-60 transition-opacity hover:opacity-100"
                   >
-                    <div className="flex w-14 shrink-0 flex-col items-center justify-center rounded-lg bg-zinc-900 py-1.5 text-zinc-400">
+                    <div className="self-start shrink-0 inline-flex items-baseline justify-center rounded-lg bg-zinc-900 px-2 py-1 text-zinc-400">
                       <span className="font-mono text-xs font-semibold line-through decoration-zinc-600">
                         {b.booking_time}
                       </span>
-                      <span className="text-[0.5rem] uppercase text-zinc-500">pasada</span>
+                      <span className="ml-0.5 text-[0.6rem] lowercase text-zinc-500">h</span>
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="truncate text-xs font-medium text-zinc-300">{b.full_name}</p>

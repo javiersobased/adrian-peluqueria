@@ -1,4 +1,4 @@
-﻿import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { supabase } from '@/lib/supabase';
 import { fetchAllBarbers } from '@/data/services';
 import type { SavedBooking, Barber } from '@/types';
@@ -321,9 +321,10 @@ export function CustomerDetailModal({ customer, onClose }: CustomerDetailModalPr
                           }`}
                         >
                           <div className="flex items-center gap-3 min-w-0">
-                            {/* Time badge */}
-                            <div className="flex w-14 shrink-0 flex-col items-center justify-center rounded-xl bg-gold/5 py-1.5 border border-gold/10">
-                              <span className="font-display text-xs font-bold text-gold">{b.booking_time}</span>
+                            {/* Time badge: compact, self-start, h on the right */}
+                            <div className="self-start shrink-0 inline-flex items-baseline justify-center rounded-xl bg-gold/10 px-2 py-1 border border-gold/20 shadow-sm">
+                              <span className="font-display text-xs font-bold text-gold tracking-tight">{b.booking_time}</span>
+                              <span className="ml-0.5 text-[0.6rem] font-semibold text-gold/70 lowercase">h</span>
                             </div>
 
                             <div className="min-w-0 space-y-0.5">

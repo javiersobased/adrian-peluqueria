@@ -1,4 +1,4 @@
-﻿import { useMemo, useState, useEffect } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { 
   CalendarDays, 
   Scissors, 
@@ -103,13 +103,13 @@ export function AdminAgenda({ bookings, loading, onRefresh }: AdminAgendaProps) 
   }
 
   return (
-    <div className="mx-auto max-w-3xl">
+    <div className="mx-auto max-w-3xl w-full min-w-0">
       <div className="mb-4 flex items-center gap-2">
         <CalendarDays className="h-5 w-5 text-gold" />
         <h3 className="font-display text-xl font-bold text-white">Próximas citas</h3>
       </div>
 
-      <div data-lenis-prevent className="max-h-[70vh] space-y-6 overflow-y-auto pr-2">
+      <div data-lenis-prevent className="max-h-[70vh] space-y-6 overflow-y-auto overflow-x-hidden pr-1 sm:pr-2">
         {groupedBookings.map((group) => (
           <div key={group.date}>
             <div className="sticky top-0 z-10 mb-2 rounded-xl bg-zinc-900/80 px-4 py-2 backdrop-blur-sm">
@@ -127,14 +127,14 @@ export function AdminAgenda({ bookings, loading, onRefresh }: AdminAgendaProps) 
                     role="button"
                     tabIndex={0}
                     onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') setSelectedBooking(b); }}
-                    className={`group flex cursor-pointer items-stretch gap-3 rounded-2xl glass-card p-3.5 transition-all duration-200 hover:border-gold/30 hover:bg-white/[0.04] hover:shadow-lg hover:shadow-gold/5 ${
+                    className={`group flex cursor-pointer items-start gap-2.5 sm:gap-3 rounded-2xl glass-card p-3 sm:p-3.5 transition-all duration-200 hover:border-gold/30 hover:bg-white/[0.04] hover:shadow-lg hover:shadow-gold/5 ${
                       isCancelled ? 'opacity-50' : ''
                     }`}
                   >
-                    {/* Time block */}
-                    <div className="flex w-16 shrink-0 flex-col items-center justify-center rounded-xl bg-gold/5 py-2.5 border border-gold/10">
-                      <span className="font-display text-base font-bold text-gold">{b.booking_time}</span>
-                      <span className="text-[0.55rem] uppercase text-zinc-500">h</span>
+                    {/* Time block: compact, never stretches vertically, h on the right */}
+                    <div className="self-start shrink-0 inline-flex items-baseline justify-center rounded-xl bg-gold/10 px-2 sm:px-2.5 py-1 sm:py-1.5 border border-gold/20 shadow-sm">
+                      <span className="font-display text-xs sm:text-sm font-bold text-gold tracking-tight">{b.booking_time}</span>
+                      <span className="ml-0.5 text-[0.6rem] sm:text-[0.65rem] font-semibold text-gold/70 lowercase">h</span>
                     </div>
 
                     {/* Content */}
@@ -182,7 +182,7 @@ export function AdminAgenda({ bookings, loading, onRefresh }: AdminAgendaProps) 
                     </div>
 
                     {/* Actions & Chevron */}
-                    <div className="flex items-center gap-1.5 shrink-0 self-center">
+                    <div className="flex items-center gap-1 sm:gap-1.5 shrink-0 self-center">
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
@@ -190,9 +190,9 @@ export function AdminAgenda({ bookings, loading, onRefresh }: AdminAgendaProps) 
                         }}
                         aria-label="Cancelar cita"
                         title="Cancelar cita"
-                        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-red-500/10 text-red-400 transition-colors hover:bg-red-500/20"
+                        className="flex h-7 w-7 sm:h-8 sm:w-8 shrink-0 items-center justify-center rounded-full bg-red-500/10 text-red-400 transition-colors hover:bg-red-500/20"
                       >
-                        <X className="h-4 w-4" />
+                        <X className="h-3.5 w-3.5" />
                       </button>
                       <div className="text-zinc-600 group-hover:text-gold group-hover:translate-x-0.5 transition-all">
                         <ChevronRight className="h-4 w-4" />

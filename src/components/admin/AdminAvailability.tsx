@@ -131,16 +131,16 @@ export function AdminAvailability({ blocks: initialBlocks, onRefresh }: AdminAva
   const barberBlocks = blocks.filter((b) => b.block_type === 'day_off' || b.block_type === 'time_range');
 
   return (
-    <div className="mx-auto max-w-xl space-y-5">
-      <form onSubmit={handleAdd} className="rounded-3xl glass-card p-5 space-y-4">
+    <div className="mx-auto max-w-xl w-full min-w-0 space-y-5">
+      <form onSubmit={handleAdd} className="rounded-3xl glass-card p-4 sm:p-5 space-y-4">
         <p className="text-xs font-semibold uppercase tracking-wider text-gold">Bloquear disponibilidad</p>
 
         <div>
           <label className="mb-1.5 block text-xs text-zinc-500">Barbero</label>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             {barbers.map((b) => (
               <button key={b.id} type="button" onClick={() => setBarber(b.id)}
-                className={`flex-1 rounded-xl py-2.5 text-sm font-medium transition-all ${
+                className={`flex-1 min-w-[80px] truncate rounded-xl py-2 sm:py-2.5 px-2 text-xs sm:text-sm font-medium transition-all ${
                   barber === b.id ? 'gold-gradient text-black' : 'glass-card text-zinc-400 hover:text-white'
                 }`}>{b.name}</button>
             ))}

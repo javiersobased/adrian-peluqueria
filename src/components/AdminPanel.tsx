@@ -162,7 +162,7 @@ export function AdminPanel({ userRole, onSignOut, onGoPublic }: AdminPanelProps)
   const panelTitle = isAdmin ? 'Panel de Administración' : 'Panel de Barbero';
 
   return (
-    <div className="flex min-h-screen bg-zinc-950 text-zinc-200 animate-fade-in">
+    <div className="flex min-h-screen w-full overflow-x-hidden bg-zinc-950 text-zinc-200 animate-fade-in">
       {/* Icon Dock — desktop only */}
       <div className="fixed left-0 top-0 z-40 hidden h-screen w-16 flex-col items-center border-r border-white/5 bg-zinc-900/80 py-5 backdrop-blur-xl md:flex">
         <div className="mb-6 flex h-10 w-10 items-center justify-center rounded-xl gold-gradient font-display text-sm font-bold text-black">AM</div>
@@ -210,17 +210,17 @@ export function AdminPanel({ userRole, onSignOut, onGoPublic }: AdminPanelProps)
       )}
 
       {/* Main content */}
-      <div className="flex-1 md:ml-80">
+      <div className="flex-1 w-full min-w-0 max-w-full overflow-x-hidden md:ml-80">
         {/* Mobile header — only "Volver a la web" button */}
         <header className="sticky top-0 z-30 flex items-center gap-3 border-b border-white/5 bg-zinc-900/80 px-4 py-4 backdrop-blur-xl md:hidden">
           <button onClick={() => setSidebarOpen(true)} aria-label="Abrir menú" className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/5 text-zinc-300">
             <Menu className="h-5 w-5" />
           </button>
-          <div className="flex-1">
+          <div className="flex-1 min-w-0">
             <p className="text-[0.6rem] uppercase tracking-[0.2em] text-gold">{panelTitle}</p>
-            <h2 className="font-display text-lg font-bold leading-tight text-white">{navItems.find((n) => n.id === tab)?.label}</h2>
+            <h2 className="font-display text-lg font-bold leading-tight text-white truncate">{navItems.find((n) => n.id === tab)?.label}</h2>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 shrink-0">
             <InstallAppButton appName="Admin Adrián Millán" className="mr-1" compact />
             <button
               onClick={(e) => handleManualRefresh(e.shiftKey)}
@@ -274,8 +274,8 @@ export function AdminPanel({ userRole, onSignOut, onGoPublic }: AdminPanelProps)
           </div>
         </header>
 
-        <div className="px-4 py-6 md:px-8 md:py-8">
-          <div className="admin-embed rounded-3xl p-4 md:p-6">
+        <div className="w-full min-w-0 px-2.5 py-4 sm:px-4 md:px-8 md:py-8">
+          <div className="admin-embed w-full min-w-0 overflow-x-hidden rounded-2xl p-3 sm:rounded-3xl sm:p-5 md:p-6">
           {tab === 'today' && <AdminToday bookings={bookings} loading={loading} onRefresh={refresh} />}
           {tab === 'agenda' && <AdminAgenda bookings={bookings} loading={loading} onRefresh={refresh} />}
           {tab === 'manual' && <AdminManualBooking onCreated={refresh} />}

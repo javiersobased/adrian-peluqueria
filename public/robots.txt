@@ -1,0 +1,25 @@
+# Robots.txt - Peluquería y Barbería Adrián Millán (Huelva)
+# https://www.adrianmillan.es
+
+User-agent: *
+Allow: /
+Disallow: /admin
+Disallow: /api/
+
+# AI Search & Indexing bots (Perplexity, OpenAI Search, Anthropic)
+User-agent: GPTBot
+Allow: /
+
+User-agent: ChatGPT-User
+Allow: /
+
+User-agent: PerplexityBot
+Allow: /
+
+User-agent: Claude-Web
+Allow: /
+
+User-agent: Google-Extended
+Allow: /
+
+Sitemap: https://www.adrianmillan.es/sitemap.xml

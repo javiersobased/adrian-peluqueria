@@ -62,7 +62,7 @@ export function ServiceStep({ onBack, onSelect }: ServiceStepProps) {
                   className="group flex w-full items-center gap-4 rounded-3xl glass-card p-4 text-left transition-all duration-300 hover:border-gold/20 hover:bg-zinc-850/80 active:scale-[0.98] animate-fade-up"
                 >
                   <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-gold/5 transition-all duration-300 group-hover:bg-gold/10 overflow-hidden">
-                    <img src={iconUrl} alt="" className="h-8 w-8 rounded-lg object-cover" />
+                    <img src={iconUrl} alt={service.name} className="h-8 w-8 rounded-lg object-cover" />
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="font-display text-sm font-bold leading-tight text-white">{service.name}</p>

@@ -1,3 +1,4 @@
+import { useState, useEffect, useCallback, useRef, lazy, Suspense } from 'react';
 import { useBooking } from '@/hooks/useBooking';
 import { useAuth } from '@/hooks/useAuth';
 import { Landing } from '@/components/Landing';
@@ -7,18 +8,18 @@ import { DateTimeStep } from '@/components/DateTimeStep';
 import { DetailsStep } from '@/components/DetailsStep';
 import { SuccessStep } from '@/components/SuccessStep';
 import { FloatingButtons } from '@/components/FloatingButtons';
-import { AdminPanel } from '@/components/AdminPanel';
 import { LoginModal } from '@/components/LoginModal';
-import { MyBookings } from '@/components/MyBookings';
-import { Catalog } from '@/components/Catalog';
-import { Gallery } from '@/components/Gallery';
-import { useState, useEffect, useCallback, useRef } from 'react';
 import type { SavedBooking } from '@/types';
 import { getPendingBooking, clearPendingBooking, savePendingBooking } from '@/lib/pendingBooking';
 import { createBooking } from '@/lib/bookings';
 import { setActivePwaContext } from '@/lib/pwaContext';
 import { supabase } from '@/lib/supabase';
 import { ScreenLoader } from '@/components/ui/LoadingSpinner';
+
+const AdminPanel = lazy(() => import('@/components/AdminPanel').then(m => ({ default: m.AdminPanel })));
+const Catalog = lazy(() => import('@/components/Catalog').then(m => ({ default: m.Catalog })));
+const Gallery = lazy(() => import('@/components/Gallery').then(m => ({ default: m.Gallery })));
+const MyBookings = lazy(() => import('@/components/MyBookings').then(m => ({ default: m.MyBookings })));
 
 type View = 'public' | 'admin' | 'my-bookings' | 'catalog' | 'gallery';
 
@@ -68,14 +69,41 @@ function App() {
     }
   }, [auth.loading, auth.user]);
 
-  // Set PWA context based on current view
+  // Dynamic document.title for SEO and UX
   useEffect(() => {
+    let title = 'Peluquería y Barbería Adrián Millán | Huelva';
     if (view === 'admin') {
-      setActivePwaContext('admin');
-    } else {
-      setActivePwaContext('booking');
+      title = 'Panel de Gestión | Adrián Millán Peluquería';
+    } else if (view === 'catalog') {
+      title = 'Tienda y Productos | Adrián Millán Peluquería Huelva';
+    } else if (view === 'gallery') {
+      title = 'Galería de Cortes y Estilos | Adrián Millán Peluquería Huelva';
+    } else if (view === 'my-bookings') {
+      title = 'Mis Citas | Adrián Millán Peluquería Huelva';
+    } else if (view === 'public') {
+      switch (booking.step) {
+        case 'barber':
+          title = 'Seleccionar Barbero | Adrián Millán Peluquería Huelva';
+          break;
+        case 'service':
+          title = 'Seleccionar Servicio | Adrián Millán Peluquería Huelva';
+          break;
+        case 'datetime':
+          title = 'Elegir Fecha y Hora | Adrián Millán Peluquería Huelva';
+          break;
+        case 'details':
+          title = 'Tus Datos de Contacto | Adrián Millán Peluquería Huelva';
+          break;
+        case 'success':
+          title = '¡Cita Confirmada! | Adrián Millán Peluquería Huelva';
+          break;
+        default:
+          title = 'Peluquería y Barbería Adrián Millán | Huelva';
+          break;
+      }
     }
-  }, [view]);
+    document.title = title;
+  }, [view, booking.step]);
 
   useEffect(() => {
     if (auth.loading || roleCheckedRef.current) return;
@@ -186,11 +214,13 @@ function App() {
   // Admin panel is full-screen, no width constraint
   if (view === 'admin' && isVerifiedStaff) {
     return (
-      <AdminPanel
-        userRole={auth.role!}
-        onSignOut={async () => { await auth.signOut(); setView('public'); }}
-        onGoPublic={goPublic}
-      />
+      <Suspense fallback={<ScreenLoader message="Cargando panel de gestión..." />}>
+        <AdminPanel
+          userRole={auth.role!}
+          onSignOut={async () => { await auth.signOut(); setView('public'); }}
+          onGoPublic={goPublic}
+        />
+      </Suspense>
     );
   }
 
@@ -209,7 +239,9 @@ function App() {
           <div className="absolute inset-0 backdrop-blur-xl" />
         </div>
         <div className="relative z-10 mx-auto w-full max-w-5xl">
-          <Catalog onBack={goPublic} />
+          <Suspense fallback={<ScreenLoader message="Cargando catálogo..." />}>
+            <Catalog onBack={goPublic} />
+          </Suspense>
         </div>
       </div>
     );
@@ -230,7 +262,9 @@ function App() {
           <div className="absolute inset-0 backdrop-blur-xl" />
         </div>
         <div className="relative z-10">
-          <MyBookings onBack={goPublic} userEmail={auth.user?.email} />
+          <Suspense fallback={<ScreenLoader message="Cargando tus citas..." />}>
+            <MyBookings onBack={goPublic} userEmail={auth.user?.email} />
+          </Suspense>
         </div>
       </div>
     );
@@ -251,15 +285,17 @@ function App() {
           <div className="absolute inset-0 backdrop-blur-xl" />
         </div>
         <div className="relative z-10">
-          <Gallery
-            onBack={goPublic}
-            onBook={() => {
-              goPublic();
-              booking.startBooking();
-            }}
-            userRole={auth.role}
-            userEmail={auth.user?.email}
-          />
+          <Suspense fallback={<ScreenLoader message="Cargando galería..." />}>
+            <Gallery
+              onBack={goPublic}
+              onBook={() => {
+                goPublic();
+                booking.startBooking();
+              }}
+              userRole={auth.role}
+              userEmail={auth.user?.email}
+            />
+          </Suspense>
         </div>
       </div>
     );

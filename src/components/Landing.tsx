@@ -112,7 +112,7 @@ export function Landing({ onBook, onSignIn, onGoToPanel, user, role, onSignOut, 
               className="flex items-center gap-2 rounded-full bg-zinc-900/70 backdrop-blur-xl border border-white/10 py-1.5 pl-1.5 pr-3 text-xs font-medium text-zinc-300 transition-all hover:border-gold/30"
             >
               {user.user_metadata?.avatar_url ? (
-                <img src={user.user_metadata.avatar_url} alt="" className="h-6 w-6 rounded-full" />
+                <img src={user.user_metadata.avatar_url} alt={user.user_metadata?.full_name || 'Perfil de usuario'} className="h-6 w-6 rounded-full" />
               ) : (
                 <div className="flex h-6 w-6 items-center justify-center rounded-full gold-gradient text-[0.6rem] font-bold text-black">
                   {safeInitial(user.user_metadata?.full_name || user.email)}
@@ -177,17 +177,18 @@ export function Landing({ onBook, onSignIn, onGoToPanel, user, role, onSignOut, 
         <div className="pointer-events-none absolute inset-0 -z-10">
           <img
             src="https://images.pexels.com/photos/7195803/pexels-photo-7195803.jpeg?auto=compress&cs=tinysrgb&w=1260&h=1680"
-            alt="Interior de la peluquería"
+            alt="Interior de Peluquería y Barbería Adrián Millán en Huelva"
             className="h-full w-full object-cover"
           />
           <div className="absolute inset-0 bg-gradient-to-b from-black/80 via-black/75 to-black/95" />
           <div className="absolute inset-0 backdrop-blur-md" />
         </div>
 
+        <h1 className="sr-only">Peluquería y Barbería Adrián Millán en Huelva · Cita Previa Online</h1>
         <div className="animate-fade-up w-full max-w-4xl">
           <p className="mb-3 text-xs font-semibold uppercase tracking-[0.35em] text-gold">Huelva</p>
           <ScrollFloat
-            as="h1"
+            as="h2"
             animationDuration={1.1}
             ease="back.inOut(2)"
             stagger={0.035}
@@ -227,8 +228,7 @@ export function Landing({ onBook, onSignIn, onGoToPanel, user, role, onSignOut, 
               <div className="absolute inset-0 -z-10 opacity-20">
                 <img
                   src="https://images.unsplash.com/photo-1503951914875-452162b0f3f1?auto=format&fit=crop&w=1200&q=80"
-                  alt=""
-                  aria-hidden="true"
+                  alt="Productos de barbería y cuidado profesional"
                   className="h-full w-full object-cover"
                 />
               </div>
@@ -286,7 +286,7 @@ export function Landing({ onBook, onSignIn, onGoToPanel, user, role, onSignOut, 
               >
                 <img
                   src={p.image_url}
-                  alt={p.title || 'Corte'}
+                  alt={p.title || 'Corte de pelo y degradado en Adrián Millán Peluquería Huelva'}
                   className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-transparent to-transparent opacity-80 group-hover:opacity-100 transition-opacity flex items-end p-3.5">
@@ -370,7 +370,7 @@ export function Landing({ onBook, onSignIn, onGoToPanel, user, role, onSignOut, 
             <div className="relative h-40 md:h-56">
               <img
                 src="/images/google_maps_2048_1788027110699.jpg"
-                alt="Exterior de la peluquería"
+                alt="Exterior y entrada de Peluquería y Barbería Adrián Millán en Huelva"
                 className="h-full w-full object-cover opacity-50 transition-opacity duration-300 group-hover:opacity-65"
               />
               <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent" />

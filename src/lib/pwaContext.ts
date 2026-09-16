@@ -3,11 +3,11 @@ export type PwaContext = 'booking' | 'admin';
 const CONFIG: Record<PwaContext, { manifest: string; title: string }> = {
   booking: {
     manifest: '/manifest-booking.json',
-    title: 'Reservas · Adrián Millán',
+    title: 'Peluquería y Barbería Adrián Millán | Huelva',
   },
   admin: {
     manifest: '/manifest-admin.json',
-    title: 'Admin · Adrián Millán',
+    title: 'Panel de Gestión | Adrián Millán Peluquería',
   },
 };
 

@@ -95,7 +95,7 @@ export function SuccessStep({ booking, onHome }: SuccessStepProps) {
           {barber && (
             <div className="flex items-center gap-3">
               {barber.photo_url ? (
-                <img src={barber.photo_url} alt="" className="h-9 w-9 rounded-xl object-cover ring-1 ring-white/10" />
+                <img src={barber.photo_url} alt={barber.name} className="h-9 w-9 rounded-xl object-cover ring-1 ring-white/10" />
               ) : (
                 <div className="flex h-9 w-9 items-center justify-center rounded-xl gold-gradient font-display text-xs font-bold text-black/80">
                   {barber.initials}

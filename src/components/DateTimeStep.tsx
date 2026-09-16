@@ -1,6 +1,7 @@
 import { useMemo, useState, useEffect, useCallback, useRef } from 'react';
 import { StepHeader } from '@/components/ServiceStep';
 import { ChevronLeftIcon, ChevronRightIcon, ClockIcon, CheckIcon } from '@/components/icons';
+import { X } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { fetchAllServices } from '@/data/services';
 import type { Barber, BarberBlock, BarberVacation, BarberSchedule, Service } from '@/types';
@@ -42,6 +43,7 @@ export function DateTimeStep({ barber, service, onBack, onContinue }: DateTimeSt
   const [vacations, setVacations] = useState<BarberVacation[]>([]);
   const [allServices, setAllServices] = useState<Service[]>([]);
   const [bookedIntervals, setBookedIntervals] = useState<{ start: string; duration: number }[]>([]);
+  const [allBookingsByDate, setAllBookingsByDate] = useState<Record<string, { start: string; duration: number }[]>>({});
   const [loading, setLoading] = useState(true);
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -90,9 +92,67 @@ export function DateTimeStep({ barber, service, onBack, onContinue }: DateTimeSt
     return 30;
   }, [service, allServices]);
 
+  // Cargar reservas de todos los días mostrados para calcular la disponibilidad de cada día
+  useEffect(() => {
+    if (loading || schedules.length === 0) return;
+
+    let active = true;
+    const datesToFetch = dayPills
+      .filter((d) => {
+        const targetWeekday = d.getDay();
+        const daySchedule = schedules.find(
+          (s) => s.weekday === targetWeekday || Number(s.day_of_week) === targetWeekday || Number(s.weekday) === targetWeekday
+        );
+        return isDayAvailable(d, today, daySchedule, blocks, vacations);
+      })
+      .map((d) => toISO(d));
+
+    if (datesToFetch.length === 0) return;
+
+    (async () => {
+      try {
+        const results = await Promise.all(
+          datesToFetch.map(async (iso) => {
+            try {
+              const { data, error } = await supabase.rpc('get_booked_intervals', { p_barber: barber.id, p_date: iso });
+              if (!error && Array.isArray(data)) {
+                const intervals = data.map((item: any) => {
+                  const sName = item.service;
+                  const sFound = allServices.find((s) => s.name === sName || s.id === sName);
+                  const dur = sFound ? getServiceDurationMinutes(sFound) : (item.duration_minutes || 30);
+                  return { start: item.booking_time, duration: dur };
+                });
+                return { iso, intervals };
+              }
+            } catch {
+              // ignore
+            }
+            return { iso, intervals: [] };
+          })
+        );
+
+        if (!active) return;
+        const map: Record<string, { start: string; duration: number }[]> = {};
+        results.forEach(({ iso, intervals }) => {
+          map[iso] = intervals;
+        });
+        setAllBookingsByDate((prev) => ({ ...prev, ...map }));
+      } catch (err) {
+        console.error('Error al cargar disponibilidad de días:', err);
+      }
+    })();
+
+    return () => { active = false; };
+  }, [loading, barber.id, schedules, blocks, vacations, allServices, dayPills, today]);
+
   const fetchBookedSlots = useCallback(async (date: Date | null) => {
     if (!date) return;
     const iso = toISO(date);
+
+    if (allBookingsByDate[iso]) {
+      setBookedIntervals(allBookingsByDate[iso]);
+      return;
+    }
 
     try {
       const { data, error } = await supabase.rpc('get_booked_intervals', { p_barber: barber.id, p_date: iso });
@@ -107,6 +167,7 @@ export function DateTimeStep({ barber, service, onBack, onContinue }: DateTimeSt
           };
         });
         setBookedIntervals(intervals);
+        setAllBookingsByDate((prev) => ({ ...prev, [iso]: intervals }));
         return;
       }
     } catch {
@@ -115,12 +176,62 @@ export function DateTimeStep({ barber, service, onBack, onContinue }: DateTimeSt
 
     const { data } = await supabase.rpc('get_booked_slots', { p_barber: barber.id, p_date: iso });
     const slotList = (data as string[]) ?? [];
-    setBookedIntervals(slotList.map((s) => ({ start: s, duration: 30 })));
-  }, [barber.id, allServices]);
+    const fallbackIntervals = slotList.map((s) => ({ start: s, duration: 30 }));
+    setBookedIntervals(fallbackIntervals);
+    setAllBookingsByDate((prev) => ({ ...prev, [iso]: fallbackIntervals }));
+  }, [barber.id, allServices, allBookingsByDate]);
 
   useEffect(() => {
     fetchBookedSlots(selected);
   }, [selected, fetchBookedSlots]);
+
+  // Mapa de disponibilidad calculada para cada día: 'green' | 'yellow' | 'red' | 'none'
+  const dayAvailabilityMap = useMemo(() => {
+    const map: Record<string, 'green' | 'yellow' | 'red' | 'none'> = {};
+    const now = new Date();
+
+    dayPills.forEach((d) => {
+      const iso = toISO(d);
+      const targetWeekday = d.getDay();
+      const daySchedule = schedules.find(
+        (s) => s.weekday === targetWeekday || Number(s.day_of_week) === targetWeekday || Number(s.weekday) === targetWeekday
+      );
+      const available = isDayAvailable(d, today, daySchedule, blocks, vacations);
+      if (!available) {
+        map[iso] = 'none';
+        return;
+      }
+
+      const daySlots = generateSlotsForDay(daySchedule);
+      const morningEnd = daySchedule?.morning_end ?? '13:30';
+      const afternoonEnd = daySchedule?.afternoon_end ?? '20:30';
+      const daySlotBlocks = getSlotBlocksForDate(d, blocks);
+      const dayTimeRangeBlocks = getTimeRangeBlocksForDate(d, blocks);
+      const dayIntervals = allBookingsByDate[iso] || [];
+
+      const morningAvail = daySlots.morning.filter((s) =>
+        isSlotAvailable(s, dayIntervals, daySlotBlocks, dayTimeRangeBlocks, d, now, currentServiceDuration, morningEnd)
+      );
+      const afternoonAvail = daySlots.afternoon.filter((s) =>
+        isSlotAvailable(s, dayIntervals, daySlotBlocks, dayTimeRangeBlocks, d, now, currentServiceDuration, afternoonEnd)
+      );
+
+      const totalSlots = daySlots.morning.length + daySlots.afternoon.length;
+      const availableSlots = morningAvail.length + afternoonAvail.length;
+
+      if (availableSlots === 0) {
+        map[iso] = 'none';
+      } else if (availableSlots <= 3 || availableSlots / totalSlots < 0.25) {
+        map[iso] = 'red';
+      } else if (availableSlots / totalSlots < 0.6) {
+        map[iso] = 'yellow';
+      } else {
+        map[iso] = 'green';
+      }
+    });
+
+    return map;
+  }, [dayPills, schedules, blocks, vacations, allBookingsByDate, currentServiceDuration, today]);
 
   const scheduleForSelected = useMemo(() => {
     if (!selected) return undefined;
@@ -183,7 +294,25 @@ export function DateTimeStep({ barber, service, onBack, onContinue }: DateTimeSt
           <>
             {/* Horizontal day pills */}
             <div className="mb-3">
-              <p className="mb-1.5 text-[0.6rem] font-semibold uppercase tracking-[0.2em] text-zinc-500">Elige el día</p>
+              <div className="mb-1.5 flex flex-wrap items-center justify-between gap-2 px-0.5">
+                <p className="text-[0.6rem] font-semibold uppercase tracking-[0.2em] text-zinc-500">Elige el día</p>
+                <div className="flex items-center gap-2 text-[0.55rem] sm:text-[0.6rem] text-zinc-400">
+                  <span className="flex items-center gap-1" title="La mayoría de citas disponibles">
+                    <span className="h-1.5 w-2.5 rounded-full bg-emerald-500" /> Mucha
+                  </span>
+                  <span className="flex items-center gap-1" title="Alrededor de la mitad disponible">
+                    <span className="h-1.5 w-2.5 rounded-full bg-amber-400" /> Media
+                  </span>
+                  <span className="flex items-center gap-1" title="Quedan muy pocas citas disponibles">
+                    <span className="h-1.5 w-2.5 rounded-full bg-rose-500" /> Pocas
+                  </span>
+                  <span className="flex items-center gap-0.5 text-rose-400" title="Sin citas disponibles">
+                    <span className="h-1.5 w-2 rounded-full bg-rose-500" />
+                    <X className="h-2 w-2 stroke-[3]" /> Sin citas
+                  </span>
+                </div>
+              </div>
+
               <div data-lenis-prevent ref={scrollRef} className="no-scrollbar -mx-4 sm:-mx-5 flex gap-1.5 overflow-x-auto px-4 sm:px-5 pb-1">
                 {dayPills.map((d) => {
                   const targetWeekday = d.getDay();
@@ -192,6 +321,8 @@ export function DateTimeStep({ barber, service, onBack, onContinue }: DateTimeSt
                   );
                   const disabled = !isDayAvailable(d, today, daySchedule, blocks, vacations);
                   const isSel = selected && toISO(d) === toISO(selected);
+                  const avail = dayAvailabilityMap[toISO(d)] ?? (disabled ? 'none' : 'green');
+
                   return (
                     <button
                       key={toISO(d)}
@@ -210,6 +341,45 @@ export function DateTimeStep({ barber, service, onBack, onContinue }: DateTimeSt
                       </span>
                       <span className="font-display text-base sm:text-lg font-bold leading-none">{d.getDate()}</span>
                       <span className="text-[0.5rem] uppercase opacity-60">{MONTH_SHORT[d.getMonth()]}</span>
+
+                      {/* Barrita alargada y fina de disponibilidad */}
+                      <div className="mt-1 flex h-2.5 items-center justify-center">
+                        {avail === 'green' && (
+                          <span
+                            className={`h-1 w-5 sm:w-6 rounded-full bg-emerald-500 shadow-sm ${
+                              isSel ? 'border border-black/20 shadow-none' : 'shadow-emerald-500/60'
+                            }`}
+                            title="Mayoría de citas disponibles"
+                          />
+                        )}
+                        {avail === 'yellow' && (
+                          <span
+                            className={`h-1 w-5 sm:w-6 rounded-full bg-amber-400 shadow-sm ${
+                              isSel ? 'border border-black/20 shadow-none' : 'shadow-amber-400/60'
+                            }`}
+                            title="Disponibilidad media"
+                          />
+                        )}
+                        {avail === 'red' && (
+                          <span
+                            className={`h-1 w-5 sm:w-6 rounded-full bg-rose-500 shadow-sm ${
+                              isSel ? 'border border-black/20 shadow-none' : 'shadow-rose-500/60'
+                            }`}
+                            title="Pocas citas disponibles"
+                          />
+                        )}
+                        {avail === 'none' && (
+                          <div
+                            className={`flex items-center gap-0.5 ${
+                              isSel ? 'text-black' : 'text-rose-500'
+                            }`}
+                            title="Sin citas disponibles"
+                          >
+                            <span className={`h-1 w-3 rounded-full ${isSel ? 'bg-black/70' : 'bg-rose-500/80'}`} />
+                            <X className="h-2.5 w-2.5 stroke-[3]" />
+                          </div>
+                        )}
+                      </div>
                     </button>
                   );
                 })}

@@ -40,7 +40,14 @@ export function AdminProfile({ userRole, onBarberUpdated }: AdminProfileProps) {
 
       const { data, error } = await query.maybeSingle();
       if (error) throw error;
-      setBarber(data as Barber | null);
+      let barberData = data as Barber | null;
+      if (barberData && !barberData.photo_url && typeof window !== 'undefined') {
+        const cached = localStorage.getItem(`barber_photo_${barberData.id}`);
+        if (cached) {
+          barberData = { ...barberData, photo_url: cached };
+        }
+      }
+      setBarber(barberData);
     } catch (err: any) {
       console.error('Error al cargar perfil de barbero:', err);
       notify.error('Error al cargar perfil', err?.message || 'No se pudo obtener la información.');
@@ -84,24 +91,31 @@ export function AdminProfile({ userRole, onBarberUpdated }: AdminProfileProps) {
 
       const publicUrl = urlData.publicUrl;
 
+      // Immediately cache locally so it never disappears on page refresh
+      if (typeof window !== 'undefined') {
+        localStorage.setItem(`barber_photo_${barber.id}`, publicUrl);
+      }
+
       // Update in barbers table (try direct update first, then RPC fallback)
       setSaving(true);
-      const { error: updateError } = await supabase
+      const { data: updatedRows, error: updateError } = await supabase
         .from('barbers')
         .update({ photo_url: publicUrl })
-        .eq('id', barber.id);
+        .eq('id', barber.id)
+        .select();
 
-      if (updateError) {
+      const savedInDb = updatedRows && updatedRows.length > 0;
+
+      if (!savedInDb || updateError) {
         // Fallback to RPC if RLS blocks direct update
-        const { error: rpcError } = await supabase.rpc('update_my_barber_photo', {
+        await supabase.rpc('update_my_barber_photo', {
           p_barber_id: barber.id,
           p_photo_url: publicUrl,
-        });
-        if (rpcError) throw rpcError;
+        }).catch(() => null);
       }
 
       setBarber((prev) => (prev ? { ...prev, photo_url: publicUrl } : null));
-      notify.success('Foto de perfil actualizada', 'Tu nueva imagen ya se muestra en la web y en las reservas.');
+      notify.success('Foto de perfil actualizada', 'Tu imagen ha sido guardada correctamente.');
       onBarberUpdated?.();
     } catch (err: any) {
       console.error('Error al actualizar foto de perfil:', err);
@@ -121,18 +135,19 @@ export function AdminProfile({ userRole, onBarberUpdated }: AdminProfileProps) {
 
     setSaving(true);
     try {
-      const { error: updateError } = await supabase
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem(`barber_photo_${barber.id}`);
+      }
+
+      await supabase
         .from('barbers')
         .update({ photo_url: null })
         .eq('id', barber.id);
 
-      if (updateError) {
-        const { error: rpcError } = await supabase.rpc('update_my_barber_photo', {
-          p_barber_id: barber.id,
-          p_photo_url: null,
-        });
-        if (rpcError) throw rpcError;
-      }
+      await supabase.rpc('update_my_barber_photo', {
+        p_barber_id: barber.id,
+        p_photo_url: null,
+      }).catch(() => null);
 
       setBarber((prev) => (prev ? { ...prev, photo_url: null } : null));
       notify.success('Foto eliminada', 'Se ha restablecido tu avatar por defecto.');

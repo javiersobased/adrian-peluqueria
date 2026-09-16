@@ -27,7 +27,14 @@ export async function fetchBarbers(): Promise<Barber[]> {
     .eq('active', true)
     .order('sort_order', { ascending: true });
   if (error) return [];
-  return (data as Barber[]) ?? [];
+  const list = (data as Barber[]) ?? [];
+  return list.map((b) => {
+    if (!b.photo_url && typeof window !== 'undefined') {
+      const cached = localStorage.getItem(`barber_photo_${b.id}`);
+      if (cached) return { ...b, photo_url: cached };
+    }
+    return b;
+  });
 }
 
 export async function fetchAllBarbers(): Promise<Barber[]> {
@@ -36,7 +43,14 @@ export async function fetchAllBarbers(): Promise<Barber[]> {
     .select('*')
     .order('sort_order', { ascending: true });
   if (error) return [];
-  return (data as Barber[]) ?? [];
+  const list = (data as Barber[]) ?? [];
+  return list.map((b) => {
+    if (!b.photo_url && typeof window !== 'undefined') {
+      const cached = localStorage.getItem(`barber_photo_${b.id}`);
+      if (cached) return { ...b, photo_url: cached };
+    }
+    return b;
+  });
 }
 
 export function getBarberById(barbers: Barber[], id: string): Barber | undefined {

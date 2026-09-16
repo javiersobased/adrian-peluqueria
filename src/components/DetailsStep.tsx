@@ -247,7 +247,6 @@ export function DetailsStep({ onBack, onSubmit, submitting, error }: DetailsStep
               }}
               onBlur={() => setTouched((t) => ({ ...t, firstName: true }))}
               error={touched.firstName ? errors.firstName : ''}
-              placeholder="Ej. Adrián"
               type="text"
               autoComplete="given-name"
             />
@@ -262,7 +261,6 @@ export function DetailsStep({ onBack, onSubmit, submitting, error }: DetailsStep
               }}
               onBlur={() => setTouched((t) => ({ ...t, lastName: true }))}
               error={touched.lastName ? errors.lastName : ''}
-              placeholder="Ej. Millán Peguero"
               type="text"
               autoComplete="family-name"
             />
@@ -320,7 +318,6 @@ export function DetailsStep({ onBack, onSubmit, submitting, error }: DetailsStep
                   value={nationalNumber}
                   onChange={(e) => handlePhoneChange(e.target.value)}
                   onBlur={() => setTouched((t) => ({ ...t, phone: true }))}
-                  placeholder={selectedCountry.placeholder}
                   autoComplete="tel-national"
                   className="w-full bg-transparent font-mono text-xs sm:text-sm text-white placeholder:text-zinc-600 focus:outline-none"
                 />

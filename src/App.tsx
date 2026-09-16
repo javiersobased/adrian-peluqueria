@@ -9,12 +9,15 @@ import { DetailsStep } from '@/components/DetailsStep';
 import { SuccessStep } from '@/components/SuccessStep';
 import { FloatingButtons } from '@/components/FloatingButtons';
 import { LoginModal } from '@/components/LoginModal';
+import { TermsModal } from '@/components/TermsModal';
+import { CookieBanner } from '@/components/CookieBanner';
 import type { SavedBooking } from '@/types';
 import { getPendingBooking, clearPendingBooking, savePendingBooking } from '@/lib/pendingBooking';
 import { createBooking } from '@/lib/bookings';
 import { setActivePwaContext } from '@/lib/pwaContext';
 import { supabase } from '@/lib/supabase';
 import { ScreenLoader } from '@/components/ui/LoadingSpinner';
+import { hasAcceptedTerms, acceptUserTerms } from '@/lib/terms';
 
 const AdminPanel = lazy(() => import('@/components/AdminPanel').then(m => ({ default: m.AdminPanel })));
 const Catalog = lazy(() => import('@/components/Catalog').then(m => ({ default: m.Catalog })));
@@ -33,6 +36,8 @@ function App() {
   const [resumingBooking, setResumingBooking] = useState(false);
   const resumedRef = useRef(false);
   const roleCheckedRef = useRef(false);
+  const [showTermsModal, setShowTermsModal] = useState(false);
+  const [savingTerms, setSavingTerms] = useState(false);
 
   // Detect hash changes for direct linking (#admin, #galeria, #catalogo, #mis-citas)
   useEffect(() => {
@@ -118,17 +123,22 @@ function App() {
     }
   }, [auth.loading, auth.role, auth.user]);
 
-  // Restore pending booking after login redirect
+  // Check if logged in user has accepted legal terms
   useEffect(() => {
-    if (auth.loading || resumedRef.current) return;
-    const pending = getPendingBooking();
-    if (!pending || !auth.user) return;
+    if (auth.loading) return;
+    if (auth.user && !hasAcceptedTerms(auth.user)) {
+      setShowTermsModal(true);
+    } else {
+      setShowTermsModal(false);
+    }
+  }, [auth.loading, auth.user]);
 
-    resumedRef.current = true;
-    setResumingBooking(true);
-    setShowLoginModal(false);
+  const executePendingBooking = useCallback(
+    async (pendingPayload: any) => {
+      resumedRef.current = true;
+      setResumingBooking(true);
+      setShowLoginModal(false);
 
-    (async () => {
       try {
         // Ensure Supabase session token is fully attached
         const { data: sessionData } = await supabase.auth.getSession();
@@ -136,7 +146,7 @@ function App() {
           await new Promise((r) => setTimeout(r, 300));
         }
 
-        const { booking: saved, error } = await createBooking(pending);
+        const { booking: saved, error } = await createBooking(pendingPayload);
         if (error) throw new Error(error);
         if (saved) {
           clearPendingBooking();
@@ -148,13 +158,55 @@ function App() {
       } catch (err) {
         console.error('Error al reanudar reserva tras login:', err);
         // If automatic creation hit an issue, restore the user's booking step and details
-        await booking.restorePending(pending);
+        await booking.restorePending(pendingPayload);
         setView('public');
       } finally {
         setResumingBooking(false);
       }
-    })();
-  }, [auth.loading, auth.user, booking]);
+    },
+    [booking]
+  );
+
+  // Restore pending booking after login redirect only if terms are accepted
+  useEffect(() => {
+    if (auth.loading || resumedRef.current) return;
+    const pending = getPendingBooking();
+    if (!pending || !auth.user) return;
+
+    if (!hasAcceptedTerms(auth.user)) {
+      setShowTermsModal(true);
+      return;
+    }
+
+    executePendingBooking(pending);
+  }, [auth.loading, auth.user, executePendingBooking]);
+
+  const handleAcceptTerms = useCallback(
+    async (options: { marketingAccepted: boolean }) => {
+      if (!auth.user) return;
+      setSavingTerms(true);
+      try {
+        await acceptUserTerms(auth.user, options);
+        setShowTermsModal(false);
+
+        // If there was a pending booking, execute it now!
+        const pending = getPendingBooking();
+        if (pending && !resumedRef.current) {
+          await executePendingBooking(pending);
+        }
+      } finally {
+        setSavingTerms(false);
+      }
+    },
+    [auth.user, executePendingBooking]
+  );
+
+  const handleTermsSignOut = useCallback(async () => {
+    clearPendingBooking();
+    setShowTermsModal(false);
+    await auth.signOut();
+    setView('public');
+  }, [auth]);
 
   const goPublic = useCallback(() => {
     if (window.location.hash && window.location.hash !== '#') {
@@ -263,7 +315,15 @@ function App() {
         </div>
         <div className="relative z-10">
           <Suspense fallback={<ScreenLoader message="Cargando tus citas..." />}>
-            <MyBookings onBack={goPublic} userEmail={auth.user?.email} />
+            <MyBookings
+              onBack={goPublic}
+              userEmail={auth.user?.email}
+              userId={auth.user?.id}
+              onSignOut={async () => {
+                await auth.signOut();
+                goPublic();
+              }}
+            />
           </Suspense>
         </div>
       </div>
@@ -368,9 +428,19 @@ function App() {
         />
       )}
 
+      {showTermsModal && (
+        <TermsModal
+          onAccept={handleAcceptTerms}
+          onSignOut={handleTermsSignOut}
+          saving={savingTerms}
+        />
+      )}
+
       {resumingBooking && (
         <ScreenLoader message="Confirmando tu reserva…" />
       )}
+
+      <CookieBanner />
     </div>
   );
 }

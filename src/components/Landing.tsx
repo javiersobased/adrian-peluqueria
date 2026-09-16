@@ -474,11 +474,53 @@ export function Landing({ onBook, onSignIn, onGoToPanel, user, role, onSignOut, 
 
 export function Footer() {
   return (
-    <footer className="border-t border-white/5 px-6 py-10 pb-28 md:pb-28">
-      <div className="mx-auto max-w-md text-center">
-        <p className="font-display text-xl font-bold text-white">Peluquería Adrián Millán</p>
-        <p className="mt-1 text-xs text-zinc-500">Barbería y peluquería · Huelva</p>
-        <p className="mt-6 text-[0.7rem] text-zinc-600">© {new Date().getFullYear()} Peluquería Adrián Millán. Todos los derechos reservados.</p>
+    <footer className="border-t border-white/5 px-6 py-10 pb-32 md:pb-24">
+      <div className="mx-auto max-w-2xl text-center">
+        <p className="font-display text-xl font-bold text-white tracking-tight">Peluquería Adrián Millán</p>
+        <p className="mt-1 text-xs text-zinc-500">Barbería y peluquería masculina · Huelva, España</p>
+
+        {/* Legal Links — Desktop and Mobile accessible */}
+        <nav aria-label="Enlaces legales" className="mt-6 flex flex-wrap items-center justify-center gap-x-4 gap-y-2 text-xs text-zinc-400">
+          <a
+            href="/legal/#aviso-legal"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="transition-colors hover:text-gold hover:underline"
+          >
+            Aviso Legal
+          </a>
+          <span className="text-zinc-700 select-none">•</span>
+          <a
+            href="/legal/#privacidad"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="transition-colors hover:text-gold hover:underline"
+          >
+            Política de Privacidad
+          </a>
+          <span className="text-zinc-700 select-none">•</span>
+          <a
+            href="/legal/#cookies"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="transition-colors hover:text-gold hover:underline"
+          >
+            Política de Cookies
+          </a>
+          <span className="text-zinc-700 select-none">•</span>
+          <a
+            href="/legal/#terminos-reserva"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="transition-colors hover:text-gold hover:underline"
+          >
+            Términos de Reserva
+          </a>
+        </nav>
+
+        <p className="mt-6 text-[0.7rem] text-zinc-600">
+          © {new Date().getFullYear()} Peluquería Adrián Millán. Todos los derechos reservados.
+        </p>
       </div>
     </footer>
   );

@@ -63,7 +63,7 @@ export function DateTimeStep({ barber, service, onBack, onContinue }: DateTimeSt
   const [bookedIntervals, setBookedIntervals] = useState<{ start: string; duration: number }[]>([]);
   const [allBookingsByDate, setAllBookingsByDate] = useState<Record<string, { start: string; duration: number }[]>>({});
   const [loading, setLoading] = useState(true);
-  const scrollRef = useRef<HTMLDivElement>(null);
+  const daysScrollRef = useRef<HTMLDivElement>(null);
   const slotsScrollRef = useRef<HTMLDivElement>(null);
 
   const dayPills = useMemo(() => {
@@ -349,161 +349,160 @@ export function DateTimeStep({ barber, service, onBack, onContinue }: DateTimeSt
     setSelectedTime('');
   };
 
+  const scrollDays = (direction: 'left' | 'right') => {
+    if (daysScrollRef.current) {
+      const amount = direction === 'left' ? -240 : 240;
+      daysScrollRef.current.scrollBy({ left: amount, behavior: 'smooth' });
+    }
+  };
+
   const scrollSlots = (direction: 'left' | 'right') => {
     if (slotsScrollRef.current) {
-      const amount = direction === 'left' ? -220 : 220;
+      const amount = direction === 'left' ? -200 : 200;
       slotsScrollRef.current.scrollBy({ left: amount, behavior: 'smooth' });
     }
   };
 
-  const prettyDate = (date: Date) =>
-    `${WEEKDAY_SHORT[(date.getDay() + 6) % 7]} ${date.getDate()} ${MONTH_NAMES[date.getMonth()]}`;
+  const currentMonthLabel = useMemo(() => {
+    const target = selected || today;
+    return `${MONTH_NAMES[target.getMonth()]} ${target.getFullYear()}`;
+  }, [selected, today]);
 
   return (
     <div className="flex h-[100dvh] max-h-[100dvh] flex-col animate-slide-in overflow-hidden">
-      <StepHeader title="Fecha y hora" subtitle="Paso 3 de 4" onBack={onBack} />
+      {/* Modal Card wrapper - centered on desktop, edge-to-edge on mobile */}
+      <div className="flex flex-col h-full w-full max-w-xl mx-auto sm:my-auto sm:max-h-[94vh] sm:rounded-3xl sm:border sm:border-white/10 sm:bg-zinc-950/80 sm:backdrop-blur-xl sm:shadow-2xl overflow-hidden">
+        
+        {/* Header: Centered Month & Year with Close button on right */}
+        <div className="relative flex items-center justify-between px-4 sm:px-6 py-3.5 border-b border-white/10 shrink-0">
+          <div className="w-8" />
+          <h2 className="font-display text-base sm:text-lg font-bold text-white capitalize text-center">
+            {currentMonthLabel}
+          </h2>
+          <button
+            type="button"
+            onClick={onBack}
+            aria-label="Cerrar"
+            className="flex h-8 w-8 items-center justify-center rounded-full text-zinc-400 hover:text-white hover:bg-white/10 active:scale-95 transition-all cursor-pointer"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
 
-      <div data-lenis-prevent className="flex-1 overflow-y-auto px-4 pb-3 pt-2 sm:px-5 sm:pt-3">
-        {loading ? (
-          <div className="flex justify-center py-12">
-            <span className="h-6 w-6 animate-spin rounded-full border-2 border-zinc-700 border-t-gold" />
-          </div>
-        ) : (
-          <>
-            {/* Horizontal day selector pills with availability status */}
-            <div className="mb-3">
-              <div className="mb-1.5 flex flex-wrap items-center justify-between gap-2 px-0.5">
-                <p className="text-[0.6rem] font-semibold uppercase tracking-[0.2em] text-zinc-500">Elige el día</p>
-                <div className="flex items-center gap-2 text-[0.55rem] sm:text-[0.6rem] text-zinc-400">
-                  <span className="flex items-center gap-1" title="La mayoría de citas disponibles">
-                    <span className="h-1.5 w-2.5 rounded-full bg-emerald-500" /> Mucha
-                  </span>
-                  <span className="flex items-center gap-1" title="Alrededor de la mitad disponible">
-                    <span className="h-1.5 w-2.5 rounded-full bg-amber-400" /> Media
-                  </span>
-                  <span className="flex items-center gap-1" title="Quedan muy pocas citas disponibles">
-                    <span className="h-1.5 w-2.5 rounded-full bg-rose-500" /> Pocas
-                  </span>
-                  <span className="flex items-center gap-0.5 text-rose-400" title="Sin citas disponibles">
-                    <span className="h-1.5 w-2 rounded-full bg-rose-500" />
-                    <X className="h-2 w-2 stroke-[3]" /> Sin citas
-                  </span>
-                </div>
-              </div>
-
-              <div data-lenis-prevent ref={scrollRef} className="no-scrollbar -mx-4 sm:-mx-5 flex gap-1.5 overflow-x-auto px-4 sm:px-5 pb-1">
-                {dayPills.map((d) => {
-                  const targetWeekday = d.getDay();
-                  const daySchedule = schedules.find(
-                    (s) => s.weekday === targetWeekday || Number(s.day_of_week) === targetWeekday || Number(s.weekday) === targetWeekday
-                  );
-                  const disabled = !isDayAvailable(d, today, daySchedule, blocks, vacations);
-                  const isSel = selected && toISO(d) === toISO(selected);
-                  const avail = dayAvailabilityMap[toISO(d)] ?? (disabled ? 'none' : 'green');
-
-                  return (
-                    <button
-                      key={toISO(d)}
-                      onClick={() => handleSelectDay(d)}
-                      disabled={disabled}
-                      className={`flex shrink-0 flex-col items-center justify-center gap-0.5 rounded-xl px-2.5 py-1.5 sm:px-3 sm:py-2 transition-all duration-200 cursor-pointer ${
-                        isSel
-                          ? 'gold-gradient text-black gold-glow scale-[1.02]'
-                          : disabled
-                          ? 'bg-zinc-900/40 text-zinc-700 cursor-not-allowed'
-                          : 'glass-card text-zinc-300 hover:border-gold/20 active:scale-95'
-                      }`}
-                    >
-                      <span className="text-[0.55rem] font-semibold uppercase tracking-wider opacity-75">
-                        {DAY_LABELS[(d.getDay() + 6) % 7]}
-                      </span>
-                      <span className="font-display text-base sm:text-lg font-bold leading-none">{d.getDate()}</span>
-                      <span className="text-[0.5rem] uppercase opacity-60">{MONTH_SHORT[d.getMonth()]}</span>
-
-                      {/* Barrita alargada y fina de disponibilidad */}
-                      <div className="mt-1 flex h-2.5 items-center justify-center">
-                        {avail === 'green' && (
-                          <span
-                            className={`h-1 w-5 sm:w-6 rounded-full bg-emerald-500 shadow-sm ${
-                              isSel ? 'border border-black/20 shadow-none' : 'shadow-emerald-500/60'
-                            }`}
-                            title="Mayoría de citas disponibles"
-                          />
-                        )}
-                        {avail === 'yellow' && (
-                          <span
-                            className={`h-1 w-5 sm:w-6 rounded-full bg-amber-400 shadow-sm ${
-                              isSel ? 'border border-black/20 shadow-none' : 'shadow-amber-400/60'
-                            }`}
-                            title="Disponibilidad media"
-                          />
-                        )}
-                        {avail === 'red' && (
-                          <span
-                            className={`h-1 w-5 sm:w-6 rounded-full bg-rose-500 shadow-sm ${
-                              isSel ? 'border border-black/20 shadow-none' : 'shadow-rose-500/60'
-                            }`}
-                            title="Pocas citas disponibles"
-                          />
-                        )}
-                        {avail === 'none' && (
-                          <div
-                            className={`flex items-center gap-0.5 ${
-                              isSel ? 'text-black' : 'text-rose-500'
-                            }`}
-                            title="Sin citas disponibles"
-                          >
-                            <span className={`h-1 w-3 rounded-full ${isSel ? 'bg-black/70' : 'bg-rose-500/80'}`} />
-                            <X className="h-2.5 w-2.5 stroke-[3]" />
-                          </div>
-                        )}
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
+        {/* Scrollable Content */}
+        <div data-lenis-prevent className="flex-1 overflow-y-auto px-4 sm:px-6 py-3">
+          {loading ? (
+            <div className="flex justify-center py-16">
+              <span className="h-7 w-7 animate-spin rounded-full border-2 border-zinc-700 border-t-gold" />
             </div>
+          ) : (
+            <>
+              {/* Day selection row flanked by left and right arrow buttons */}
+              <div className="flex items-center gap-1.5 sm:gap-2 mb-2">
+                <button
+                  type="button"
+                  onClick={() => scrollDays('left')}
+                  aria-label="Días anteriores"
+                  className="flex h-12 w-8 sm:w-9 shrink-0 items-center justify-center rounded-xl glass-card text-zinc-400 hover:text-white hover:border-gold/30 active:scale-95 transition-all cursor-pointer"
+                >
+                  <ChevronLeftIcon className="h-4 w-4" />
+                </button>
 
-            {/* Time selection container */}
-            {selected ? (
-              <div className="animate-fade-in">
-                {/* Header with selected date and desktop scroll controls */}
-                <div className="mb-2 flex items-center justify-between">
-                  <div className="flex items-center gap-1.5">
-                    <ClockIcon className="h-3.5 w-3.5 text-gold" />
-                    <p className="text-xs font-medium text-zinc-300">
-                      Horas disponibles · <span className="capitalize">{prettyDate(selected)}</span>
-                    </p>
-                  </div>
-                  {currentPeriodSlots.length > 6 && (
-                    <div className="flex items-center gap-1">
-                      <span className="hidden sm:inline text-[0.6rem] text-zinc-500 mr-1 font-medium">Desliza</span>
+                <div
+                  ref={daysScrollRef}
+                  data-lenis-prevent
+                  className="no-scrollbar flex flex-1 items-center gap-1.5 sm:gap-2 overflow-x-auto py-1 scroll-smooth"
+                  style={{ WebkitOverflowScrolling: 'touch' }}
+                >
+                  {dayPills.map((d) => {
+                    const targetWeekday = d.getDay();
+                    const daySchedule = schedules.find(
+                      (s) => s.weekday === targetWeekday || Number(s.day_of_week) === targetWeekday || Number(s.weekday) === targetWeekday
+                    );
+                    const disabled = !isDayAvailable(d, today, daySchedule, blocks, vacations);
+                    const isSel = selected && toISO(d) === toISO(selected);
+                    const avail = dayAvailabilityMap[toISO(d)] ?? (disabled ? 'none' : 'green');
+
+                    return (
                       <button
-                        type="button"
-                        onClick={() => scrollSlots('left')}
-                        aria-label="Desplazar horas a la izquierda"
-                        className="flex h-6 w-6 items-center justify-center rounded-lg glass-card text-zinc-400 hover:text-white active:scale-95 transition-all cursor-pointer"
+                        key={toISO(d)}
+                        onClick={() => handleSelectDay(d)}
+                        disabled={disabled}
+                        className={`flex-1 min-w-[50px] sm:min-w-[62px] flex shrink-0 flex-col items-center justify-center gap-0.5 rounded-2xl py-2 sm:py-2.5 transition-all duration-200 cursor-pointer ${
+                          isSel
+                            ? 'gold-gradient text-black gold-glow scale-[1.03] font-bold shadow-md'
+                            : disabled
+                            ? 'bg-zinc-900/30 text-zinc-600 cursor-not-allowed border border-transparent'
+                            : 'glass-card text-zinc-300 hover:border-gold/30 hover:text-white active:scale-95'
+                        }`}
                       >
-                        <ChevronLeftIcon className="h-3 w-3" />
+                        <span className="text-[0.65rem] font-semibold opacity-85">
+                          {DAY_LABELS[(d.getDay() + 6) % 7]}.
+                        </span>
+                        <span className="font-display text-base sm:text-lg font-bold leading-none my-0.5">
+                          {d.getDate()}
+                        </span>
+
+                        {/* Barrita alargada de disponibilidad */}
+                        <div className="mt-0.5 flex h-2 items-center justify-center">
+                          {avail === 'green' && (
+                            <span
+                              className={`h-1 w-4 sm:w-5 rounded-full bg-emerald-500 ${
+                                isSel ? 'bg-black/80' : 'shadow-sm shadow-emerald-500/50'
+                              }`}
+                              title="Mayoría de citas disponibles"
+                            />
+                          )}
+                          {avail === 'yellow' && (
+                            <span
+                              className={`h-1 w-4 sm:w-5 rounded-full bg-amber-400 ${
+                                isSel ? 'bg-black/80' : 'shadow-sm shadow-amber-400/50'
+                              }`}
+                              title="Disponibilidad media"
+                            />
+                          )}
+                          {avail === 'red' && (
+                            <span
+                              className={`h-1 w-4 sm:w-5 rounded-full bg-rose-500 ${
+                                isSel ? 'bg-black/80' : 'shadow-sm shadow-rose-500/50'
+                              }`}
+                              title="Pocas citas disponibles"
+                            />
+                          )}
+                          {avail === 'none' && (
+                            <div
+                              className={`flex items-center gap-0.5 ${
+                                isSel ? 'text-black' : 'text-rose-500'
+                              }`}
+                              title="Sin citas disponibles"
+                            >
+                              <span className={`h-1 w-2.5 rounded-full ${isSel ? 'bg-black/80' : 'bg-rose-500/80'}`} />
+                              <X className="h-2 w-2 stroke-[3]" />
+                            </div>
+                          )}
+                        </div>
                       </button>
-                      <button
-                        type="button"
-                        onClick={() => scrollSlots('right')}
-                        aria-label="Desplazar horas a la derecha"
-                        className="flex h-6 w-6 items-center justify-center rounded-lg glass-card text-zinc-400 hover:text-white active:scale-95 transition-all cursor-pointer"
-                      >
-                        <ChevronRightIcon className="h-3 w-3" />
-                      </button>
-                    </div>
-                  )}
+                    );
+                  })}
                 </div>
 
-                {/* Animated Morning / Afternoon Dock */}
-                <div className="relative mb-2.5 grid grid-cols-2 p-1 rounded-2xl bg-zinc-900/80 border border-white/10 backdrop-blur-md">
+                <button
+                  type="button"
+                  onClick={() => scrollDays('right')}
+                  aria-label="Días siguientes"
+                  className="flex h-12 w-8 sm:w-9 shrink-0 items-center justify-center rounded-xl glass-card text-zinc-400 hover:text-white hover:border-gold/30 active:scale-95 transition-all cursor-pointer"
+                >
+                  <ChevronRightIcon className="h-4 w-4" />
+                </button>
+              </div>
+
+              {/* Centered Period Dock (Mañana / Tarde) */}
+              <div className="flex justify-center my-3 sm:my-3.5">
+                <div className="relative inline-flex p-1 rounded-2xl bg-zinc-900/80 border border-white/10 backdrop-blur-md">
                   <button
                     type="button"
                     onClick={() => setPeriod('morning')}
-                    className={`relative flex items-center justify-center gap-2 py-2 px-3 text-xs font-semibold rounded-xl transition-colors duration-200 z-10 cursor-pointer select-none ${
+                    className={`relative px-5 sm:px-7 py-2 text-xs sm:text-sm font-semibold rounded-xl transition-colors duration-200 z-10 cursor-pointer select-none ${
                       period === 'morning' ? 'text-black font-bold' : 'text-zinc-400 hover:text-white'
                     }`}
                   >
@@ -514,24 +513,21 @@ export function DateTimeStep({ barber, service, onBack, onContinue }: DateTimeSt
                         transition={{ type: 'spring', stiffness: 450, damping: 35 }}
                       />
                     )}
-                    <Sun className={`relative z-10 h-3.5 w-3.5 transition-transform duration-200 ${period === 'morning' ? 'text-black scale-110' : 'text-amber-400'}`} />
-                    <span className="relative z-10">Mañana</span>
-                    <span
-                      className={`relative z-10 text-[0.65rem] px-1.5 py-0.5 rounded-full font-semibold transition-colors ${
-                        period === 'morning' ? 'bg-black/20 text-black' : 'bg-white/5 text-zinc-400'
-                      }`}
-                    >
-                      {morningAvail.length}
+                    <span className="relative z-10 flex items-center gap-1.5">
+                      <Sun className={`h-3.5 w-3.5 ${period === 'morning' ? 'text-black' : 'text-amber-400'}`} />
+                      Mañana
+                      {morningAvail.length > 0 && (
+                        <span className={`text-[0.65rem] px-1.5 py-0.5 rounded-full ${period === 'morning' ? 'bg-black/20 text-black font-bold' : 'bg-white/5 text-zinc-400 font-medium'}`}>
+                          {morningAvail.length}
+                        </span>
+                      )}
                     </span>
-                    {morningAvail.includes(selectedTime) && (
-                      <span className="relative z-10 h-1.5 w-1.5 rounded-full bg-black shrink-0" />
-                    )}
                   </button>
 
                   <button
                     type="button"
                     onClick={() => setPeriod('afternoon')}
-                    className={`relative flex items-center justify-center gap-2 py-2 px-3 text-xs font-semibold rounded-xl transition-colors duration-200 z-10 cursor-pointer select-none ${
+                    className={`relative px-5 sm:px-7 py-2 text-xs sm:text-sm font-semibold rounded-xl transition-colors duration-200 z-10 cursor-pointer select-none ${
                       period === 'afternoon' ? 'text-black font-bold' : 'text-zinc-400 hover:text-white'
                     }`}
                   >
@@ -542,180 +538,155 @@ export function DateTimeStep({ barber, service, onBack, onContinue }: DateTimeSt
                         transition={{ type: 'spring', stiffness: 450, damping: 35 }}
                       />
                     )}
-                    <Moon className={`relative z-10 h-3.5 w-3.5 transition-transform duration-200 ${period === 'afternoon' ? 'text-black scale-110' : 'text-indigo-300'}`} />
-                    <span className="relative z-10">Tarde</span>
-                    <span
-                      className={`relative z-10 text-[0.65rem] px-1.5 py-0.5 rounded-full font-semibold transition-colors ${
-                        period === 'afternoon' ? 'bg-black/20 text-black' : 'bg-white/5 text-zinc-400'
-                      }`}
-                    >
-                      {afternoonAvail.length}
+                    <span className="relative z-10 flex items-center gap-1.5">
+                      <Moon className={`h-3.5 w-3.5 ${period === 'afternoon' ? 'text-black' : 'text-indigo-300'}`} />
+                      Tarde
+                      {afternoonAvail.length > 0 && (
+                        <span className={`text-[0.65rem] px-1.5 py-0.5 rounded-full ${period === 'afternoon' ? 'bg-black/20 text-black font-bold' : 'bg-white/5 text-zinc-400 font-medium'}`}>
+                          {afternoonAvail.length}
+                        </span>
+                      )}
                     </span>
-                    {afternoonAvail.includes(selectedTime) && (
-                      <span className="relative z-10 h-1.5 w-1.5 rounded-full bg-black shrink-0" />
-                    )}
                   </button>
                 </div>
+              </div>
 
-                {/* Horizontal scrollable slots (2 rows) */}
-                <AnimatePresence mode="wait">
-                  <motion.div
-                    key={`${selected?.toISOString()}-${period}`}
-                    initial={{ opacity: 0, y: 4 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -4 }}
-                    transition={{ duration: 0.15, ease: 'easeOut' }}
-                  >
-                    {currentPeriodSlots.length === 0 ? (
-                      <div className="rounded-2xl glass-card px-4 py-6 text-center">
-                        <p className="text-xs sm:text-sm text-zinc-400">
-                          No hay horas disponibles por la {period === 'morning' ? 'mañana' : 'tarde'}.
-                        </p>
-                        {(period === 'morning' ? afternoonAvail : morningAvail).length > 0 && (
-                          <button
-                            type="button"
-                            onClick={() => setPeriod(period === 'morning' ? 'afternoon' : 'morning')}
-                            className="mt-2.5 inline-flex items-center gap-1.5 rounded-xl bg-gold/10 px-3 py-1.5 text-xs font-semibold text-gold hover:bg-gold/20 transition-all cursor-pointer"
-                          >
-                            Ver turno de {period === 'morning' ? 'tarde' : 'mañana'} (
-                            {(period === 'morning' ? afternoonAvail : morningAvail).length} disponibles) &rarr;
-                          </button>
-                        )}
-                      </div>
-                    ) : (
-                      <div
-                        ref={slotsScrollRef}
-                        data-lenis-prevent
-                        className="no-scrollbar -mx-4 sm:-mx-5 flex overflow-x-auto px-4 sm:px-5 py-1 scroll-smooth overscroll-x-contain"
-                        style={{ WebkitOverflowScrolling: 'touch' }}
-                      >
-                        <div className="grid grid-rows-2 grid-flow-col gap-2 auto-cols-[minmax(76px,max-content)]">
-                          {currentPeriodSlots.map((slot) => {
-                            const isSel = selectedTime === slot;
-                            return (
-                              <button
-                                key={slot}
-                                type="button"
-                                onClick={() => setSelectedTime(slot)}
-                                className={`inline-flex h-9 items-baseline justify-center whitespace-nowrap rounded-xl px-3 text-xs sm:text-sm font-semibold transition-all duration-200 active:scale-95 cursor-pointer ${
-                                  isSel
-                                    ? 'gold-gradient text-black gold-glow scale-[1.03] shadow-md font-bold'
-                                    : 'glass-card text-zinc-300 hover:border-gold/30 hover:text-white'
-                                }`}
-                              >
-                                <span>{slot}</span>
-                                <span className={`ml-0.5 text-[0.65rem] font-medium lowercase ${isSel ? 'text-black/80' : 'text-zinc-500'}`}>
-                                  h
-                                </span>
-                              </button>
-                            );
-                          })}
-                        </div>
-                      </div>
+              {/* Single row of hours flanked by left and right arrow buttons */}
+              <div className="flex items-center gap-1.5 sm:gap-2 my-2 sm:my-3">
+                <button
+                  type="button"
+                  onClick={() => scrollSlots('left')}
+                  aria-label="Horas anteriores"
+                  className="flex h-10 w-8 sm:w-9 shrink-0 items-center justify-center rounded-xl glass-card text-zinc-400 hover:text-white hover:border-gold/30 active:scale-95 transition-all cursor-pointer"
+                >
+                  <ChevronLeftIcon className="h-4 w-4" />
+                </button>
+
+                <div
+                  ref={slotsScrollRef}
+                  data-lenis-prevent
+                  className="no-scrollbar flex flex-1 items-center gap-2 overflow-x-auto py-1 scroll-smooth"
+                  style={{ WebkitOverflowScrolling: 'touch' }}
+                >
+                  {currentPeriodSlots.length === 0 ? (
+                    <div className="w-full text-center py-2 text-xs text-zinc-400">
+                      No hay horas disponibles por la {period === 'morning' ? 'mañana' : 'tarde'}.
+                    </div>
+                  ) : (
+                    currentPeriodSlots.map((slot) => {
+                      const isSel = selectedTime === slot;
+                      return (
+                        <button
+                          key={slot}
+                          type="button"
+                          onClick={() => setSelectedTime(slot)}
+                          className={`flex h-10 shrink-0 min-w-[72px] sm:min-w-[80px] items-baseline justify-center whitespace-nowrap rounded-xl px-3 py-2 text-xs sm:text-sm font-semibold transition-all duration-200 active:scale-95 cursor-pointer ${
+                            isSel
+                              ? 'gold-gradient text-black gold-glow scale-[1.03] shadow-md font-bold'
+                              : 'glass-card text-zinc-300 hover:border-gold/30 hover:text-white'
+                          }`}
+                        >
+                          <span>{slot}</span>
+                          <span className={`ml-0.5 text-[0.65rem] font-medium lowercase ${isSel ? 'text-black/80' : 'text-zinc-500'}`}>
+                            h
+                          </span>
+                        </button>
+                      );
+                    })
+                  )}
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => scrollSlots('right')}
+                  aria-label="Horas siguientes"
+                  className="flex h-10 w-8 sm:w-9 shrink-0 items-center justify-center rounded-xl glass-card text-zinc-400 hover:text-white hover:border-gold/30 active:scale-95 transition-all cursor-pointer"
+                >
+                  <ChevronRightIcon className="h-4 w-4" />
+                </button>
+              </div>
+
+              {/* Service & Barber Card (Embed) */}
+              <div className="rounded-2xl border border-white/10 bg-zinc-900/90 backdrop-blur-md p-4 sm:p-5 shadow-xl mt-3 sm:mt-4">
+                {/* Fila superior: Servicio, Precio y Rango Horario */}
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="font-display text-sm sm:text-base font-bold text-white truncate">
+                      {currentServiceObj?.name ?? (typeof service === 'string' ? service : 'Servicio')}
+                    </p>
+                  </div>
+                  <div className="text-right shrink-0">
+                    <p className="font-display text-sm sm:text-base font-bold text-gold">
+                      {currentServiceObj?.price !== undefined
+                        ? `${currentServiceObj.price.toFixed(2).replace('.', ',')} €`
+                        : '—'}
+                    </p>
+                    {selectedTime && (
+                      <p className="text-xs text-zinc-400 font-medium mt-0.5">
+                        {selectedTime} - {endTime}
+                      </p>
                     )}
-                  </motion.div>
-                </AnimatePresence>
-              </div>
-            ) : null}
-          </>
-        )}
-      </div>
+                  </div>
+                </div>
 
-      {/* Sticky Bottom Area with Live Appointment Summary Embed and Continue button */}
-      <div className="sticky bottom-0 z-30 mt-auto glass-panel px-4 pt-2.5 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
-        {/* Live Appointment Summary Embed */}
-        <div className="rounded-2xl border border-white/10 bg-zinc-900/90 backdrop-blur-md p-3 sm:p-3.5 shadow-2xl mb-2.5">
-          {/* Fila 1: Servicio e Importe */}
-          <div className="flex items-center justify-between gap-3">
-            <div className="flex items-center gap-2.5 min-w-0">
-              {iconUrl ? (
-                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-gold/10 border border-gold/20 overflow-hidden">
-                  <img src={iconUrl} alt="" className="h-5 w-5 object-contain" />
-                </div>
-              ) : (
-                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-gold/10 border border-gold/20 text-gold">
-                  <ScissorsIcon className="h-4 w-4" />
-                </div>
-              )}
-              <div className="min-w-0">
-                <p className="text-[0.6rem] font-semibold uppercase tracking-wider text-zinc-400">Servicio</p>
-                <p className="font-display text-xs sm:text-sm font-bold text-white truncate">
-                  {currentServiceObj?.name ?? (typeof service === 'string' ? service : 'Servicio')}
-                </p>
-              </div>
-            </div>
-            <div className="text-right shrink-0">
-              <p className="text-[0.6rem] font-semibold uppercase tracking-wider text-zinc-400">Importe</p>
-              <p className="font-display text-sm sm:text-base font-bold text-gold">
-                {currentServiceObj?.price !== undefined ? `${currentServiceObj.price}€` : '—'}
-              </p>
-            </div>
-          </div>
+                {/* Línea divisoria */}
+                <div className="border-t border-white/10 my-3.5" />
 
-          {/* Fila 2: Hora seleccionada y fin previsto (solo si está seleccionada) */}
-          {selectedTime && (
-            <div className="mt-2.5 pt-2.5 border-t border-white/5 flex items-center justify-between gap-2 animate-fade-in">
-              <div className="flex items-center gap-2 min-w-0">
-                <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-gold/10 text-gold">
-                  <ClockIcon className="h-3.5 w-3.5" />
-                </div>
-                <div className="min-w-0">
-                  <p className="text-[0.6rem] font-semibold uppercase tracking-wider text-zinc-400">
-                    Horario previsto {selected ? `· ${prettyDate(selected)}` : ''}
-                  </p>
-                  <p className="text-xs sm:text-sm font-bold text-white tracking-wide">
-                    <span>{selectedTime}</span>
-                    <span className="text-[0.65rem] font-normal text-zinc-400">h</span>
-                    <span className="mx-1.5 text-gold/70">–</span>
-                    <span>{endTime}</span>
-                    <span className="text-[0.65rem] font-normal text-zinc-400">h</span>
-                  </p>
+                {/* Fila inferior: Barbero con foto y nombre */}
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <span className="text-xs text-zinc-400 font-medium">Empleado:</span>
+                  {barber.photo_url ? (
+                    <img
+                      src={barber.photo_url}
+                      alt={barber.name}
+                      className="h-7 w-7 sm:h-8 sm:w-8 shrink-0 rounded-full object-cover ring-1 ring-gold/40"
+                    />
+                  ) : (
+                    <div className="flex h-7 w-7 sm:h-8 sm:w-8 shrink-0 items-center justify-center rounded-full gold-gradient font-display text-xs font-bold text-black/80">
+                      {barber.initials}
+                    </div>
+                  )}
+                  <span className="font-display text-xs sm:text-sm font-semibold text-white truncate">
+                    {barber.name}
+                  </span>
+                  {barber.role && (
+                    <span className="text-[0.65rem] text-zinc-400 ml-1">
+                      ({barber.role})
+                    </span>
+                  )}
                 </div>
               </div>
-              <span className="shrink-0 rounded-full bg-gold/15 border border-gold/30 px-2.5 py-0.5 text-[0.65rem] font-bold text-gold">
-                {currentServiceDuration} min
-              </span>
-            </div>
+
+              {/* Total & Duration section */}
+              <div className="mt-4 sm:mt-5 flex flex-col items-end px-1">
+                <div className="flex items-baseline gap-2">
+                  <span className="text-xs sm:text-sm text-zinc-400">Total :</span>
+                  <span className="font-display text-xl sm:text-2xl font-bold text-gold">
+                    {currentServiceObj?.price !== undefined
+                      ? `${currentServiceObj.price.toFixed(2).replace('.', ',')} €`
+                      : '—'}
+                  </span>
+                </div>
+                <span className="text-xs text-zinc-500 font-medium -mt-0.5">
+                  {currentServiceDuration} min
+                </span>
+              </div>
+
+              {/* Continuar button */}
+              <button
+                onClick={() => canContinue && onContinue(toISO(selected!), selectedTime)}
+                disabled={!canContinue}
+                className={`w-full flex items-center justify-center gap-2 rounded-2xl py-3.5 sm:py-4 text-xs sm:text-sm font-bold uppercase tracking-wider transition-all duration-300 mt-3 cursor-pointer ${
+                  canContinue
+                    ? 'gold-gradient text-black hover:brightness-110 active:scale-[0.98] gold-glow shadow-lg'
+                    : 'bg-white/5 text-zinc-600 cursor-not-allowed'
+                }`}
+              >
+                Continuar
+              </button>
+            </>
           )}
-
-          {/* Fila 3: Peluquero seleccionado abajo */}
-          <div className="mt-2.5 pt-2.5 border-t border-white/5 flex items-center justify-between gap-2">
-            <div className="flex items-center gap-2.5 min-w-0">
-              {barber.photo_url ? (
-                <img
-                  src={barber.photo_url}
-                  alt={barber.name}
-                  className="h-8 w-8 shrink-0 rounded-xl object-cover ring-1 ring-gold/40"
-                />
-              ) : (
-                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl gold-gradient font-display text-xs font-bold text-black/80">
-                  {barber.initials}
-                </div>
-              )}
-              <div className="min-w-0">
-                <p className="text-[0.6rem] font-semibold uppercase tracking-wider text-zinc-400">Peluquero</p>
-                <p className="font-display text-xs sm:text-sm font-bold text-white truncate">{barber.name}</p>
-              </div>
-            </div>
-            <span className="shrink-0 rounded-full bg-white/5 border border-white/10 px-2.5 py-0.5 text-[0.6rem] font-medium text-zinc-300">
-              {barber.role || 'Barbero'}
-            </span>
-          </div>
         </div>
-
-        {/* Botón Continuar */}
-        <button
-          onClick={() => canContinue && onContinue(toISO(selected!), selectedTime)}
-          disabled={!canContinue}
-          className={`flex w-full items-center justify-center gap-2 rounded-2xl py-3 sm:py-3.5 text-xs sm:text-sm font-bold uppercase tracking-wider transition-all duration-300 ${
-            canContinue
-              ? 'gold-gradient text-black hover:brightness-110 active:scale-[0.98] gold-glow cursor-pointer'
-              : 'bg-white/5 text-zinc-600 cursor-not-allowed'
-          }`}
-        >
-          <CheckIcon className="h-4 w-4" />
-          Continuar
-        </button>
       </div>
     </div>
   );

@@ -11,9 +11,10 @@ import { AdminStaff } from '@/components/admin/AdminStaff';
 import { AdminStaffSchedule } from '@/components/admin/AdminStaffSchedule';
 import { AdminCustomers } from '@/components/admin/AdminCustomers';
 import { AdminStore } from '@/components/admin/AdminStore';
+import { AdminProfile } from '@/components/admin/AdminProfile';
 import {
   CalendarDays, Clock, PlusCircle, SlidersHorizontal, Scissors, Users, ShoppingBag,
-  Search, X, LogOut, Menu, ArrowLeft, RotateCw, type LucideIcon,
+  Search, X, LogOut, Menu, ArrowLeft, RotateCw, UserCircle2, type LucideIcon,
 } from 'lucide-react';
 import { InstallAppButton } from '@/components/InstallAppButton';
 import { setActivePwaContext } from '@/lib/pwaContext';
@@ -27,7 +28,7 @@ interface AdminPanelProps {
   onGoPublic: () => void;
 }
 
-type AdminTab = 'today' | 'agenda' | 'manual' | 'availability' | 'services' | 'staff' | 'schedule' | 'customers' | 'store';
+type AdminTab = 'today' | 'agenda' | 'manual' | 'availability' | 'services' | 'staff' | 'schedule' | 'customers' | 'store' | 'profile';
 
 interface NavItem {
   id: AdminTab;
@@ -35,6 +36,7 @@ interface NavItem {
   icon: LucideIcon;
   category: string;
   adminOnly?: boolean;
+  barberOnly?: boolean;
 }
 
 export function AdminPanel({ userRole, onSignOut, onGoPublic }: AdminPanelProps) {
@@ -56,7 +58,17 @@ export function AdminPanel({ userRole, onSignOut, onGoPublic }: AdminPanelProps)
     setSidebarOpen(false);
   }, []);
 
-  useEffect(() => { fetchAllBarbers().then((b) => setBarbers(b)); }, []);
+  const reloadBarbers = useCallback(() => {
+    fetchAllBarbers().then((b) => setBarbers(b));
+  }, []);
+
+  useEffect(() => { reloadBarbers(); }, [reloadBarbers]);
+
+  useEffect(() => {
+    if (!isAdmin && userRole.barber_id) {
+      setSelectedBarber(userRole.barber_id);
+    }
+  }, [isAdmin, userRole.barber_id]);
 
   const fetchBookings = useCallback(async () => {
     let query = supabase.from('bookings').select('*').neq('status', 'cancelled').order('booking_date', { ascending: true }).order('booking_time', { ascending: true });
@@ -131,6 +143,7 @@ export function AdminPanel({ userRole, onSignOut, onGoPublic }: AdminPanelProps)
     { id: 'today', label: 'Citas de Hoy', icon: CalendarDays, category: 'Principal' },
     { id: 'manual', label: 'Cita Manual', icon: PlusCircle, category: 'Principal' },
     { id: 'agenda', label: 'Agenda Completa', icon: Clock, category: 'Principal' },
+    { id: 'profile', label: 'Mi Perfil', icon: UserCircle2, category: 'Principal', barberOnly: true },
     { id: 'availability', label: 'Horarios y Bloqueos', icon: SlidersHorizontal, category: 'Control', adminOnly: true },
     { id: 'schedule', label: 'Horarios Semanales', icon: Clock, category: 'Control', adminOnly: true },
     { id: 'customers', label: 'Clientes', icon: Users, category: 'Gestión', adminOnly: true },
@@ -139,7 +152,7 @@ export function AdminPanel({ userRole, onSignOut, onGoPublic }: AdminPanelProps)
     { id: 'staff', label: 'Personal', icon: Users, category: 'Gestión', adminOnly: true },
   ];
 
-  const navItems = allNavItems.filter((n) => !n.adminOnly || isAdmin);
+  const navItems = allNavItems.filter((n) => (isAdmin ? !n.barberOnly : !n.adminOnly));
   const filteredNav = navItems.filter((n) => n.label.toLowerCase().includes(search.toLowerCase()));
   const activeBarber = barbers.find((b) => b.id === selectedBarber) ?? null;
   const todayCount = bookings.filter((b) => b.booking_date === new Date().toISOString().slice(0, 10)).length;
@@ -266,6 +279,7 @@ export function AdminPanel({ userRole, onSignOut, onGoPublic }: AdminPanelProps)
           {tab === 'today' && <AdminToday bookings={bookings} loading={loading} onRefresh={refresh} />}
           {tab === 'agenda' && <AdminAgenda bookings={bookings} loading={loading} onRefresh={refresh} />}
           {tab === 'manual' && <AdminManualBooking onCreated={refresh} />}
+          {tab === 'profile' && !isAdmin && <AdminProfile userRole={userRole} onBarberUpdated={reloadBarbers} />}
           {tab === 'availability' && isAdmin && <AdminAvailability blocks={blocks} onRefresh={refresh} />}
           {tab === 'services' && isAdmin && <AdminServices />}
           {tab === 'staff' && isAdmin && <AdminStaff />}
@@ -290,12 +304,26 @@ function SidebarContent({
     <div className="flex h-full flex-col">
       <div className="border-b border-white/5 p-5">
         <p className="mb-3 text-[0.6rem] font-semibold uppercase tracking-[0.2em] text-zinc-500">{panelTitle}</p>
-        <div className="flex flex-wrap gap-1.5">
-          <button onClick={() => setSelectedBarber('all')} className={`rounded-full px-3 py-1 text-xs font-medium transition-all ${selectedBarber === 'all' ? 'bg-gold/15 text-gold' : 'bg-white/5 text-zinc-500 hover:text-zinc-300'}`}>Todos</button>
-          {barbers.map((b) => (
-            <button key={b.id} onClick={() => setSelectedBarber(b.id)} className={`rounded-full px-3 py-1 text-xs font-medium transition-all ${selectedBarber === b.id ? 'bg-gold/15 text-gold' : 'bg-white/5 text-zinc-500 hover:text-zinc-300'}`}>{b.name}</button>
-          ))}
-        </div>
+        {isAdmin ? (
+          <div className="flex flex-wrap gap-1.5">
+            <button onClick={() => setSelectedBarber('all')} className={`rounded-full px-3 py-1 text-xs font-medium transition-all ${selectedBarber === 'all' ? 'bg-gold/15 text-gold' : 'bg-white/5 text-zinc-500 hover:text-zinc-300'}`}>Todos</button>
+            {barbers.map((b) => (
+              <button key={b.id} onClick={() => setSelectedBarber(b.id)} className={`rounded-full px-3 py-1 text-xs font-medium transition-all ${selectedBarber === b.id ? 'bg-gold/15 text-gold' : 'bg-white/5 text-zinc-500 hover:text-zinc-300'}`}>{b.name}</button>
+            ))}
+          </div>
+        ) : activeBarber ? (
+          <div className="flex items-center gap-2.5 rounded-2xl glass-card p-2.5">
+            {activeBarber.photo_url ? (
+              <img src={activeBarber.photo_url} alt="" className="h-8 w-8 rounded-full object-cover ring-1 ring-gold/30" />
+            ) : (
+              <div className="flex h-8 w-8 items-center justify-center rounded-full gold-gradient font-display text-xs font-bold text-black">{activeBarber.initials}</div>
+            )}
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-xs font-semibold text-white">{activeBarber.name}</p>
+              <p className="text-[10px] text-zinc-400">Barbero en servicio</p>
+            </div>
+          </div>
+        ) : null}
       </div>
 
       <div className="px-5 py-3">

@@ -1,8 +1,8 @@
 import { sileo } from 'sileo';
 
-const TOAST_DURATION = 4000;
+const TOAST_DURATION = 2000;
 const DARK_FILL = '#121212';
-const AUTOPILOT_EXPAND = { expand: 50, collapse: 3600 };
+const AUTOPILOT_EXPAND = { expand: 50, collapse: 1750 };
 
 interface NotifyOptions {
   description?: string;

@@ -3,7 +3,7 @@ import { supabase } from '@/lib/supabase';
 import { fetchAllBarbers } from '@/data/services';
 import type { BarberBlock, Barber, BarberVacation } from '@/types';
 import { Trash2, CalendarOff, Clock, Plane } from 'lucide-react';
-import { ALL_TIME_SLOTS, toISO } from '@/lib/schedule';
+import { BLOCK_START_SLOTS, BLOCK_END_SLOTS, toISO } from '@/lib/schedule';
 import { notify } from '@/lib/notify';
 
 interface AdminAvailabilityProps {
@@ -191,18 +191,40 @@ export function AdminAvailability({ blocks: initialBlocks, onRefresh }: AdminAva
           <div className="grid grid-cols-2 gap-2">
             <div>
               <label className="mb-1.5 block text-xs text-zinc-500">Hora inicio</label>
-              <select value={startTime} onChange={(e) => setStartTime(e.target.value)}
-                className="w-full rounded-xl glass-card px-4 py-3 text-sm text-white focus:border-gold/30 focus:outline-none">
+              <select
+                value={startTime}
+                onChange={(e) => {
+                  const newStart = e.target.value;
+                  setStartTime(newStart);
+                  if (endTime && newStart && endTime <= newStart) {
+                    const nextEnd = BLOCK_END_SLOTS.find((s) => s > newStart);
+                    setEndTime(nextEnd ?? '');
+                  }
+                }}
+                className="w-full rounded-xl glass-card px-4 py-3 text-sm text-white focus:border-gold/30 focus:outline-none"
+              >
                 <option value="" className="bg-zinc-900">Inicio</option>
-                {ALL_TIME_SLOTS.map((s) => <option key={s} value={s} className="bg-zinc-900">{s}</option>)}
+                {BLOCK_START_SLOTS.map((s) => (
+                  <option key={s} value={s} className="bg-zinc-900">{s}</option>
+                ))}
               </select>
             </div>
             <div>
               <label className="mb-1.5 block text-xs text-zinc-500">Hora fin</label>
-              <select value={endTime} onChange={(e) => setEndTime(e.target.value)}
-                className="w-full rounded-xl glass-card px-4 py-3 text-sm text-white focus:border-gold/30 focus:outline-none">
-                <option value="" className="bg-zinc-900">Fin</option>
-                {ALL_TIME_SLOTS.map((s) => <option key={s} value={s} className="bg-zinc-900">{s}</option>)}
+              <select
+                value={endTime}
+                onChange={(e) => setEndTime(e.target.value)}
+                className="w-full rounded-xl glass-card px-4 py-3 text-sm text-white focus:border-gold/30 focus:outline-none"
+              >
+                <option value="" className="bg-zinc-900">Fin (hasta cierre 20:30)</option>
+                {(startTime
+                  ? BLOCK_END_SLOTS.filter((s) => s > startTime)
+                  : BLOCK_END_SLOTS
+                ).map((s) => (
+                  <option key={s} value={s} className="bg-zinc-900">
+                    {s === '20:30' ? '20:30 (Cierre tarde)' : s === '13:30' ? '13:30 (Cierre mañana)' : s}
+                  </option>
+                ))}
               </select>
             </div>
           </div>

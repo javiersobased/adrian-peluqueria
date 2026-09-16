@@ -68,8 +68,16 @@ export function isSlotInTimeRange(slot: string, ranges: { start: string; end: st
   const slotMin = timeToMinutes(slot);
   return ranges.some((r) => {
     const s = timeToMinutes(r.start);
-    const e = timeToMinutes(r.end);
-    return slotMin >= s && slotMin < e;
+    // If a block ends at 20:00 (the former max slot option in UI), treat as covering until closing (20:30)
+    // so the final 20:00 slot is properly blocked.
+    // Similarly, if a morning block started at 09:30 and ended at 13:00, extend to 13:30.
+    let endMin = timeToMinutes(r.end);
+    if (r.end === '20:00') {
+      endMin = timeToMinutes('20:30');
+    } else if (r.end === '13:00' && r.start === '09:30') {
+      endMin = timeToMinutes('13:30');
+    }
+    return slotMin >= s && slotMin < endMin;
   });
 }
 
@@ -132,3 +140,11 @@ export const ALL_TIME_SLOTS: string[] = (() => {
   for (let t = 16 * 60 + 30; t < 20 * 60 + 30; t += SLOT_INTERVAL_MINUTES) slots.push(minutesToTime(t));
   return slots;
 })();
+
+export const BLOCK_START_SLOTS: string[] = ALL_TIME_SLOTS;
+
+export const BLOCK_END_SLOTS: string[] = [
+  '10:00', '10:30', '11:00', '11:30', '12:00', '12:30', '13:00', '13:30',
+  '17:00', '17:30', '18:00', '18:30', '19:00', '19:30', '20:00', '20:30',
+];
+

@@ -15,7 +15,7 @@ createRoot(rootEl).render(
       <Toaster
         position="top-right"
         options={{
-          duration: 4000,
+          duration: 2000,
           fill: '#121212',
         }}
       />

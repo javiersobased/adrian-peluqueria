@@ -1,16 +1,32 @@
 import type { BarberSchedule, BarberBlock, BarberVacation } from '@/types';
 
-const SLOT_INTERVAL_MINUTES = 30;
+export const SLOT_INTERVAL_MINUTES = 15;
 
-function timeToMinutes(time: string): number {
+export function timeToMinutes(time: string): number {
   const [h, m] = time.split(':').map(Number);
   return h * 60 + m;
 }
 
-function minutesToTime(mins: number): string {
+export function minutesToTime(mins: number): string {
   const h = Math.floor(mins / 60);
   const m = mins % 60;
   return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+}
+
+export function getServiceDurationMinutes(
+  service?: { duration_minutes?: number | null; duration?: string | null } | null
+): number {
+  if (service?.duration_minutes && service.duration_minutes > 0) {
+    return service.duration_minutes;
+  }
+  if (service?.duration) {
+    const match = service.duration.match(/\d+/);
+    if (match) {
+      const parsed = parseInt(match[0], 10);
+      if (!isNaN(parsed) && parsed > 0) return parsed;
+    }
+  }
+  return 30; // Fallback seguro de 30 minutos por defecto
 }
 
 export function generateSlotsForShift(start: string | null, end: string | null): string[] {
@@ -68,9 +84,6 @@ export function isSlotInTimeRange(slot: string, ranges: { start: string; end: st
   const slotMin = timeToMinutes(slot);
   return ranges.some((r) => {
     const s = timeToMinutes(r.start);
-    // If a block ends at 20:00 (the former max slot option in UI), treat as covering until closing (20:30)
-    // so the final 20:00 slot is properly blocked.
-    // Similarly, if a morning block started at 09:30 and ended at 13:00, extend to 13:30.
     let endMin = timeToMinutes(r.end);
     if (r.end === '20:00') {
       endMin = timeToMinutes('20:30');
@@ -81,23 +94,85 @@ export function isSlotInTimeRange(slot: string, ranges: { start: string; end: st
   });
 }
 
+export interface BookedIntervalCheck {
+  start: string;
+  duration?: number;
+}
+
 export function isSlotAvailable(
   slot: string,
-  bookedSlots: Set<string>,
+  bookedSlots: Set<string> | BookedIntervalCheck[],
   slotBlocks: Set<string>,
   timeRangeBlocks: { start: string; end: string }[],
   selectedDate?: Date,
-  now: Date = new Date()
+  now: Date = new Date(),
+  serviceDuration: number = 30,
+  shiftEnd: string | null = null
 ): boolean {
-  if (bookedSlots.has(slot)) return false;
-  if (slotBlocks.has(slot)) return false;
-  if (isSlotInTimeRange(slot, timeRangeBlocks)) return false;
-  if (selectedDate && toISO(selectedDate) === toISO(now)) {
-    const [h, m] = slot.split(':').map(Number);
-    const slotMinutes = h * 60 + m;
-    const nowMinutes = now.getHours() * 60 + now.getMinutes();
-    if (slotMinutes <= nowMinutes) return false;
+  const potentialStartMin = timeToMinutes(slot);
+  const potentialEndMin = potentialStartMin + serviceDuration;
+
+  // 1. Limite del turno de trabajo (no puede terminar despues del cierre de turno)
+  if (shiftEnd) {
+    const shiftEndMin = timeToMinutes(shiftEnd);
+    if (potentialEndMin > shiftEndMin) {
+      return false;
+    }
   }
+
+  // 2. Detección de solapamiento con reservas existentes (Bookings)
+  if (Array.isArray(bookedSlots)) {
+    const hasBookingOverlap = bookedSlots.some((b) => {
+      const bStartMin = timeToMinutes(b.start);
+      const bDuration = b.duration && b.duration > 0 ? b.duration : 30;
+      const bEndMin = bStartMin + bDuration;
+      // Interval overlap: [potentialStart, potentialEnd] vs [bStart, bEnd]
+      return Math.max(potentialStartMin, bStartMin) < Math.min(potentialEndMin, bEndMin);
+    });
+    if (hasBookingOverlap) return false;
+  } else if (bookedSlots instanceof Set) {
+    // Si viene como Set<string>, evaluamos cada reserva asumiendo fallback de 30 minutos
+    for (const bTime of bookedSlots) {
+      const bStartMin = timeToMinutes(bTime);
+      const bEndMin = bStartMin + 30;
+      if (Math.max(potentialStartMin, bStartMin) < Math.min(potentialEndMin, bEndMin)) {
+        return false;
+      }
+    }
+  }
+
+  // 3. Bloqueos puntuales de tramo (slot_block)
+  if (slotBlocks && slotBlocks.size > 0) {
+    for (const sb of slotBlocks) {
+      const sbMin = timeToMinutes(sb);
+      // Si el slot puntual cae dentro de la duracion potencial de la cita
+      if (sbMin >= potentialStartMin && sbMin < potentialEndMin) {
+        return false;
+      }
+    }
+  }
+
+  // 4. Bloqueos de rango horario del barbero (time_range)
+  if (timeRangeBlocks && timeRangeBlocks.length > 0) {
+    const hasRangeOverlap = timeRangeBlocks.some((r) => {
+      const rStartMin = timeToMinutes(r.start);
+      let rEndMin = timeToMinutes(r.end);
+      if (r.end === '20:00') {
+        rEndMin = timeToMinutes('20:30');
+      } else if (r.end === '13:00' && r.start === '09:30') {
+        rEndMin = timeToMinutes('13:30');
+      }
+      return Math.max(potentialStartMin, rStartMin) < Math.min(potentialEndMin, rEndMin);
+    });
+    if (hasRangeOverlap) return false;
+  }
+
+  // 5. Citas pasadas hoy
+  if (selectedDate && toISO(selectedDate) === toISO(now)) {
+    const nowMinutes = now.getHours() * 60 + now.getMinutes();
+    if (potentialStartMin <= nowMinutes) return false;
+  }
+
   return true;
 }
 
@@ -143,8 +218,10 @@ export const ALL_TIME_SLOTS: string[] = (() => {
 
 export const BLOCK_START_SLOTS: string[] = ALL_TIME_SLOTS;
 
-export const BLOCK_END_SLOTS: string[] = [
-  '10:00', '10:30', '11:00', '11:30', '12:00', '12:30', '13:00', '13:30',
-  '17:00', '17:30', '18:00', '18:30', '19:00', '19:30', '20:00', '20:30',
-];
+export const BLOCK_END_SLOTS: string[] = (() => {
+  const slots: string[] = [];
+  for (let t = 9 * 60 + 45; t <= 13 * 60 + 30; t += SLOT_INTERVAL_MINUTES) slots.push(minutesToTime(t));
+  for (let t = 16 * 60 + 45; t <= 20 * 60 + 30; t += SLOT_INTERVAL_MINUTES) slots.push(minutesToTime(t));
+  return slots;
+})();
 

@@ -2,13 +2,17 @@ import { useMemo, useState, useEffect, useCallback, useRef } from 'react';
 import { StepHeader } from '@/components/ServiceStep';
 import { ChevronLeftIcon, ChevronRightIcon, ClockIcon, CheckIcon } from '@/components/icons';
 import { supabase } from '@/lib/supabase';
-import type { Barber, BarberBlock, BarberVacation, BarberSchedule } from '@/types';
+import { fetchAllServices } from '@/data/services';
+import type { Barber, BarberBlock, BarberVacation, BarberSchedule, Service } from '@/types';
 import {
   generateSlotsForDay,
   isDayAvailable,
   getSlotBlocksForDate,
   getTimeRangeBlocksForDate,
   isSlotAvailable,
+  getServiceDurationMinutes,
+  timeToMinutes,
+  minutesToTime,
   toISO,
   WEEKDAY_SHORT,
   MONTH_NAMES,
@@ -17,13 +21,14 @@ import {
 
 interface DateTimeStepProps {
   barber: Barber;
+  service?: Service | string | null;
   onBack: () => void;
   onContinue: (date: string, time: string) => void;
 }
 
 const DAY_LABELS = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
 
-export function DateTimeStep({ barber, onBack, onContinue }: DateTimeStepProps) {
+export function DateTimeStep({ barber, service, onBack, onContinue }: DateTimeStepProps) {
   const today = useMemo(() => {
     const t = new Date();
     t.setHours(0, 0, 0, 0);
@@ -35,7 +40,8 @@ export function DateTimeStep({ barber, onBack, onContinue }: DateTimeStepProps) 
   const [schedules, setSchedules] = useState<BarberSchedule[]>([]);
   const [blocks, setBlocks] = useState<BarberBlock[]>([]);
   const [vacations, setVacations] = useState<BarberVacation[]>([]);
-  const [bookedSlots, setBookedSlots] = useState<Set<string>>(new Set());
+  const [allServices, setAllServices] = useState<Service[]>([]);
+  const [bookedIntervals, setBookedIntervals] = useState<{ start: string; duration: number }[]>([]);
   const [loading, setLoading] = useState(true);
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -52,14 +58,16 @@ export function DateTimeStep({ barber, onBack, onContinue }: DateTimeStepProps) 
 
   const fetchData = useCallback(async () => {
     setLoading(true);
-    const [schedRes, blockRes, vacRes] = await Promise.all([
+    const [schedRes, blockRes, vacRes, servList] = await Promise.all([
       supabase.from('barber_schedules').select('*').eq('barber', barber.id),
       supabase.from('barber_blocks').select('*').eq('barber', barber.id),
       supabase.from('barber_vacations').select('*').eq('barber', barber.id),
+      fetchAllServices(),
     ]);
     setSchedules((schedRes.data as BarberSchedule[]) ?? []);
     setBlocks((blockRes.data as BarberBlock[]) ?? []);
     setVacations((vacRes.data as BarberVacation[]) ?? []);
+    setAllServices(servList);
     setLoading(false);
   }, [barber.id]);
 
@@ -71,12 +79,44 @@ export function DateTimeStep({ barber, onBack, onContinue }: DateTimeStepProps) 
     setSelected(today);
   }, [today]);
 
+  const currentServiceDuration = useMemo(() => {
+    if (typeof service === 'object' && service !== null) {
+      return getServiceDurationMinutes(service);
+    }
+    if (typeof service === 'string' && allServices.length > 0) {
+      const found = allServices.find((s) => s.name === service || s.id === service);
+      return getServiceDurationMinutes(found);
+    }
+    return 30;
+  }, [service, allServices]);
+
   const fetchBookedSlots = useCallback(async (date: Date | null) => {
     if (!date) return;
     const iso = toISO(date);
+
+    try {
+      const { data, error } = await supabase.rpc('get_booked_intervals', { p_barber: barber.id, p_date: iso });
+      if (!error && Array.isArray(data)) {
+        const intervals = data.map((item: any) => {
+          const sName = item.service;
+          const sFound = allServices.find((s) => s.name === sName || s.id === sName);
+          const dur = sFound ? getServiceDurationMinutes(sFound) : (item.duration_minutes || 30);
+          return {
+            start: item.booking_time,
+            duration: dur,
+          };
+        });
+        setBookedIntervals(intervals);
+        return;
+      }
+    } catch {
+      // Fallback below
+    }
+
     const { data } = await supabase.rpc('get_booked_slots', { p_barber: barber.id, p_date: iso });
-    setBookedSlots(new Set((data as string[]) ?? []));
-  }, [barber.id]);
+    const slotList = (data as string[]) ?? [];
+    setBookedIntervals(slotList.map((s) => ({ start: s, duration: 30 })));
+  }, [barber.id, allServices]);
 
   useEffect(() => {
     fetchBookedSlots(selected);
@@ -178,8 +218,33 @@ export function DateTimeStep({ barber, onBack, onContinue }: DateTimeStepProps) 
                 </div>
 
                 {(() => {
-                  const morningAvail = slots.morning.filter((s) => isSlotAvailable(s, bookedSlots, slotBlocks, timeRangeBlocks, selected ?? undefined));
-                  const afternoonAvail = slots.afternoon.filter((s) => isSlotAvailable(s, bookedSlots, slotBlocks, timeRangeBlocks, selected ?? undefined));
+                  const morningEnd = scheduleForSelected?.morning_end ?? '13:30';
+                  const afternoonEnd = scheduleForSelected?.afternoon_end ?? '20:30';
+
+                  const morningAvail = slots.morning.filter((s) =>
+                    isSlotAvailable(
+                      s,
+                      bookedIntervals,
+                      slotBlocks,
+                      timeRangeBlocks,
+                      selected ?? undefined,
+                      new Date(),
+                      currentServiceDuration,
+                      morningEnd
+                    )
+                  );
+                  const afternoonAvail = slots.afternoon.filter((s) =>
+                    isSlotAvailable(
+                      s,
+                      bookedIntervals,
+                      slotBlocks,
+                      timeRangeBlocks,
+                      selected ?? undefined,
+                      new Date(),
+                      currentServiceDuration,
+                      afternoonEnd
+                    )
+                  );
                   const totalAvail = morningAvail.length + afternoonAvail.length;
 
                   if (totalAvail === 0) {
@@ -208,6 +273,14 @@ export function DateTimeStep({ barber, onBack, onContinue }: DateTimeStepProps) 
       </div>
 
       <div className="sticky bottom-0 z-30 mt-auto glass-panel px-4 pt-2.5 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+        {selectedTime && (
+          <div className="mb-2 flex items-center justify-between px-1 text-xs text-zinc-400">
+            <span>Hora seleccionada:</span>
+            <span className="font-semibold text-gold">
+              {selectedTime} – {minutesToTime(timeToMinutes(selectedTime) + currentServiceDuration)} ({currentServiceDuration} min)
+            </span>
+          </div>
+        )}
         <button
           onClick={() => canContinue && onContinue(toISO(selected!), selectedTime)}
           disabled={!canContinue}

@@ -302,7 +302,7 @@ function App() {
         )}
 
         {booking.step === 'datetime' && booking.barber && (
-          <DateTimeStep barber={booking.barber} onBack={booking.goBack} onContinue={booking.selectDateTime} />
+          <DateTimeStep barber={booking.barber} service={booking.service} onBack={booking.goBack} onContinue={booking.selectDateTime} />
         )}
 
         {booking.step === 'details' && (

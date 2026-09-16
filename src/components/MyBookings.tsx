@@ -123,6 +123,7 @@ export function MyBookings({ onBack, userEmail }: MyBookingsProps) {
         )}
         <DateTimeStep
           barber={barber}
+          service={reschedulingBooking.service}
           onBack={() => {
             setRescheduleError(null);
             setReschedulingBooking(null);

@@ -3,9 +3,16 @@ export interface Service {
   name: string;
   price: number;
   duration: string;
+  duration_minutes?: number | null;
   icon: string;
   sort_order: number;
   active: boolean;
+}
+
+export interface BookedInterval {
+  booking_time: string;
+  service?: string | null;
+  duration_minutes?: number | null;
 }
 
 export interface Barber {

@@ -42,10 +42,16 @@ export function generateSlotsForShift(start: string | null, end: string | null):
 }
 
 export function generateSlotsForDay(schedule: BarberSchedule | undefined): { morning: string[]; afternoon: string[] } {
-  if (!schedule || !schedule.is_working) return { morning: [], afternoon: [] };
+  if (!schedule) {
+    return {
+      morning: generateSlotsForShift('09:30', '13:30'),
+      afternoon: generateSlotsForShift('16:30', '20:30'),
+    };
+  }
+  if (!schedule.is_working) return { morning: [], afternoon: [] };
   return {
-    morning: generateSlotsForShift(schedule.morning_start, schedule.morning_end),
-    afternoon: generateSlotsForShift(schedule.afternoon_start, schedule.afternoon_end),
+    morning: generateSlotsForShift(schedule.morning_start ?? '09:30', schedule.morning_end ?? '13:30'),
+    afternoon: generateSlotsForShift(schedule.afternoon_start ?? '16:30', schedule.afternoon_end ?? '20:30'),
   };
 }
 
@@ -184,7 +190,12 @@ export function isDayAvailable(
   vacations: BarberVacation[]
 ): boolean {
   if (date < today) return false;
-  if (!schedule || !schedule.is_working) return false;
+  if (schedule) {
+    if (!schedule.is_working) return false;
+  } else {
+    // Si el barbero aún no tiene horario específico guardado, por defecto domingo cerrado y resto abierto
+    if (date.getDay() === 0) return false;
+  }
   if (isWeeklyOff(date, blocks)) return false;
   if (isDayOff(date, blocks)) return false;
   if (isOnVacation(date, vacations)) return false;

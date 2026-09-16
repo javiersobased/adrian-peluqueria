@@ -21,7 +21,10 @@ export function AdminStaffSchedule() {
   const loadSchedules = useCallback(async () => {
     if (!barber) return;
     setLoading(true);
-    const { data } = await supabase.from('barber_schedules').select('*').eq('barber', barber);
+    const { data } = await supabase
+      .from('barber_schedules')
+      .select('*')
+      .or(`barber.eq.${barber},barber_id.eq.${barber}`);
     setSchedules((data as BarberSchedule[]) ?? []);
     setLoading(false);
   }, [barber]);
@@ -33,20 +36,48 @@ export function AdminStaffSchedule() {
   useEffect(() => { loadSchedules(); }, [loadSchedules]);
 
   const getSchedule = (weekday: number): BarberSchedule => {
-    return schedules.find((s) => s.weekday === weekday) ?? {
-      id: '', barber, weekday, is_working: false,
-      morning_start: null, morning_end: null, afternoon_start: null, afternoon_end: null,
-    };
+    return (
+      schedules.find(
+        (s) => s.weekday === weekday || Number(s.day_of_week) === weekday || Number(s.weekday) === weekday
+      ) ?? {
+        id: '',
+        barber,
+        weekday,
+        is_working: false,
+        morning_start: null,
+        morning_end: null,
+        afternoon_start: null,
+        afternoon_end: null,
+      }
+    );
   };
 
   const updateField = (weekday: number, field: keyof BarberSchedule, value: string | boolean | null) => {
     setSchedules((prev) => {
-      const existing = prev.find((s) => s.weekday === weekday);
-      if (existing) return prev.map((s) => s.weekday === weekday ? { ...s, [field]: value } : s);
-      return [...prev, {
-        id: '', barber, weekday, is_working: field === 'is_working' ? (value as boolean) : false,
-        morning_start: null, morning_end: null, afternoon_start: null, afternoon_end: null, [field]: value,
-      } as BarberSchedule];
+      const existing = prev.find(
+        (s) => s.weekday === weekday || Number(s.day_of_week) === weekday || Number(s.weekday) === weekday
+      );
+      if (existing) {
+        return prev.map((s) =>
+          s.weekday === weekday || Number(s.day_of_week) === weekday || Number(s.weekday) === weekday
+            ? { ...s, [field]: value }
+            : s
+        );
+      }
+      return [
+        ...prev,
+        {
+          id: '',
+          barber,
+          weekday,
+          is_working: field === 'is_working' ? (value as boolean) : false,
+          morning_start: null,
+          morning_end: null,
+          afternoon_start: null,
+          afternoon_end: null,
+          [field]: value,
+        } as BarberSchedule,
+      ];
     });
   };
 
@@ -56,7 +87,9 @@ export function AdminStaffSchedule() {
     setSchedules((prev) => {
       const allDays = [0, 1, 2, 3, 4, 5, 6];
       return allDays.map((weekday) => {
-        const existing = prev.find((s) => s.weekday === weekday);
+        const existing = prev.find(
+          (s) => s.weekday === weekday || Number(s.day_of_week) === weekday || Number(s.weekday) === weekday
+        );
         const isWorking = weekday !== 0; // Lunes a Sábado trabaja (1 a 6), Domingo no (0)
         return {
           id: existing?.id || '',
@@ -83,27 +116,45 @@ export function AdminStaffSchedule() {
     setSaving(true);
     setSaved(false);
     try {
+      // 1. Obtener los registros actuales del barbero para verificar IDs existentes
+      const { data: existing, error: fetchErr } = await supabase
+        .from('barber_schedules')
+        .select('*')
+        .or(`barber.eq.${barber},barber_id.eq.${barber}`);
+
+      if (fetchErr) throw fetchErr;
+
       const allDays = [0, 1, 2, 3, 4, 5, 6];
-      const rowsToUpsert = allDays.map((weekday) => {
-        const s = schedules.find((item) => item.weekday === weekday);
+      const savePromises = allDays.map(async (weekday) => {
+        const s = schedules.find(
+          (item) => item.weekday === weekday || Number(item.day_of_week) === weekday || Number(item.weekday) === weekday
+        );
+        const match = existing?.find(
+          (e) => e.weekday === weekday || Number(e.day_of_week) === weekday || Number(e.weekday) === weekday
+        );
         const isWorking = s?.is_working ?? false;
-        return {
-          ...(s?.id ? { id: s.id } : {}),
+        const rowData = {
           barber,
+          barber_id: barber,
           weekday,
+          day_of_week: String(weekday),
           is_working: isWorking,
-          morning_start: isWorking ? s?.morning_start ?? '09:30' : null,
-          morning_end: isWorking ? s?.morning_end ?? '13:30' : null,
-          afternoon_start: isWorking ? s?.afternoon_start ?? '16:30' : null,
-          afternoon_end: isWorking ? s?.afternoon_end ?? '20:30' : null,
+          morning_start: isWorking ? (s?.morning_start ?? '09:30') : null,
+          morning_end: isWorking ? (s?.morning_end ?? '13:30') : null,
+          afternoon_start: isWorking ? (s?.afternoon_start ?? '16:30') : null,
+          afternoon_end: isWorking ? (s?.afternoon_end ?? '20:30') : null,
         };
+
+        if (match?.id) {
+          const { error } = await supabase.from('barber_schedules').update(rowData).eq('id', match.id);
+          if (error) throw error;
+        } else {
+          const { error } = await supabase.from('barber_schedules').insert([rowData]);
+          if (error) throw error;
+        }
       });
 
-      const { error } = await supabase
-        .from('barber_schedules')
-        .upsert(rowsToUpsert, { onConflict: 'barber,weekday' });
-
-      if (error) throw error;
+      await Promise.all(savePromises);
 
       await loadSchedules();
       setSaved(true);

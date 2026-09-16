@@ -59,7 +59,7 @@ export function DateTimeStep({ barber, service, onBack, onContinue }: DateTimeSt
   const fetchData = useCallback(async () => {
     setLoading(true);
     const [schedRes, blockRes, vacRes, servList] = await Promise.all([
-      supabase.from('barber_schedules').select('*').eq('barber', barber.id),
+      supabase.from('barber_schedules').select('*').or(`barber.eq.${barber.id},barber_id.eq.${barber.id}`),
       supabase.from('barber_blocks').select('*').eq('barber', barber.id),
       supabase.from('barber_vacations').select('*').eq('barber', barber.id),
       fetchAllServices(),
@@ -124,7 +124,10 @@ export function DateTimeStep({ barber, service, onBack, onContinue }: DateTimeSt
 
   const scheduleForSelected = useMemo(() => {
     if (!selected) return undefined;
-    return schedules.find((s) => s.weekday === selected.getDay());
+    const targetWeekday = selected.getDay();
+    return schedules.find(
+      (s) => s.weekday === targetWeekday || Number(s.day_of_week) === targetWeekday || Number(s.weekday) === targetWeekday
+    );
   }, [schedules, selected]);
 
   const slots = selected ? generateSlotsForDay(scheduleForSelected) : { morning: [], afternoon: [] };
@@ -135,7 +138,10 @@ export function DateTimeStep({ barber, service, onBack, onContinue }: DateTimeSt
   const canContinue = selected && selectedTime;
 
   const handleSelectDay = (d: Date) => {
-    const daySchedule = schedules.find((s) => s.weekday === d.getDay());
+    const targetWeekday = d.getDay();
+    const daySchedule = schedules.find(
+      (s) => s.weekday === targetWeekday || Number(s.day_of_week) === targetWeekday || Number(s.weekday) === targetWeekday
+    );
     if (!isDayAvailable(d, today, daySchedule, blocks, vacations)) return;
     setSelected(d);
     setSelectedTime('');
@@ -180,7 +186,10 @@ export function DateTimeStep({ barber, service, onBack, onContinue }: DateTimeSt
               <p className="mb-1.5 text-[0.6rem] font-semibold uppercase tracking-[0.2em] text-zinc-500">Elige el día</p>
               <div data-lenis-prevent ref={scrollRef} className="no-scrollbar -mx-4 sm:-mx-5 flex gap-1.5 overflow-x-auto px-4 sm:px-5 pb-1">
                 {dayPills.map((d) => {
-                  const daySchedule = schedules.find((s) => s.weekday === d.getDay());
+                  const targetWeekday = d.getDay();
+                  const daySchedule = schedules.find(
+                    (s) => s.weekday === targetWeekday || Number(s.day_of_week) === targetWeekday || Number(s.weekday) === targetWeekday
+                  );
                   const disabled = !isDayAvailable(d, today, daySchedule, blocks, vacations);
                   const isSel = selected && toISO(d) === toISO(selected);
                   return (

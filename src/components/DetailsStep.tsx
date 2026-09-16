@@ -35,12 +35,16 @@ export function DetailsStep({ onBack, onSubmit, submitting, error }: DetailsStep
   }>({});
 
   const [prefilledFromGoogle, setPrefilledFromGoogle] = useState(false);
+  const [phoneAutofilled, setPhoneAutofilled] = useState(false);
+  const [showConfirmationNotice, setShowConfirmationNotice] = useState(false);
   const [showCountryModal, setShowCountryModal] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
 
-  // Load user details from Google OAuth or Customers / Pending storage
+  // Load user details from Google OAuth or Customers / Previous Bookings / Pending storage
   useEffect(() => {
     (async () => {
+      let foundPhone: string | null = null;
+
       // 1. Check Google Auth Session first
       try {
         const { data: authData } = await supabase.auth.getUser();
@@ -66,6 +70,31 @@ export function DetailsStep({ onBack, onSubmit, submitting, error }: DetailsStep
             setLastName(gLast);
             setPrefilledFromGoogle(true);
           }
+
+          // Consultar última reserva y perfil de cliente para autorellenar teléfono
+          try {
+            const { data: lastBooking } = await supabase
+              .from('bookings')
+              .select('phone, full_name')
+              .eq('user_id', user.id)
+              .order('created_at', { ascending: false })
+              .limit(1)
+              .maybeSingle();
+
+            const { data: custRecord } = await supabase
+              .from('customers')
+              .select('phone, full_name, comments')
+              .eq('user_id', user.id)
+              .maybeSingle();
+
+            foundPhone = lastBooking?.phone || custRecord?.phone || null;
+
+            if (custRecord?.comments) {
+              setComments((prev) => prev || custRecord.comments || '');
+            }
+          } catch {
+            // ignore
+          }
         }
       } catch {
         // ignore
@@ -80,39 +109,47 @@ export function DetailsStep({ onBack, onSubmit, submitting, error }: DetailsStep
           setLastName((prev) => prev || parts.slice(1).join(' ') || '');
         }
         if (pending.phone) {
-          const detected = detectCountryFromInput(pending.phone);
-          if (detected) {
-            setSelectedCountry(detected.country);
-            setNationalNumber(formatDigitsForDisplay(detected.country.code, detected.nationalNumber));
-          } else {
-            const digits = pending.phone.replace(/\D/g, '');
-            setNationalNumber(formatDigitsForDisplay('ES', digits));
-          }
+          foundPhone = pending.phone;
         }
         if (pending.comments) {
           setComments((prev) => prev || pending.comments || '');
         }
       }
 
-      // 3. Check customer table for previous comments or fallback
-      try {
-        const { data: cust } = await supabase
-          .from('customers')
-          .select('full_name, phone, comments')
-          .maybeSingle();
+      // 3. Fallback a cliente genérico si no se halló por user_id
+      if (!foundPhone) {
+        try {
+          const { data: genericCust } = await supabase
+            .from('customers')
+            .select('full_name, phone, comments')
+            .maybeSingle();
 
-        if (cust) {
-          if (cust.comments) {
-            setComments((prev) => prev || cust.comments || '');
+          if (genericCust) {
+            if (genericCust.phone) foundPhone = genericCust.phone;
+            if (genericCust.comments) setComments((prev) => prev || genericCust.comments || '');
+            if (genericCust.full_name) {
+              const parts = genericCust.full_name.trim().split(/\s+/);
+              setFirstName((prev) => prev || parts[0] || '');
+              setLastName((prev) => prev || parts.slice(1).join(' ') || '');
+            }
           }
-          if (cust.full_name) {
-            const parts = cust.full_name.trim().split(/\s+/);
-            setFirstName((prev) => prev || parts[0] || '');
-            setLastName((prev) => prev || parts.slice(1).join(' ') || '');
-          }
+        } catch {
+          // ignore
         }
-      } catch {
-        // ignore
+      }
+
+      // 4. Si encontramos un teléfono de cita previa o perfil, autorellenarlo
+      if (foundPhone) {
+        const detected = detectCountryFromInput(foundPhone);
+        if (detected) {
+          setSelectedCountry(detected.country);
+          setNationalNumber(formatDigitsForDisplay(detected.country.code, detected.nationalNumber));
+        } else {
+          const digits = foundPhone.replace(/\D/g, '');
+          setNationalNumber(formatDigitsForDisplay('ES', digits));
+        }
+        setPhoneAutofilled(true);
+        setShowConfirmationNotice(true);
       }
     })();
   }, []);
@@ -230,6 +267,27 @@ export function DetailsStep({ onBack, onSubmit, submitting, error }: DetailsStep
               autoComplete="family-name"
             />
           </div>
+
+          {/* Aviso de confirmación de datos autorellenados */}
+          {showConfirmationNotice && (
+            <div className="flex items-start gap-2.5 rounded-2xl border border-gold/40 bg-gold/10 p-3 text-xs text-zinc-200 animate-fade-in">
+              <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-gold" />
+              <div className="flex-1 min-w-0">
+                <p className="font-bold text-gold text-xs">¿Son estos datos correctos?</p>
+                <p className="mt-0.5 text-[0.7rem] text-zinc-300 leading-relaxed">
+                  Hemos autorellenado tu número de teléfono con el de tu última reserva. Puedes modificarlo libremente si ha cambiado.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowConfirmationNotice(false)}
+                className="text-zinc-400 hover:text-white p-0.5 transition-colors"
+                title="Cerrar aviso"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          )}
 
           {/* Teléfono con selector de país internacional */}
           <div>

@@ -217,6 +217,25 @@ function ServiceForm({ service, onClose, onSaved }: { service: Service | null; o
             className="w-full rounded-xl glass-card px-3 py-3 text-sm text-white placeholder:text-zinc-600 focus:border-gold/30 focus:outline-none"
           />
         </div>
+        <div className="col-span-3 flex flex-wrap gap-1.5 pt-0.5">
+          {[10, 20, 30, 40, 50, 60].map((m) => (
+            <button
+              key={m}
+              type="button"
+              onClick={() => {
+                setDurationMinutes(String(m));
+                setDuration(`${m}min`);
+              }}
+              className={`rounded-lg px-2.5 py-1 text-[0.7rem] font-semibold transition-all ${
+                durationMinutes === String(m)
+                  ? 'gold-gradient text-black'
+                  : 'glass-card text-zinc-400 hover:text-white'
+              }`}
+            >
+              {m} min
+            </button>
+          ))}
+        </div>
       </div>
 
       <div>

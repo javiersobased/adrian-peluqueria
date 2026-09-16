@@ -1,6 +1,6 @@
 import type { BarberSchedule, BarberBlock, BarberVacation } from '@/types';
 
-export const SLOT_INTERVAL_MINUTES = 15;
+export const SLOT_INTERVAL_MINUTES = 10;
 
 export function timeToMinutes(time: string): number {
   const [h, m] = time.split(':').map(Number);
@@ -231,8 +231,8 @@ export const BLOCK_START_SLOTS: string[] = ALL_TIME_SLOTS;
 
 export const BLOCK_END_SLOTS: string[] = (() => {
   const slots: string[] = [];
-  for (let t = 9 * 60 + 45; t <= 13 * 60 + 30; t += SLOT_INTERVAL_MINUTES) slots.push(minutesToTime(t));
-  for (let t = 16 * 60 + 45; t <= 20 * 60 + 30; t += SLOT_INTERVAL_MINUTES) slots.push(minutesToTime(t));
+  for (let t = 9 * 60 + 30 + SLOT_INTERVAL_MINUTES; t <= 13 * 60 + 30; t += SLOT_INTERVAL_MINUTES) slots.push(minutesToTime(t));
+  for (let t = 16 * 60 + 30 + SLOT_INTERVAL_MINUTES; t <= 20 * 60 + 30; t += SLOT_INTERVAL_MINUTES) slots.push(minutesToTime(t));
   return slots;
 })();
 

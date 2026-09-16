@@ -17,6 +17,7 @@ export interface Barber {
   active: boolean;
   sort_order: number;
   google_email?: string | null;
+  admin_emails?: string[] | null;
 }
 
 export interface BookingForm {

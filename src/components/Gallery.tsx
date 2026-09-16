@@ -32,8 +32,11 @@ export function Gallery({ onBack, onBook, userRole, userEmail }: GalleryProps) {
 
   const isStaff =
     Boolean(userRole?.role && userRole?.status === 'verified') ||
-    (userEmail &&
-      ['franciscojavierfarinapadilla@gmail.com', 'adrian.millan.peguero@hotmail.com'].includes(
+      [
+        'franciscojavierfarinapadilla@gmail.com',
+        'adrian.millan.peguero@hotmail.com',
+        'adrianmillanpeguero1994@hotmail.com',
+      ].includes(
         userEmail.toLowerCase().trim()
       ));
 

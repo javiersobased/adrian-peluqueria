@@ -39,6 +39,10 @@ function App() {
       const h = window.location.hash.toLowerCase();
       if (h === '#admin') {
         setView('admin');
+        if (!auth.loading && !auth.user) {
+          setLoginPurpose('general');
+          setShowLoginModal(true);
+        }
       } else if (h === '#galeria' || h === '#gallery' || h === '#cortes') {
         setView('gallery');
       } else if (h === '#catalogo' || h === '#tienda' || h === '#productos') {
@@ -53,7 +57,16 @@ function App() {
     handleHash();
     window.addEventListener('hashchange', handleHash);
     return () => window.removeEventListener('hashchange', handleHash);
-  }, []);
+  }, [auth.loading, auth.user]);
+
+  // If loading finishes and user is on #admin but not logged in, prompt login
+  useEffect(() => {
+    if (auth.loading) return;
+    if (window.location.hash.toLowerCase() === '#admin' && !auth.user) {
+      setLoginPurpose('general');
+      setShowLoginModal(true);
+    }
+  }, [auth.loading, auth.user]);
 
   // Set PWA context based on current view
   useEffect(() => {

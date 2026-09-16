@@ -4,13 +4,14 @@ import { fetchServices } from '@/data/services';
 import type { Service } from '@/types';
 import { ArrowLeftIcon } from '@/components/icons';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
+import { supabaseUrl } from '@/lib/supabase';
 
 interface ServiceStepProps {
   onBack: () => void;
   onSelect: (s: Service) => void;
 }
 
-const ICON_BASE = 'https://ghukyltijkgdbaewhmcm.supabase.co/storage/v1/object/public/service-icons';
+const ICON_BASE = `${supabaseUrl}/storage/v1/object/public/service-icons`;
 
 const SERVICE_ICONS: Record<string, string> = {
   scissors: `${ICON_BASE}/corte.png`,

@@ -1,12 +1,12 @@
 import { useState, useEffect, useCallback } from 'react';
-import { supabase } from '@/lib/supabase';
+import { supabase, supabaseUrl } from '@/lib/supabase';
 import { fetchAllServices } from '@/data/services';
 import type { Service } from '@/types';
 import { Plus, Trash2, Pencil, Check, X } from 'lucide-react';
 import { notify } from '@/lib/notify';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 
-const ICON_BASE = 'https://ghukyltijkgdbaewhmcm.supabase.co/storage/v1/object/public/service-icons';
+const ICON_BASE = `${supabaseUrl}/storage/v1/object/public/service-icons`;
 
 const ICON_OPTIONS: { id: string; src: string; label: string }[] = [
   { id: 'scissors', src: `${ICON_BASE}/corte.png`, label: 'Corte' },

@@ -7,13 +7,13 @@ import { ALL_TIME_SLOTS, toISO } from '@/lib/schedule';
 import { notify } from '@/lib/notify';
 
 interface AdminAvailabilityProps {
-  blocks: BarberBlock[];
-  onRefresh: () => void;
+  blocks?: BarberBlock[];
+  onRefresh?: () => void;
 }
 
 type BlockMode = 'day_full' | 'time_range' | 'vacation';
 
-export function AdminAvailability({ blocks, onRefresh }: AdminAvailabilityProps) {
+export function AdminAvailability({ blocks: initialBlocks, onRefresh }: AdminAvailabilityProps) {
   const [barbers, setBarbers] = useState<Barber[]>([]);
   const [barber, setBarber] = useState('');
   const [mode, setMode] = useState<BlockMode>('day_full');
@@ -23,19 +23,52 @@ export function AdminAvailability({ blocks, onRefresh }: AdminAvailabilityProps)
   const [endTime, setEndTime] = useState('');
   const [reason, setReason] = useState('');
   const [saving, setSaving] = useState(false);
+  const [blocks, setBlocks] = useState<BarberBlock[]>(initialBlocks ?? []);
   const [vacations, setVacations] = useState<BarberVacation[]>([]);
 
   useEffect(() => {
     fetchAllBarbers().then((b) => { setBarbers(b); if (b.length > 0) setBarber(b[0].id); });
   }, []);
 
+  const fetchBlocks = useCallback(async () => {
+    if (!barber) return;
+    const { data } = await supabase
+      .from('barber_blocks')
+      .select('*')
+      .eq('barber', barber)
+      .order('block_date', { ascending: false })
+      .order('created_at', { ascending: false });
+    setBlocks((data as BarberBlock[]) ?? []);
+  }, [barber]);
+
   const fetchVacations = useCallback(async () => {
     if (!barber) return;
-    const { data } = await supabase.from('barber_vacations').select('*').eq('barber', barber).order('start_date', { ascending: false });
+    const { data } = await supabase
+      .from('barber_vacations')
+      .select('*')
+      .eq('barber', barber)
+      .order('start_date', { ascending: false });
     setVacations((data as BarberVacation[]) ?? []);
   }, [barber]);
 
-  useEffect(() => { fetchVacations(); }, [fetchVacations]);
+  const loadAvailability = useCallback(async () => {
+    if (!barber) return;
+    await Promise.all([fetchBlocks(), fetchVacations()]);
+  }, [barber, fetchBlocks, fetchVacations]);
+
+  useEffect(() => {
+    loadAvailability();
+  }, [loadAvailability]);
+
+  useEffect(() => {
+    if (!barber) return;
+    const channel = supabase
+      .channel(`availability-${barber}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'barber_blocks' }, () => fetchBlocks())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'barber_vacations' }, () => fetchVacations())
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [barber, fetchBlocks, fetchVacations]);
 
   const handleAdd = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -57,7 +90,8 @@ export function AdminAvailability({ blocks, onRefresh }: AdminAvailabilityProps)
         notify.success('Vacaciones añadidas', `${date} al ${endDate}`);
       }
       setReason(''); setStartTime(''); setEndTime('');
-      onRefresh(); fetchVacations();
+      await loadAvailability();
+      onRefresh?.();
     } catch (err: any) {
       console.error('Error al guardar bloqueo:', err);
       notify.error('Error al guardar', err?.message || 'No se pudo aplicar el bloqueo');
@@ -69,7 +103,8 @@ export function AdminAvailability({ blocks, onRefresh }: AdminAvailabilityProps)
       const { error } = await supabase.from('barber_blocks').delete().eq('id', id);
       if (error) throw error;
       notify.success('Bloqueo eliminado', 'El tramo vuelve a estar disponible');
-      onRefresh();
+      await fetchBlocks();
+      onRefresh?.();
     } catch (err: any) {
       notify.error('Error al eliminar', err?.message || 'No se pudo eliminar el bloqueo');
     }
@@ -80,7 +115,8 @@ export function AdminAvailability({ blocks, onRefresh }: AdminAvailabilityProps)
       const { error } = await supabase.from('barber_vacations').delete().eq('id', id);
       if (error) throw error;
       notify.success('Vacaciones eliminadas', 'Se ha eliminado el período');
-      fetchVacations();
+      await fetchVacations();
+      onRefresh?.();
     } catch (err: any) {
       notify.error('Error al eliminar', err?.message || 'No se pudo eliminar las vacaciones');
     }
@@ -92,7 +128,7 @@ export function AdminAvailability({ blocks, onRefresh }: AdminAvailabilityProps)
     { id: 'vacation', label: 'Vacaciones', icon: Plane },
   ];
 
-  const barberBlocks = blocks.filter((b) => b.barber === barber && (b.block_type === 'day_off' || b.block_type === 'time_range'));
+  const barberBlocks = blocks.filter((b) => b.block_type === 'day_off' || b.block_type === 'time_range');
 
   return (
     <div className="mx-auto max-w-xl space-y-5">

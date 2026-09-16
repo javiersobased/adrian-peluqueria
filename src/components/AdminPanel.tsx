@@ -13,10 +13,11 @@ import { AdminCustomers } from '@/components/admin/AdminCustomers';
 import { AdminStore } from '@/components/admin/AdminStore';
 import {
   CalendarDays, Clock, PlusCircle, SlidersHorizontal, Scissors, Users, ShoppingBag,
-  Search, X, LogOut, Menu, ArrowLeft, type LucideIcon,
+  Search, X, LogOut, Menu, ArrowLeft, RotateCw, type LucideIcon,
 } from 'lucide-react';
 import { InstallAppButton } from '@/components/InstallAppButton';
 import { setActivePwaContext } from '@/lib/pwaContext';
+import { notify } from '@/lib/notify';
 
 const CATEGORIES = ['Principal', 'Control', 'Gestión'];
 
@@ -45,6 +46,7 @@ export function AdminPanel({ userRole, onSignOut, onGoPublic }: AdminPanelProps)
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [selectedBarber, setSelectedBarber] = useState<string>('all');
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [search, setSearch] = useState('');
 
@@ -83,6 +85,34 @@ export function AdminPanel({ userRole, onSignOut, onGoPublic }: AdminPanelProps)
     }
     setLoading(false);
   }, [fetchBookings, fetchBlocks, fetchCustomers, isAdmin]);
+
+  const handleManualRefresh = useCallback(async (forceHardReload = false) => {
+    if (forceHardReload) {
+      window.location.reload();
+      return;
+    }
+    setRefreshing(true);
+    try {
+      await refresh();
+      notify.success('Panel actualizado', 'Datos y citas sincronizados');
+    } catch (err: any) {
+      console.error('Error al actualizar panel:', err);
+      notify.error('Error al actualizar', 'No se pudieron sincronizar los datos');
+    } finally {
+      setTimeout(() => setRefreshing(false), 500);
+    }
+  }, [refresh]);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'F5' || ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'r')) {
+        e.preventDefault();
+        handleManualRefresh(e.shiftKey);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [handleManualRefresh]);
 
   useEffect(() => { refresh(); }, [refresh]);
 
@@ -179,6 +209,15 @@ export function AdminPanel({ userRole, onSignOut, onGoPublic }: AdminPanelProps)
           </div>
           <div className="flex items-center gap-2">
             <InstallAppButton appName="Admin Adrián Millán" className="mr-1" compact />
+            <button
+              onClick={(e) => handleManualRefresh(e.shiftKey)}
+              disabled={refreshing}
+              aria-label="Actualizar panel"
+              title="Actualizar panel (F5 / Ctrl+R)"
+              className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/5 text-zinc-300 transition-all hover:bg-gold/10 hover:text-gold active:scale-95 disabled:opacity-50"
+            >
+              <RotateCw className={`h-4 w-4 ${refreshing ? 'animate-spin text-gold' : ''}`} />
+            </button>
             <button onClick={onGoPublic} aria-label="Volver a la web" title="Volver a la web" className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/5 text-zinc-300 transition-colors hover:bg-gold/10 hover:text-gold">
               <ArrowLeft className="h-4 w-4" />
             </button>
@@ -205,6 +244,16 @@ export function AdminPanel({ userRole, onSignOut, onGoPublic }: AdminPanelProps)
               <span className="rounded-full glass-card px-3 py-1.5 text-sm font-medium text-zinc-400">Todos los barberos</span>
             )}
             <InstallAppButton appName="Admin Adrián Millán" compact />
+            <button
+              onClick={(e) => handleManualRefresh(e.shiftKey)}
+              disabled={refreshing}
+              aria-label="Actualizar panel"
+              title="Actualizar panel (F5 / Ctrl+R)"
+              className="flex items-center gap-2 rounded-full glass-card px-3 py-2 text-xs font-medium text-zinc-300 transition-all hover:text-gold hover:border-gold/30 active:scale-95 disabled:opacity-50"
+            >
+              <RotateCw className={`h-4 w-4 ${refreshing ? 'animate-spin text-gold' : ''}`} />
+              <span className="hidden lg:inline">Actualizar</span>
+            </button>
             <button onClick={onGoPublic} aria-label="Volver a la web" title="Volver a la web" className="flex items-center gap-2 rounded-full glass-card px-3 py-2 text-xs font-medium text-zinc-300 transition-colors hover:text-gold">
               <ArrowLeft className="h-4 w-4" />
               <span className="hidden lg:inline">Volver a la web</span>

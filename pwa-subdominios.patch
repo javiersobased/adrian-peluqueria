@@ -1,0 +1,388 @@
+diff --git a/.env.example b/.env.example
+new file mode 100644
+index 0000000..06cf737
+--- /dev/null
++++ b/.env.example
+@@ -0,0 +1,24 @@
++# Supabase (ya existentes)
++VITE_SUPABASE_URL=
++VITE_SUPABASE_ANON_KEY=
++
++# --- Reservas / Admin como sitios independientes ---
++#
++# Este mismo código se despliega DOS VECES (dos proyectos de Vercel distintos
++# con dominios distintos), y estas variables le dicen a cada uno qué debe mostrar.
++#
++# VITE_APP_MODE: "booking" o "admin"
++#   - booking -> muestra solo el flujo de reservas (Landing, pasos, etc.)
++#   - admin   -> muestra solo el panel de administración
++#   - si se deja vacío, se comporta como antes (todo en un sitio, #admin para entrar)
++VITE_APP_MODE=booking
++
++# VITE_APP_TITLE: título de pestaña / nombre "app" en iOS al añadir a inicio
++VITE_APP_TITLE="Reservas · Adrián Millán"
++
++# URL pública del sitio de RESERVAS (para que el botón "volver al inicio" del
++# panel admin te lleve ahí en vez de a un #hash inexistente en su propio dominio)
++VITE_BOOKING_URL=https://reservas.adrianmillan.es
++
++# URL pública del sitio de ADMIN (para el acceso a admin desde la web de reservas)
++VITE_ADMIN_URL=https://admin.adrianmillan.es
+diff --git a/index.html b/index.html
+index fdf01d2..ae346a1 100644
+--- a/index.html
++++ b/index.html
+@@ -6,11 +6,11 @@
+     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+     <meta name="theme-color" content="#0a0a0a" />
+     <meta name="description" content="Peluquería Adrián Millán en Huelva — Barbería y peluquería. Reserva tu cita online." />
+-    <link rel="manifest" href="/manifest.json" />
++    <link rel="manifest" href="/manifest-%VITE_APP_MODE%.json" />
+     <meta name="apple-mobile-web-app-capable" content="yes" />
+     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+-    <meta name="apple-mobile-web-app-title" content="Adrián Millán" />
+-    <title>Peluquería Adrián Millán · Barbería en Huelva</title>
++    <meta name="apple-mobile-web-app-title" content="%VITE_APP_TITLE%" />
++    <title>%VITE_APP_TITLE%</title>
+     <link rel="preconnect" href="https://fonts.googleapis.com" />
+     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+diff --git a/public/manifest-admin.json b/public/manifest-admin.json
+new file mode 100644
+index 0000000..60348da
+--- /dev/null
++++ b/public/manifest-admin.json
+@@ -0,0 +1,20 @@
++{
++  "name": "Admin · Peluquería Adrián Millán",
++  "short_name": "Admin AM",
++  "description": "Panel de gestión de citas de Peluquería Adrián Millán.",
++  "start_url": "/",
++  "scope": "/",
++  "id": "/admin",
++  "display": "standalone",
++  "background_color": "#0a0a0a",
++  "theme_color": "#0a0a0a",
++  "orientation": "portrait",
++  "icons": [
++    {
++      "src": "/image.png",
++      "sizes": "512x512",
++      "type": "image/png",
++      "purpose": "any maskable"
++    }
++  ]
++}
+diff --git a/public/manifest-booking.json b/public/manifest-booking.json
+new file mode 100644
+index 0000000..a169b0a
+--- /dev/null
++++ b/public/manifest-booking.json
+@@ -0,0 +1,20 @@
++{
++  "name": "Reservas · Peluquería Adrián Millán",
++  "short_name": "Reservas AM",
++  "description": "Reserva tu cita en Peluquería Adrián Millán en Huelva.",
++  "start_url": "/",
++  "scope": "/",
++  "id": "/",
++  "display": "standalone",
++  "background_color": "#0a0a0a",
++  "theme_color": "#0a0a0a",
++  "orientation": "portrait",
++  "icons": [
++    {
++      "src": "/image.png",
++      "sizes": "512x512",
++      "type": "image/png",
++      "purpose": "any maskable"
++    }
++  ]
++}
+diff --git a/src/App.tsx b/src/App.tsx
+index d7c00e3..9ba94df 100644
+--- a/src/App.tsx
++++ b/src/App.tsx
+@@ -7,11 +7,22 @@ import { DetailsStep } from '@/components/DetailsStep';
+ import { SuccessStep } from '@/components/SuccessStep';
+ import { FloatingButtons } from '@/components/FloatingButtons';
+ import { AdminPanel } from '@/components/AdminPanel';
++import { InstallAppButton } from '@/components/InstallAppButton';
+ import { useState, useEffect } from 'react';
+ 
+ type View = 'public' | 'admin';
+ 
++// 'booking' (por defecto) o 'admin'. Se fija por subdominio/proyecto mediante la
++// variable de entorno VITE_APP_MODE (ver .env.example). En local, sin la variable
++// definida, la app se comporta como hasta ahora y permite alternar con #admin.
++const APP_MODE = (import.meta.env.VITE_APP_MODE as 'booking' | 'admin' | undefined) ?? 'booking';
++
++// URLs absolutas del otro sitio, para enlazar entre subdominios en lugar de usar #hash.
++const BOOKING_SITE_URL = import.meta.env.VITE_BOOKING_URL as string | undefined;
++const ADMIN_SITE_URL = import.meta.env.VITE_ADMIN_URL as string | undefined;
++
+ function getRouteFromHash(): View {
++  if (APP_MODE === 'admin') return 'admin';
+   return window.location.hash === '#admin' ? 'admin' : 'public';
+ }
+ 
+@@ -20,16 +31,30 @@ function App() {
+   const [view, setView] = useState<View>(getRouteFromHash());
+ 
+   useEffect(() => {
++    if (APP_MODE === 'admin') return;
+     const onHashChange = () => setView(getRouteFromHash());
+     window.addEventListener('hashchange', onHashChange);
+     return () => window.removeEventListener('hashchange', onHashChange);
+   }, []);
+ 
+   const goPublic = () => {
++    if (APP_MODE === 'admin' && BOOKING_SITE_URL) {
++      window.location.href = BOOKING_SITE_URL;
++      return;
++    }
+     window.location.hash = '';
+     setView('public');
+   };
+ 
++  const goAdmin = () => {
++    if (APP_MODE === 'booking' && ADMIN_SITE_URL) {
++      window.location.href = ADMIN_SITE_URL;
++      return;
++    }
++    window.location.hash = 'admin';
++    setView('admin');
++  };
++
+   return (
+     <div className="relative min-h-screen bg-ink text-zinc-200">
+       <div className="fixed inset-0 -z-20">
+@@ -47,7 +72,7 @@ function App() {
+         {view === 'admin' && <AdminPanel onBack={goPublic} />}
+ 
+         {view === 'public' && booking.step === 'landing' && (
+-          <Landing onBook={booking.startBooking} onAdmin={() => { window.location.hash = 'admin'; setView('admin'); }} />
++          <Landing onBook={booking.startBooking} onAdmin={goAdmin} />
+         )}
+ 
+         {view === 'public' && booking.step === 'barber' && (
+@@ -76,6 +101,12 @@ function App() {
+         )}
+       </div>
+ 
++      {view === 'public' && (
++        <div className="fixed right-4 top-4 z-40" style={{ paddingTop: 'env(safe-area-inset-top)' }}>
++          <InstallAppButton appName="Reservas Adrián Millán" />
++        </div>
++      )}
++
+       {view === 'public' && <FloatingButtons />}
+     </div>
+   );
+diff --git a/src/components/AdminPanel.tsx b/src/components/AdminPanel.tsx
+index 22a70aa..6adfe28 100644
+--- a/src/components/AdminPanel.tsx
++++ b/src/components/AdminPanel.tsx
+@@ -9,9 +9,10 @@ import { AdminAvailability } from '@/components/admin/AdminAvailability';
+ import { AdminServices } from '@/components/admin/AdminServices';
+ import { AdminStaff } from '@/components/admin/AdminStaff';
+ import { AdminStaffSchedule } from '@/components/admin/AdminStaffSchedule';
++import { InstallAppButton } from '@/components/InstallAppButton';
+ import {
+   CalendarDays, Clock, PlusCircle, SlidersHorizontal, Scissors, Users,
+-  ArrowLeft, Search, Settings, X, type LucideIcon,
++  ArrowLeft, Search, Settings, Menu, X, type LucideIcon,
+ } from 'lucide-react';
+ 
+ interface AdminPanelProps {
+@@ -187,14 +188,15 @@ export function AdminPanel({ onBack }: AdminPanelProps) {
+           <button
+             onClick={() => setSidebarOpen(true)}
+             aria-label="Abrir menú"
+-            className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/5 text-zinc-300"
++            className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/5 text-zinc-300"
+           >
+-            <Settings className="h-4 w-4" />
++            <Menu className="h-6 w-6" strokeWidth={2} />
+           </button>
+           <div className="flex-1">
+             <p className="text-[0.6rem] uppercase tracking-[0.2em] text-gold">Gestión</p>
+             <h2 className="font-display text-lg font-bold leading-tight text-white">{NAV_ITEMS.find((n) => n.id === tab)?.label}</h2>
+           </div>
++          <InstallAppButton appName="Panel Admin" compact />
+           <button
+             onClick={onBack}
+             aria-label="Volver"
+@@ -225,6 +227,7 @@ export function AdminPanel({ onBack }: AdminPanelProps) {
+             ) : (
+               <span className="rounded-full glass-card px-3 py-1.5 text-sm font-medium text-zinc-400">Todos los barberos</span>
+             )}
++            <InstallAppButton appName="Panel Admin" />
+             <button
+               onClick={onBack}
+               className="flex h-9 w-9 items-center justify-center rounded-full glass-card text-zinc-400 transition-colors hover:text-white"
+diff --git a/src/components/InstallAppButton.tsx b/src/components/InstallAppButton.tsx
+new file mode 100644
+index 0000000..74e5ace
+--- /dev/null
++++ b/src/components/InstallAppButton.tsx
+@@ -0,0 +1,86 @@
++import { useState } from 'react';
++import { Download, Share, PlusSquare, X } from 'lucide-react';
++import { usePwaInstall } from '@/hooks/usePwaInstall';
++
++interface InstallAppButtonProps {
++  /** Shown in the iOS instructions dialog, e.g. "Reservas Adrián Millán". */
++  appName: string;
++  className?: string;
++  /** Icon-only, for tight header spaces (mobile top bars). */
++  compact?: boolean;
++}
++
++export function InstallAppButton({ appName, className = '', compact = false }: InstallAppButtonProps) {
++  const { canPromptInstall, isIOS, isStandalone, promptInstall } = usePwaInstall();
++  const [showIOSHelp, setShowIOSHelp] = useState(false);
++
++  if (isStandalone) return null;
++  if (!canPromptInstall && !isIOS) return null;
++
++  const handleClick = async () => {
++    if (canPromptInstall) {
++      await promptInstall();
++      return;
++    }
++    setShowIOSHelp(true);
++  };
++
++  return (
++    <>
++      <button
++        onClick={handleClick}
++        aria-label={`Instalar ${appName} en el móvil`}
++        title="Instalar app"
++        className={
++          compact
++            ? `flex h-9 w-9 flex-none items-center justify-center rounded-xl border border-gold/30 bg-black/40 text-gold backdrop-blur-md transition-colors hover:bg-gold/10 active:scale-95 ${className}`
++            : `inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border border-gold/30 bg-black/40 px-3.5 py-2 text-xs font-semibold text-gold backdrop-blur-md transition-colors hover:bg-gold/10 active:scale-95 ${className}`
++        }
++      >
++        <Download className={compact ? 'h-4 w-4' : 'h-3.5 w-3.5'} strokeWidth={2} />
++        {!compact && 'Instalar app'}
++      </button>
++
++      {showIOSHelp && (
++        <div
++          className="fixed inset-0 z-[100] flex items-end justify-center bg-black/60 backdrop-blur-sm sm:items-center"
++          onClick={() => setShowIOSHelp(false)}
++        >
++          <div
++            className="m-4 w-full max-w-sm rounded-2xl border border-white/10 bg-zinc-900 p-5 text-left shadow-2xl animate-fade-up"
++            onClick={(event) => event.stopPropagation()}
++          >
++            <div className="mb-4 flex items-center justify-between">
++              <h3 className="font-display text-base font-bold text-white">Añadir a pantalla de inicio</h3>
++              <button
++                onClick={() => setShowIOSHelp(false)}
++                aria-label="Cerrar"
++                className="text-zinc-500 transition-colors hover:text-zinc-300"
++              >
++                <X className="h-5 w-5" />
++              </button>
++            </div>
++            <ol className="space-y-3.5 text-sm text-zinc-300">
++              <li className="flex items-start gap-2.5">
++                <span className="mt-0.5 flex h-5 w-5 flex-none items-center justify-center rounded-full bg-gold/15 text-[0.65rem] font-bold text-gold">1</span>
++                <span className="flex flex-wrap items-center gap-1">
++                  Toca el icono <Share className="h-4 w-4 text-gold" /> <strong className="text-white">Compartir</strong> en Safari.
++                </span>
++              </li>
++              <li className="flex items-start gap-2.5">
++                <span className="mt-0.5 flex h-5 w-5 flex-none items-center justify-center rounded-full bg-gold/15 text-[0.65rem] font-bold text-gold">2</span>
++                <span className="flex flex-wrap items-center gap-1">
++                  Selecciona <PlusSquare className="h-4 w-4 text-gold" /> <strong className="text-white">Añadir a pantalla de inicio</strong>.
++                </span>
++              </li>
++              <li className="flex items-start gap-2.5">
++                <span className="mt-0.5 flex h-5 w-5 flex-none items-center justify-center rounded-full bg-gold/15 text-[0.65rem] font-bold text-gold">3</span>
++                <span>Confirma pulsando <strong className="text-white">Añadir</strong>.</span>
++              </li>
++            </ol>
++          </div>
++        </div>
++      )}
++    </>
++  );
++}
+diff --git a/src/hooks/usePwaInstall.ts b/src/hooks/usePwaInstall.ts
+new file mode 100644
+index 0000000..dec1a3a
+--- /dev/null
++++ b/src/hooks/usePwaInstall.ts
+@@ -0,0 +1,67 @@
++import { useCallback, useEffect, useState } from 'react';
++
++interface BeforeInstallPromptEvent extends Event {
++  prompt: () => Promise<void>;
++  userChoice: Promise<{ outcome: 'accepted' | 'dismissed'; platform: string }>;
++}
++
++function detectIOS(): boolean {
++  if (typeof window === 'undefined') return false;
++  const ua = window.navigator.userAgent;
++  const isAppleTouch = /iphone|ipad|ipod/i.test(ua);
++  const isIpadOS = ua.includes('Macintosh') && 'ontouchend' in document;
++  return isAppleTouch || isIpadOS;
++}
++
++function detectStandalone(): boolean {
++  if (typeof window === 'undefined') return false;
++  const iosStandalone = (window.navigator as unknown as { standalone?: boolean }).standalone;
++  return window.matchMedia('(display-mode: standalone)').matches || iosStandalone === true;
++}
++
++/**
++ * Handles the "Add to Home Screen" flow for both:
++ * - Chrome/Edge/Android, which fire `beforeinstallprompt` and support a native prompt.
++ * - iOS Safari, which has no such event; the caller should show manual instructions instead.
++ */
++export function usePwaInstall() {
++  const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
++  const [isStandalone, setIsStandalone] = useState(detectStandalone());
++  const isIOS = detectIOS();
++
++  useEffect(() => {
++    const onBeforeInstallPrompt = (event: Event) => {
++      event.preventDefault();
++      setDeferredPrompt(event as BeforeInstallPromptEvent);
++    };
++    const onAppInstalled = () => {
++      setIsStandalone(true);
++      setDeferredPrompt(null);
++    };
++
++    window.addEventListener('beforeinstallprompt', onBeforeInstallPrompt);
++    window.addEventListener('appinstalled', onAppInstalled);
++    return () => {
++      window.removeEventListener('beforeinstallprompt', onBeforeInstallPrompt);
++      window.removeEventListener('appinstalled', onAppInstalled);
++    };
++  }, []);
++
++  const promptInstall = useCallback(async () => {
++    if (!deferredPrompt) return null;
++    await deferredPrompt.prompt();
++    const choice = await deferredPrompt.userChoice;
++    setDeferredPrompt(null);
++    return choice.outcome;
++  }, [deferredPrompt]);
++
++  return {
++    /** True when the browser has offered a native install prompt we can trigger. */
++    canPromptInstall: !!deferredPrompt,
++    /** True on iOS Safari, which needs manual "Compartir → Añadir a pantalla de inicio" instructions. */
++    isIOS,
++    /** True if the app is already running installed/standalone. */
++    isStandalone,
++    promptInstall,
++  };
++}

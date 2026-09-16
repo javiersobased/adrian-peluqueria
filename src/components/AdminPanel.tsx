@@ -1,0 +1,293 @@
+import { useState, useEffect, useCallback } from 'react';
+import { supabase } from '@/lib/supabase';
+import { fetchAllBarbers } from '@/data/services';
+import type { SavedBooking, BarberBlock, Barber, Customer, UserRole } from '@/types';
+import { AdminToday } from '@/components/admin/AdminToday';
+import { AdminAgenda } from '@/components/admin/AdminAgenda';
+import { AdminManualBooking } from '@/components/admin/AdminManualBooking';
+import { AdminAvailability } from '@/components/admin/AdminAvailability';
+import { AdminServices } from '@/components/admin/AdminServices';
+import { AdminStaff } from '@/components/admin/AdminStaff';
+import { AdminStaffSchedule } from '@/components/admin/AdminStaffSchedule';
+import { AdminCustomers } from '@/components/admin/AdminCustomers';
+import { AdminStore } from '@/components/admin/AdminStore';
+import {
+  CalendarDays, Clock, PlusCircle, SlidersHorizontal, Scissors, Users, ShoppingBag,
+  Search, X, LogOut, Menu, ArrowLeft, type LucideIcon,
+} from 'lucide-react';
+import { InstallAppButton } from '@/components/InstallAppButton';
+import { setActivePwaContext } from '@/lib/pwaContext';
+
+const CATEGORIES = ['Principal', 'Control', 'Gestión'];
+
+interface AdminPanelProps {
+  userRole: UserRole;
+  onSignOut: () => void;
+  onGoPublic: () => void;
+}
+
+type AdminTab = 'today' | 'agenda' | 'manual' | 'availability' | 'services' | 'staff' | 'schedule' | 'customers' | 'store';
+
+interface NavItem {
+  id: AdminTab;
+  label: string;
+  icon: LucideIcon;
+  category: string;
+  adminOnly?: boolean;
+}
+
+export function AdminPanel({ userRole, onSignOut, onGoPublic }: AdminPanelProps) {
+  const isAdmin = userRole.role === 'admin' && userRole.status === 'verified';
+  const [tab, setTab] = useState<AdminTab>('today');
+  const [bookings, setBookings] = useState<SavedBooking[]>([]);
+  const [blocks, setBlocks] = useState<BarberBlock[]>([]);
+  const [barbers, setBarbers] = useState<Barber[]>([]);
+  const [customers, setCustomers] = useState<Customer[]>([]);
+  const [selectedBarber, setSelectedBarber] = useState<string>('all');
+  const [loading, setLoading] = useState(true);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [search, setSearch] = useState('');
+
+  useEffect(() => { setActivePwaContext('admin'); }, []);
+
+  const closeSidebar = useCallback(() => {
+    setSidebarOpen(false);
+  }, []);
+
+  useEffect(() => { fetchAllBarbers().then((b) => setBarbers(b)); }, []);
+
+  const fetchBookings = useCallback(async () => {
+    let query = supabase.from('bookings').select('*').neq('status', 'cancelled').order('booking_date', { ascending: true }).order('booking_time', { ascending: true });
+    if (selectedBarber !== 'all') query = query.eq('barber', selectedBarber);
+    const { data } = await query;
+    setBookings((data as SavedBooking[]) ?? []);
+  }, [selectedBarber]);
+
+  const fetchBlocks = useCallback(async () => {
+    let query = supabase.from('barber_blocks').select('*').order('created_at', { ascending: false });
+    if (selectedBarber !== 'all') query = query.eq('barber', selectedBarber);
+    const { data } = await query;
+    setBlocks((data as BarberBlock[]) ?? []);
+  }, [selectedBarber]);
+
+  const fetchCustomers = useCallback(async () => {
+    const { data } = await supabase.from('customers').select('*').order('created_at', { ascending: false });
+    setCustomers((data as Customer[]) ?? []);
+  }, []);
+
+  const refresh = useCallback(async () => {
+    setLoading(true);
+    await Promise.all([fetchBookings(), fetchBlocks()]);
+    if (isAdmin) {
+      await fetchCustomers();
+    }
+    setLoading(false);
+  }, [fetchBookings, fetchBlocks, fetchCustomers, isAdmin]);
+
+  useEffect(() => { refresh(); }, [refresh]);
+
+  useEffect(() => {
+    const channel = supabase
+      .channel('admin-bookings')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'bookings' }, () => fetchBookings())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'barber_blocks' }, () => fetchBlocks())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'barber_vacations' }, () => fetchBlocks())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'barber_schedules' }, () => fetchBlocks())
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [fetchBookings, fetchBlocks]);
+
+  const allNavItems: NavItem[] = [
+    { id: 'today', label: 'Citas de Hoy', icon: CalendarDays, category: 'Principal' },
+    { id: 'manual', label: 'Cita Manual', icon: PlusCircle, category: 'Principal' },
+    { id: 'agenda', label: 'Agenda Completa', icon: Clock, category: 'Principal' },
+    { id: 'availability', label: 'Horarios y Bloqueos', icon: SlidersHorizontal, category: 'Control', adminOnly: true },
+    { id: 'schedule', label: 'Horarios Semanales', icon: Clock, category: 'Control', adminOnly: true },
+    { id: 'customers', label: 'Clientes', icon: Users, category: 'Gestión', adminOnly: true },
+    { id: 'services', label: 'Servicios', icon: Scissors, category: 'Gestión', adminOnly: true },
+    { id: 'store', label: 'Tienda', icon: ShoppingBag, category: 'Gestión', adminOnly: true },
+    { id: 'staff', label: 'Personal', icon: Users, category: 'Gestión', adminOnly: true },
+  ];
+
+  const navItems = allNavItems.filter((n) => !n.adminOnly || isAdmin);
+  const filteredNav = navItems.filter((n) => n.label.toLowerCase().includes(search.toLowerCase()));
+  const activeBarber = barbers.find((b) => b.id === selectedBarber) ?? null;
+  const todayCount = bookings.filter((b) => b.booking_date === new Date().toISOString().slice(0, 10)).length;
+
+  const handleNav = (id: AdminTab) => { setTab(id); closeSidebar(); };
+
+  const panelTitle = isAdmin ? 'Panel de Administración' : 'Panel de Barbero';
+
+  return (
+    <div className="flex min-h-screen bg-zinc-950 text-zinc-200 animate-fade-in">
+      {/* Icon Dock — desktop only */}
+      <div className="fixed left-0 top-0 z-40 hidden h-screen w-16 flex-col items-center border-r border-white/5 bg-zinc-900/80 py-5 backdrop-blur-xl md:flex">
+        <div className="mb-6 flex h-10 w-10 items-center justify-center rounded-xl gold-gradient font-display text-sm font-bold text-black">AM</div>
+        <nav className="flex flex-1 flex-col gap-2">
+          {navItems.map((item) => {
+            const Icon = item.icon;
+            const active = tab === item.id;
+            return (
+              <button key={item.id} onClick={() => handleNav(item.id)}
+                className={`flex h-11 w-11 items-center justify-center rounded-xl transition-all duration-200 ${active ? 'bg-gold/15 text-gold' : 'text-zinc-500 hover:bg-white/5 hover:text-zinc-300'}`}
+                title={item.label}>
+                <Icon className="h-5 w-5" strokeWidth={1.8} />
+              </button>
+            );
+          })}
+        </nav>
+        <button onClick={onGoPublic} className="flex h-11 w-11 items-center justify-center rounded-xl text-zinc-500 transition-colors hover:bg-gold/10 hover:text-gold" title="Volver a la web">
+          <ArrowLeft className="h-5 w-5" strokeWidth={1.8} />
+        </button>
+        <button onClick={onSignOut} className="flex h-11 w-11 items-center justify-center rounded-xl text-zinc-500 transition-colors hover:bg-red-500/10 hover:text-red-400" title="Cerrar sesión">
+          <LogOut className="h-5 w-5" strokeWidth={1.8} />
+        </button>
+      </div>
+
+      {/* Desktop Sidebar */}
+      <div className="fixed left-16 top-0 z-30 hidden h-screen w-64 flex-col border-r border-white/5 bg-zinc-900/60 backdrop-blur-xl md:flex">
+        <SidebarContent barbers={barbers} selectedBarber={selectedBarber} setSelectedBarber={setSelectedBarber}
+          activeBarber={activeBarber} search={search} setSearch={setSearch} tab={tab} onNav={handleNav}
+          filteredNav={filteredNav} todayCount={todayCount} onSignOut={onSignOut} isAdmin={isAdmin} panelTitle={panelTitle} />
+      </div>
+
+      {/* Mobile sidebar — smooth slide-in from left */}
+      {sidebarOpen && (
+        <div className="fixed inset-0 z-50 md:hidden">
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity duration-300" onClick={closeSidebar} />
+          <div className="absolute left-0 top-0 h-full w-72 border-r border-white/5 bg-zinc-900/95 backdrop-blur-xl transition-transform duration-300 ease-out animate-slide-in-left">
+            <button onClick={closeSidebar} className="absolute right-3 top-4 z-10 flex h-8 w-8 items-center justify-center rounded-full bg-white/5 text-zinc-400">
+              <X className="h-4 w-4" />
+            </button>
+            <SidebarContent barbers={barbers} selectedBarber={selectedBarber} setSelectedBarber={setSelectedBarber}
+              activeBarber={activeBarber} search={search} setSearch={setSearch} tab={tab} onNav={handleNav}
+              filteredNav={filteredNav} todayCount={todayCount} onSignOut={onSignOut} isAdmin={isAdmin} panelTitle={panelTitle} />
+          </div>
+        </div>
+      )}
+
+      {/* Main content */}
+      <div className="flex-1 md:ml-80">
+        {/* Mobile header — only "Volver a la web" button */}
+        <header className="sticky top-0 z-30 flex items-center gap-3 border-b border-white/5 bg-zinc-900/80 px-4 py-4 backdrop-blur-xl md:hidden">
+          <button onClick={() => setSidebarOpen(true)} aria-label="Abrir menú" className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/5 text-zinc-300">
+            <Menu className="h-5 w-5" />
+          </button>
+          <div className="flex-1">
+            <p className="text-[0.6rem] uppercase tracking-[0.2em] text-gold">{panelTitle}</p>
+            <h2 className="font-display text-lg font-bold leading-tight text-white">{navItems.find((n) => n.id === tab)?.label}</h2>
+          </div>
+          <div className="flex items-center gap-2">
+            <InstallAppButton appName="Admin Adrián Millán" className="mr-1" compact />
+            <button onClick={onGoPublic} aria-label="Volver a la web" title="Volver a la web" className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/5 text-zinc-300 transition-colors hover:bg-gold/10 hover:text-gold">
+              <ArrowLeft className="h-4 w-4" />
+            </button>
+          </div>
+        </header>
+
+        {/* Desktop header — only "Volver a la web" button */}
+        <header className="sticky top-0 z-20 hidden items-center justify-between border-b border-white/5 bg-zinc-950/60 px-8 py-5 backdrop-blur-xl md:flex">
+          <div>
+            <p className="text-[0.6rem] uppercase tracking-[0.2em] text-gold">{panelTitle}</p>
+            <h1 className="font-display text-2xl font-bold text-white">{navItems.find((n) => n.id === tab)?.label}</h1>
+          </div>
+          <div className="flex items-center gap-3">
+            {activeBarber ? (
+              <div className="flex items-center gap-2.5 rounded-full glass-card px-3 py-1.5">
+                {activeBarber.photo_url ? (
+                  <img src={activeBarber.photo_url} alt="" className="h-7 w-7 rounded-full object-cover" />
+                ) : (
+                  <div className="flex h-7 w-7 items-center justify-center rounded-full gold-gradient font-display text-[0.6rem] font-bold text-black">{activeBarber.initials}</div>
+                )}
+                <span className="text-sm font-medium text-zinc-300">{activeBarber.name}</span>
+              </div>
+            ) : (
+              <span className="rounded-full glass-card px-3 py-1.5 text-sm font-medium text-zinc-400">Todos los barberos</span>
+            )}
+            <InstallAppButton appName="Admin Adrián Millán" compact />
+            <button onClick={onGoPublic} aria-label="Volver a la web" title="Volver a la web" className="flex items-center gap-2 rounded-full glass-card px-3 py-2 text-xs font-medium text-zinc-300 transition-colors hover:text-gold">
+              <ArrowLeft className="h-4 w-4" />
+              <span className="hidden lg:inline">Volver a la web</span>
+            </button>
+          </div>
+        </header>
+
+        <div className="px-4 py-6 md:px-8 md:py-8">
+          <div className="admin-embed rounded-3xl p-4 md:p-6">
+          {tab === 'today' && <AdminToday bookings={bookings} loading={loading} onRefresh={refresh} />}
+          {tab === 'agenda' && <AdminAgenda bookings={bookings} loading={loading} onRefresh={refresh} />}
+          {tab === 'manual' && <AdminManualBooking onCreated={refresh} />}
+          {tab === 'availability' && isAdmin && <AdminAvailability blocks={blocks} onRefresh={refresh} />}
+          {tab === 'services' && isAdmin && <AdminServices />}
+          {tab === 'staff' && isAdmin && <AdminStaff />}
+          {tab === 'schedule' && isAdmin && <AdminStaffSchedule />}
+          {tab === 'customers' && isAdmin && <AdminCustomers customers={customers} loading={loading} onRefresh={refresh} />}
+          {tab === 'store' && isAdmin && <AdminStore />}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function SidebarContent({
+  barbers, selectedBarber, setSelectedBarber, activeBarber, search, setSearch, tab, onNav, filteredNav, todayCount, onSignOut, isAdmin, panelTitle,
+}: {
+  barbers: Barber[]; selectedBarber: string; setSelectedBarber: (id: string) => void;
+  activeBarber: Barber | null; search: string; setSearch: (s: string) => void; tab: AdminTab;
+  onNav: (id: AdminTab) => void; filteredNav: NavItem[]; todayCount: number; onSignOut: () => void; isAdmin: boolean; panelTitle: string;
+}) {
+  return (
+    <div className="flex h-full flex-col">
+      <div className="border-b border-white/5 p-5">
+        <p className="mb-3 text-[0.6rem] font-semibold uppercase tracking-[0.2em] text-zinc-500">{panelTitle}</p>
+        <div className="flex flex-wrap gap-1.5">
+          <button onClick={() => setSelectedBarber('all')} className={`rounded-full px-3 py-1 text-xs font-medium transition-all ${selectedBarber === 'all' ? 'bg-gold/15 text-gold' : 'bg-white/5 text-zinc-500 hover:text-zinc-300'}`}>Todos</button>
+          {barbers.map((b) => (
+            <button key={b.id} onClick={() => setSelectedBarber(b.id)} className={`rounded-full px-3 py-1 text-xs font-medium transition-all ${selectedBarber === b.id ? 'bg-gold/15 text-gold' : 'bg-white/5 text-zinc-500 hover:text-zinc-300'}`}>{b.name}</button>
+          ))}
+        </div>
+      </div>
+
+      <div className="px-5 py-3">
+        <div className="flex items-center gap-2 rounded-xl glass-card px-3 py-2">
+          <Search className="h-4 w-4 text-zinc-500" />
+          <input type="text" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Buscar sección..." className="w-full bg-transparent text-sm text-white placeholder:text-zinc-600 focus:outline-none" />
+        </div>
+      </div>
+
+      <nav data-lenis-prevent className="flex-1 overflow-y-auto px-3 pb-4">
+        {CATEGORIES.map((cat) => {
+          const items = filteredNav.filter((n) => n.category === cat);
+          if (items.length === 0) return null;
+          return (
+            <div key={cat} className="mb-4">
+              <p className="mb-1.5 px-2 text-[0.6rem] font-semibold uppercase tracking-[0.15em] text-zinc-600">{cat}</p>
+              <div className="space-y-0.5">
+                {items.map((item) => {
+                  const Icon = item.icon;
+                  const active = tab === item.id;
+                  const count = item.id === 'today' ? todayCount : undefined;
+                  return (
+                    <button key={item.id} onClick={() => onNav(item.id)} className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm transition-all ${active ? 'bg-gold/10 text-gold' : 'text-zinc-400 hover:bg-white/5 hover:text-zinc-200'}`}>
+                      <Icon className="h-4 w-4 shrink-0" strokeWidth={1.8} />
+                      <span className="flex-1 font-medium">{item.label}</span>
+                      {count !== undefined && count > 0 && <span className={`rounded-full px-2 py-0.5 text-[0.6rem] font-bold ${active ? 'bg-gold/20 text-gold' : 'bg-white/10 text-zinc-400'}`}>{count}</span>}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        })}
+      </nav>
+
+      <div className="border-t border-white/5 p-3">
+        <button onClick={onSignOut} className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-zinc-400 transition-all hover:bg-red-500/10 hover:text-red-400">
+          <LogOut className="h-4 w-4 shrink-0" strokeWidth={1.8} />
+          <span className="font-medium">Cerrar sesión</span>
+        </button>
+      </div>
+    </div>
+  );
+}

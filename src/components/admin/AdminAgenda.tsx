@@ -9,7 +9,8 @@ import {
   User, 
   Clock, 
   CheckCircle2, 
-  XCircle 
+  XCircle,
+  RotateCw
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { fetchAllBarbers } from '@/data/services';
@@ -29,6 +30,7 @@ interface AdminAgendaProps {
 
 export function AdminAgenda({ bookings, loading, onRefresh }: AdminAgendaProps) {
   const [barbers, setBarbers] = useState<Barber[]>([]);
+  const [viewFilter, setViewFilter] = useState<'active' | 'cancelled' | 'all'>('active');
   const [selectedBooking, setSelectedBooking] = useState<SavedBooking | null>(null);
   const [selectedCustomer, setSelectedCustomer] = useState<{
     user_id?: string | null;
@@ -40,8 +42,17 @@ export function AdminAgenda({ bookings, loading, onRefresh }: AdminAgendaProps) 
 
   useEffect(() => { fetchAllBarbers().then(setBarbers); }, []);
 
+  const activeCount = useMemo(() => bookings.filter((b) => b.status !== 'cancelled').length, [bookings]);
+  const cancelledCount = useMemo(() => bookings.filter((b) => b.status === 'cancelled').length, [bookings]);
+
+  const filteredBookings = useMemo(() => {
+    if (viewFilter === 'active') return bookings.filter((b) => b.status !== 'cancelled');
+    if (viewFilter === 'cancelled') return bookings.filter((b) => b.status === 'cancelled');
+    return bookings;
+  }, [bookings, viewFilter]);
+
   const groupedBookings = useMemo(() => {
-    const sorted = [...bookings].sort((a, b) =>
+    const sorted = [...filteredBookings].sort((a, b) =>
       a.booking_date.localeCompare(b.booking_date) || a.booking_time.localeCompare(b.booking_time)
     );
     const groups: { date: string; items: SavedBooking[] }[] = [];
@@ -54,7 +65,7 @@ export function AdminAgenda({ bookings, loading, onRefresh }: AdminAgendaProps) 
       }
     }
     return groups;
-  }, [bookings]);
+  }, [filteredBookings]);
 
   const handleCancel = async (id: string) => {
     if (!confirm('¿Cancelar esta cita?')) return;
@@ -63,11 +74,25 @@ export function AdminAgenda({ bookings, loading, onRefresh }: AdminAgendaProps) 
       if (error) throw error;
       notify.success('Cita cancelada', 'La cita fue marcada como cancelada');
       if (selectedBooking?.id === id) {
-        setSelectedBooking(null);
+        setSelectedBooking((prev) => (prev ? { ...prev, status: 'cancelled' } : null));
       }
       onRefresh();
     } catch (err: any) {
       notify.error('Error al cancelar', err?.message || 'No se pudo cancelar la cita');
+    }
+  };
+
+  const handleRestore = async (id: string) => {
+    try {
+      const { error } = await supabase.from('bookings').update({ status: 'confirmed' }).eq('id', id);
+      if (error) throw error;
+      notify.success('Cita restaurada', 'La cita vuelve a estar activa en la agenda');
+      if (selectedBooking?.id === id) {
+        setSelectedBooking((prev) => (prev ? { ...prev, status: 'confirmed' } : null));
+      }
+      onRefresh();
+    } catch (err: any) {
+      notify.error('Error al restaurar', err?.message || 'No se pudo restaurar la cita');
     }
   };
 
@@ -91,7 +116,7 @@ export function AdminAgenda({ bookings, loading, onRefresh }: AdminAgendaProps) 
     );
   }
 
-  if (groupedBookings.length === 0) {
+  if (bookings.length === 0) {
     return (
       <div className="mx-auto max-w-3xl">
         <div className="rounded-3xl glass-card px-5 py-12 text-center">
@@ -104,11 +129,95 @@ export function AdminAgenda({ bookings, loading, onRefresh }: AdminAgendaProps) 
 
   return (
     <div className="mx-auto max-w-3xl w-full min-w-0">
-      <div className="mb-4 flex items-center gap-2">
-        <CalendarDays className="h-5 w-5 text-gold" />
-        <h3 className="font-display text-xl font-bold text-white">Próximas citas</h3>
+      <div className="mb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="flex items-center gap-2">
+          <CalendarDays className="h-5 w-5 text-gold" />
+          <h3 className="font-display text-xl font-bold text-white">Próximas citas</h3>
+        </div>
+
+        <div className="flex items-center gap-1 p-1 bg-white/[0.04] rounded-xl border border-white/5 self-start sm:self-auto">
+          <button
+            type="button"
+            onClick={() => setViewFilter('active')}
+            className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all ${
+              viewFilter === 'active'
+                ? 'bg-gold text-black shadow font-bold'
+                : 'text-zinc-400 hover:text-white'
+            }`}
+          >
+            Activas ({activeCount})
+          </button>
+          <button
+            type="button"
+            onClick={() => setViewFilter('cancelled')}
+            className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all flex items-center gap-1.5 ${
+              viewFilter === 'cancelled'
+                ? 'bg-red-500/20 text-red-300 border border-red-500/30 font-bold'
+                : cancelledCount > 0
+                ? 'text-red-400 hover:bg-red-500/10'
+                : 'text-zinc-400 hover:text-white'
+            }`}
+          >
+            <span>Canceladas</span>
+            <span className={`px-1.5 py-0.2 rounded-full text-[0.65rem] ${
+              cancelledCount > 0 ? 'bg-red-500/30 text-red-300 font-bold' : 'bg-zinc-800 text-zinc-500'
+            }`}>
+              {cancelledCount}
+            </span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setViewFilter('all')}
+            className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all ${
+              viewFilter === 'all'
+                ? 'bg-white/10 text-white shadow font-bold'
+                : 'text-zinc-400 hover:text-white'
+            }`}
+          >
+            Todas ({bookings.length})
+          </button>
+        </div>
       </div>
 
+      {cancelledCount > 0 && viewFilter === 'active' && (
+        <div className="mb-4 flex items-center justify-between gap-3 rounded-2xl border border-amber-500/20 bg-amber-500/10 p-3 text-xs text-amber-300 animate-fade-in">
+          <div className="flex items-center gap-2">
+            <RotateCw className="h-4 w-4 shrink-0 text-amber-400" />
+            <span>
+              Hay <strong>{cancelledCount} {cancelledCount === 1 ? 'cita cancelada' : 'citas canceladas'}</strong>. Puedes ver sus detalles y restaurarla a la agenda con un clic.
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setViewFilter('cancelled')}
+            className="shrink-0 rounded-lg bg-amber-500/20 px-2.5 py-1 font-semibold text-amber-200 hover:bg-amber-500/30 transition-colors"
+          >
+            Ver canceladas
+          </button>
+        </div>
+      )}
+
+      {groupedBookings.length === 0 ? (
+        <div className="rounded-3xl glass-card px-5 py-12 text-center">
+          <CalendarDays className="mx-auto h-8 w-8 text-zinc-600" />
+          <p className="mt-3 text-sm text-zinc-400">
+            {viewFilter === 'cancelled'
+              ? 'No hay citas canceladas.'
+              : viewFilter === 'active'
+              ? 'No hay citas activas programadas.'
+              : 'No hay citas registradas.'}
+          </p>
+          {viewFilter !== 'active' && (
+            <button
+              type="button"
+              onClick={() => setViewFilter('active')}
+              className="mt-3 text-xs text-gold hover:underline"
+            >
+              Volver a citas activas
+            </button>
+          )}
+        </div>
+      ) : (
       <div data-lenis-prevent className="max-h-[70vh] space-y-6 overflow-y-auto overflow-x-hidden pr-1 sm:pr-2">
         {groupedBookings.map((group) => (
           <div key={group.date}>
@@ -128,7 +237,7 @@ export function AdminAgenda({ bookings, loading, onRefresh }: AdminAgendaProps) 
                     tabIndex={0}
                     onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') setSelectedBooking(b); }}
                     className={`group flex cursor-pointer items-start gap-2.5 sm:gap-3 rounded-2xl glass-card p-3 sm:p-3.5 transition-all duration-200 hover:border-gold/30 hover:bg-white/[0.04] hover:shadow-lg hover:shadow-gold/5 ${
-                      isCancelled ? 'opacity-50' : ''
+                      isCancelled ? 'opacity-80 border-red-500/20 bg-red-950/10' : ''
                     }`}
                   >
                     {/* Time block: compact, never stretches vertically, h on the right */}
@@ -141,9 +250,16 @@ export function AdminAgenda({ bookings, loading, onRefresh }: AdminAgendaProps) 
                     <div className="flex-1 min-w-0 space-y-1.5">
                       {/* TOP: Client Name & Service */}
                       <div className="flex items-baseline justify-between gap-2">
-                        <p className="truncate text-sm font-bold text-white group-hover:text-gold transition-colors">
-                          {b.full_name}
-                        </p>
+                        <div className="flex items-center gap-2 min-w-0">
+                          <p className="truncate text-sm font-bold text-white group-hover:text-gold transition-colors">
+                            {b.full_name}
+                          </p>
+                          {isCancelled && (
+                            <span className="shrink-0 inline-flex items-center gap-1 rounded-full bg-red-500/15 px-2 py-0.5 text-[0.65rem] font-semibold text-red-400 border border-red-500/20">
+                              <XCircle className="h-2.5 w-2.5" /> Cancelada
+                            </span>
+                          )}
+                        </div>
                         <span className="shrink-0 text-xs font-semibold text-gold font-mono">
                           {b.service_price}€
                         </span>
@@ -183,17 +299,34 @@ export function AdminAgenda({ bookings, loading, onRefresh }: AdminAgendaProps) 
 
                     {/* Actions & Chevron */}
                     <div className="flex items-center gap-1 sm:gap-1.5 shrink-0 self-center">
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleCancel(b.id);
-                        }}
-                        aria-label="Cancelar cita"
-                        title="Cancelar cita"
-                        className="flex h-7 w-7 sm:h-8 sm:w-8 shrink-0 items-center justify-center rounded-full bg-red-500/10 text-red-400 transition-colors hover:bg-red-500/20"
-                      >
-                        <X className="h-3.5 w-3.5" />
-                      </button>
+                      {isCancelled ? (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleRestore(b.id);
+                          }}
+                          aria-label="Restaurar cita"
+                          title="Restaurar cita a la agenda activa"
+                          className="flex h-7 px-2 sm:h-8 sm:px-2.5 shrink-0 items-center gap-1 rounded-xl bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 text-xs font-semibold hover:bg-emerald-500/25 active:scale-95 transition-all"
+                        >
+                          <RotateCw className="h-3.5 w-3.5" />
+                          <span className="hidden sm:inline text-[0.7rem]">Restaurar</span>
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleCancel(b.id);
+                          }}
+                          aria-label="Cancelar cita"
+                          title="Cancelar cita"
+                          className="flex h-7 w-7 sm:h-8 sm:w-8 shrink-0 items-center justify-center rounded-full bg-red-500/10 text-red-400 transition-colors hover:bg-red-500/20"
+                        >
+                          <X className="h-3.5 w-3.5" />
+                        </button>
+                      )}
                       <div className="text-zinc-600 group-hover:text-gold group-hover:translate-x-0.5 transition-all">
                         <ChevronRight className="h-4 w-4" />
                       </div>
@@ -205,6 +338,7 @@ export function AdminAgenda({ bookings, loading, onRefresh }: AdminAgendaProps) 
           </div>
         ))}
       </div>
+      )}
 
       {/* Appointment Detail Modal */}
       {selectedBooking && (
@@ -340,7 +474,16 @@ export function AdminAgenda({ bookings, loading, onRefresh }: AdminAgendaProps) 
                 <span>Ver perfil e historial del cliente</span>
               </button>
 
-              {selectedBooking.status !== 'cancelled' && (
+              {selectedBooking.status === 'cancelled' ? (
+                <button
+                  type="button"
+                  onClick={() => handleRestore(selectedBooking.id)}
+                  className="w-full flex items-center justify-center gap-2 rounded-xl bg-emerald-500/20 py-2.5 text-xs font-semibold text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/30 active:scale-95 transition-all mt-1 shadow-sm shadow-emerald-950/20"
+                >
+                  <RotateCw className="h-3.5 w-3.5" />
+                  <span>Restaurar esta cita en la agenda</span>
+                </button>
+              ) : (
                 <button
                   type="button"
                   onClick={() => handleCancel(selectedBooking.id)}

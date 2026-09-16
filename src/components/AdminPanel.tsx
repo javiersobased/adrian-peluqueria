@@ -71,7 +71,7 @@ export function AdminPanel({ userRole, onSignOut, onGoPublic }: AdminPanelProps)
   }, [isAdmin, userRole.barber_id]);
 
   const fetchBookings = useCallback(async () => {
-    let query = supabase.from('bookings').select('*').neq('status', 'cancelled').order('booking_date', { ascending: true }).order('booking_time', { ascending: true });
+    let query = supabase.from('bookings').select('*').order('booking_date', { ascending: true }).order('booking_time', { ascending: true });
     if (selectedBarber !== 'all') query = query.eq('barber', selectedBarber);
     const { data } = await query;
     setBookings((data as SavedBooking[]) ?? []);

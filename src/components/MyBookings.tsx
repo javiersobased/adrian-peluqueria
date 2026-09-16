@@ -35,14 +35,14 @@ export function MyBookings({ onBack, userEmail, userId, onSignOut }: MyBookingsP
   useEffect(() => {
     (async () => {
       const [data, { data: barberData }] = await Promise.all([
-        fetchMyBookings(),
+        fetchMyBookings(userId, userEmail),
         supabase.from('barbers').select('*'),
       ]);
       setBookings(data);
       setBarbers((barberData as Barber[]) ?? []);
       setLoading(false);
     })();
-  }, []);
+  }, [userId, userEmail]);
 
   useEffect(() => {
     if (!successMessage) return;

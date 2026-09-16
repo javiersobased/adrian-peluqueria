@@ -1,19 +1,47 @@
 import { supabase } from '@/lib/supabase';
 import type { SavedBooking } from '@/types';
 
-export async function fetchMyBookings(): Promise<SavedBooking[]> {
-  // RLS already restricts this to the signed-in customer's own rows.
-  const { data, error } = await supabase
+export async function fetchMyBookings(
+  userId?: string | null,
+  userEmail?: string | null
+): Promise<SavedBooking[]> {
+  const { data: sessionData } = await supabase.auth.getSession();
+  const currentUserId = userId || sessionData.session?.user?.id;
+  const currentEmail = (userEmail || sessionData.session?.user?.email)?.toLowerCase().trim();
+
+  if (!currentUserId && !currentEmail) {
+    return [];
+  }
+
+  let query = supabase
     .from('bookings')
     .select('*')
     .order('booking_date', { ascending: true })
     .order('booking_time', { ascending: true });
 
+  // Query appointments strictly for this user (by user_id or email)
+  if (currentUserId && currentEmail) {
+    query = query.or(`user_id.eq.${currentUserId},email.ilike.${currentEmail}`);
+  } else if (currentUserId) {
+    query = query.eq('user_id', currentUserId);
+  } else if (currentEmail) {
+    query = query.ilike('email', currentEmail);
+  }
+
+  const { data, error } = await query;
+
   if (error) {
     console.error('Error al cargar mis citas:', error);
     return [];
   }
-  return (data as SavedBooking[]) ?? [];
+
+  // Strict double-check filter: NEVER show other customers' bookings in "Mis Citas", even for admins
+  const list = (data as SavedBooking[]) ?? [];
+  return list.filter((b) => {
+    const matchId = currentUserId && b.user_id === currentUserId;
+    const matchEmail = currentEmail && b.email && b.email.toLowerCase().trim() === currentEmail;
+    return Boolean(matchId || matchEmail);
+  });
 }
 
 export async function rescheduleBooking(

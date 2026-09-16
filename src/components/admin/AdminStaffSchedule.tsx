@@ -3,9 +3,12 @@ import { supabase } from '@/lib/supabase';
 import { fetchAllBarbers } from '@/data/services';
 import type { Barber, BarberSchedule } from '@/types';
 import { WEEKDAY_NAMES } from '@/lib/schedule';
-import { Save, Check } from 'lucide-react';
+import { Save, Check, Sparkles, Clock } from 'lucide-react';
 import { notify } from '@/lib/notify';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
+
+// Orden de visualización habitual en España: Lunes a Sábado, y Domingo al final
+const DISPLAY_WEEKDAYS = [1, 2, 3, 4, 5, 6, 0];
 
 export function AdminStaffSchedule() {
   const [barbers, setBarbers] = useState<Barber[]>([]);
@@ -47,30 +50,71 @@ export function AdminStaffSchedule() {
     });
   };
 
+  // Aplica el horario predeterminado: Lunes a Sábado (09:30-13:30 y 16:30-20:30), Domingo libre
+  const handleSetDefaultSchedule = () => {
+    if (!barber) return;
+    setSchedules((prev) => {
+      const allDays = [0, 1, 2, 3, 4, 5, 6];
+      return allDays.map((weekday) => {
+        const existing = prev.find((s) => s.weekday === weekday);
+        const isWorking = weekday !== 0; // Lunes a Sábado trabaja (1 a 6), Domingo no (0)
+        return {
+          id: existing?.id || '',
+          barber,
+          weekday,
+          is_working: isWorking,
+          morning_start: isWorking ? '09:30' : null,
+          morning_end: isWorking ? '13:30' : null,
+          afternoon_start: isWorking ? '16:30' : null,
+          afternoon_end: isWorking ? '20:30' : null,
+        };
+      });
+    });
+
+    const activeBarberName = barbers.find((b) => b.id === barber)?.name ?? 'el perfil';
+    notify.success(
+      'Horario predeterminado aplicado',
+      `L-S 09:30–13:30 y 16:30–20:30 cargado para ${activeBarberName}. Recuerda pulsar en "Guardar horario".`
+    );
+  };
+
   const handleSave = async () => {
-    setSaving(true); setSaved(false);
+    if (!barber) return;
+    setSaving(true);
+    setSaved(false);
     try {
-      for (const s of schedules) {
-        if (s.id) {
-          await supabase.from('barber_schedules').update({
-            is_working: s.is_working, morning_start: s.morning_start, morning_end: s.morning_end,
-            afternoon_start: s.afternoon_start, afternoon_end: s.afternoon_end,
-          }).eq('id', s.id);
-        } else {
-          await supabase.from('barber_schedules').insert({
-            barber, weekday: s.weekday, is_working: s.is_working,
-            morning_start: s.morning_start, morning_end: s.morning_end,
-            afternoon_start: s.afternoon_start, afternoon_end: s.afternoon_end,
-          });
-        }
-      }
+      const allDays = [0, 1, 2, 3, 4, 5, 6];
+      const rowsToUpsert = allDays.map((weekday) => {
+        const s = schedules.find((item) => item.weekday === weekday);
+        const isWorking = s?.is_working ?? false;
+        return {
+          ...(s?.id ? { id: s.id } : {}),
+          barber,
+          weekday,
+          is_working: isWorking,
+          morning_start: isWorking ? s?.morning_start ?? '09:30' : null,
+          morning_end: isWorking ? s?.morning_end ?? '13:30' : null,
+          afternoon_start: isWorking ? s?.afternoon_start ?? '16:30' : null,
+          afternoon_end: isWorking ? s?.afternoon_end ?? '20:30' : null,
+        };
+      });
+
+      const { error } = await supabase
+        .from('barber_schedules')
+        .upsert(rowsToUpsert, { onConflict: 'barber,weekday' });
+
+      if (error) throw error;
+
+      await loadSchedules();
       setSaved(true);
       notify.success('Horario guardado', 'La configuración semanal ha sido actualizada');
       setTimeout(() => setSaved(false), 2000);
     } catch (err: any) {
       console.error('Error al guardar horario:', err);
       notify.error('Error al guardar', err?.message || 'No se pudo actualizar el horario');
-    } finally { setSaving(false); }
+    } finally {
+      setSaving(false);
+    }
   };
 
   if (loading) {
@@ -95,14 +139,37 @@ export function AdminStaffSchedule() {
         </div>
       </div>
 
+      {/* Botón de horario predeterminado */}
+      <div className="flex flex-col gap-3 rounded-2xl glass-card p-4 border border-white/5 sm:flex-row sm:items-center sm:justify-between">
+        <div className="min-w-0">
+          <div className="flex items-center gap-2">
+            <Clock className="h-4 w-4 text-gold" />
+            <p className="text-sm font-bold text-white">Horario habitual de peluquería</p>
+          </div>
+          <p className="mt-0.5 text-xs text-zinc-400">
+            Lunes a Sábado: 09:30–13:30 y 16:30–20:30 · Domingo: Cerrado
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={handleSetDefaultSchedule}
+          className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl border border-gold/40 bg-gold/10 px-4 py-2.5 text-xs font-bold text-gold transition-all hover:bg-gold hover:text-black hover:shadow-lg hover:shadow-gold/20 active:scale-95"
+        >
+          <Sparkles className="h-3.5 w-3.5" />
+          <span>Establecer horario predeterminado</span>
+        </button>
+      </div>
+
       <div className="space-y-2.5">
-        {WEEKDAY_NAMES.map((dayName, weekday) => {
+        {DISPLAY_WEEKDAYS.map((weekday) => {
+          const dayName = WEEKDAY_NAMES[weekday];
           const s = getSchedule(weekday);
           return (
             <div key={weekday} className="rounded-2xl glass-card p-4">
               <div className="flex items-center justify-between">
                 <p className="text-sm font-bold text-white">{dayName}</p>
                 <button
+                  type="button"
                   onClick={() => updateField(weekday, 'is_working', !s.is_working)}
                   className={`rounded-full px-3 py-1 text-xs font-medium transition-all ${
                     s.is_working ? 'gold-gradient text-black' : 'glass-card text-zinc-500'
@@ -128,7 +195,10 @@ export function AdminStaffSchedule() {
         })}
       </div>
 
-      <button onClick={handleSave} disabled={saving}
+      <button
+        type="button"
+        onClick={handleSave}
+        disabled={saving}
         className="flex w-full items-center justify-center gap-2 rounded-full gold-gradient py-3.5 text-sm font-bold uppercase tracking-wider text-black transition-all hover:brightness-110 active:scale-[0.98] gold-glow">
         {saving ? <span className="h-4 w-4 animate-spin rounded-full border-2 border-black/30 border-t-black" />
         : saved ? <Check className="h-4 w-4" /> : <Save className="h-4 w-4" />}
@@ -147,3 +217,4 @@ function TimeInput({ label, value, onChange }: { label: string; value: string | 
     </div>
   );
 }
+

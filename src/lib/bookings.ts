@@ -1,8 +1,70 @@
 import { supabase } from '@/lib/supabase';
 import type { PendingBookingPayload } from '@/lib/pendingBooking';
 import type { SavedBooking } from '@/types';
+import { timeToMinutes } from '@/lib/schedule';
 
 const LAST_BOOKING_KEY = 'amm_last_booking_ts';
+
+export async function checkSlotAvailability(
+  barber: string,
+  bookingDate: string,
+  bookingTime: string,
+  serviceName?: string
+): Promise<{ available: boolean; conflictReason?: string }> {
+  try {
+    const { data, error } = await supabase.rpc('get_booked_intervals', {
+      p_barber: barber,
+      p_date: bookingDate,
+    });
+
+    if (!error && Array.isArray(data)) {
+      const requestedStart = timeToMinutes(bookingTime);
+      let duration = 30;
+      if (serviceName) {
+        const match = serviceName.match(/(\d+)\s*min/i);
+        if (match) duration = parseInt(match[1], 10);
+      }
+      const requestedEnd = requestedStart + duration;
+
+      for (const item of data) {
+        const bStart = timeToMinutes(item.booking_time);
+        const bDur = item.duration_minutes && item.duration_minutes > 0 ? item.duration_minutes : 30;
+        const bEnd = bStart + bDur;
+
+        // Detección matemática de solapamiento de intervalos
+        if (Math.max(requestedStart, bStart) < Math.min(requestedEnd, bEnd)) {
+          return {
+            available: false,
+            conflictReason: `El horario seleccionado (${bookingTime}) ya está ocupado o se solapa con otra cita previa.`,
+          };
+        }
+      }
+    }
+  } catch (err) {
+    console.warn('Error comprobando disponibilidad de tramo con RPC:', err);
+  }
+  return { available: true };
+}
+
+export async function findMyExistingBooking(
+  barber: string,
+  bookingDate: string,
+  bookingTime: string
+): Promise<SavedBooking | null> {
+  try {
+    const { data } = await supabase
+      .from('bookings')
+      .select('*')
+      .eq('barber', barber)
+      .eq('booking_date', bookingDate)
+      .eq('booking_time', bookingTime)
+      .neq('status', 'cancelled')
+      .maybeSingle();
+    return (data as SavedBooking) ?? null;
+  } catch {
+    return null;
+  }
+}
 
 export async function createBooking(payload: PendingBookingPayload): Promise<{ booking: SavedBooking | null; error: string | null }> {
   // 1. Client-side cooldown guard (prevent rapid double-clicks or bot flooding)
@@ -18,23 +80,22 @@ export async function createBooking(payload: PendingBookingPayload): Promise<{ b
     // ignore sessionStorage errors
   }
 
-  // 2. Pre-check if an active booking already exists for this exact slot
+  // 2. Pre-check if an active booking already exists for this exact slot or overlaps
   try {
-    const preExisting = await findExistingBooking(payload.barber, payload.booking_date, payload.booking_time);
-    if (preExisting) {
-      const { data: sessionData } = await supabase.auth.getSession();
-      const currentUserId = sessionData?.session?.user?.id;
-      const cleanPayloadPhone = payload.phone.replace(/\D/g, '');
-      const cleanExistingPhone = (preExisting.phone || '').replace(/\D/g, '');
+    // Check if the current user already has this booking (idempotency recovery)
+    const myExisting = await findMyExistingBooking(payload.barber, payload.booking_date, payload.booking_time);
+    if (myExisting) {
+      return { booking: myExisting, error: null };
+    }
 
-      // If it is the current user's own booking (double submission / re-entry), return it idempotently
-      if (
-        (currentUserId && preExisting.user_id === currentUserId) ||
-        (cleanPayloadPhone && cleanExistingPhone && cleanPayloadPhone === cleanExistingPhone)
-      ) {
-        return { booking: preExisting, error: null };
-      }
-
+    // Check slot availability across all clients using SECURITY DEFINER RPC
+    const availability = await checkSlotAvailability(
+      payload.barber,
+      payload.booking_date,
+      payload.booking_time,
+      payload.service
+    );
+    if (!availability.available) {
       return {
         booking: null,
         error: 'El horario seleccionado ya no está disponible. Por favor, elige otra hora.',
@@ -85,19 +146,47 @@ export async function createBooking(payload: PendingBookingPayload): Promise<{ b
     res = await callRpc();
   }
 
-  // If RPC failed (e.g. 404 function signature mismatch in schema cache),
-  // fallback directly to standard RLS insert which authenticated clients have permission for
+  // If RPC failed
   if (res.error) {
-    console.warn('create_booking RPC failed, attempting direct table insert fallback...', res.error);
+    const rawError = (res.error.message || '').toLowerCase();
+    const isAvailabilityError =
+      rawError.includes('ya está reservado') ||
+      rawError.includes('no está disponible') ||
+      rawError.includes('solapa') ||
+      rawError.includes('idx_bookings_unique_active_slot') ||
+      rawError.includes('duplicad');
+
+    if (isAvailabilityError) {
+      return {
+        booking: null,
+        error: 'El horario seleccionado ya no está disponible. Por favor, elige otra hora.',
+      };
+    }
+
+    console.warn('create_booking RPC failed, checking if fallback direct insert is safe...', res.error);
     const { data: sessionData } = await supabase.auth.getSession();
     const userId = sessionData?.session?.user?.id ?? null;
     const userEmail = sessionData?.session?.user?.email ?? null;
 
     if (userId) {
-      // Double check if booking was already created
-      const existing = await findExistingBooking(payload.barber, payload.booking_date, payload.booking_time);
-      if (existing) {
-        return { booking: existing, error: null };
+      // 1. Double check with SECURITY DEFINER RPC that slot is genuinely available
+      const avail = await checkSlotAvailability(
+        payload.barber,
+        payload.booking_date,
+        payload.booking_time,
+        payload.service
+      );
+      if (!avail.available) {
+        return {
+          booking: null,
+          error: 'El horario seleccionado ya no está disponible. Por favor, elige otra hora.',
+        };
+      }
+
+      // 2. Check if current user already has this booking
+      const myExisting = await findMyExistingBooking(payload.barber, payload.booking_date, payload.booking_time);
+      if (myExisting) {
+        return { booking: myExisting, error: null };
       }
 
       const { data: inserted, error: insertError } = await supabase
@@ -118,7 +207,7 @@ export async function createBooking(payload: PendingBookingPayload): Promise<{ b
         .select('*')
         .single();
 
-        if (!insertError && inserted) {
+      if (!insertError && inserted) {
         // Opportunistically save or update customer details
         try {
           await supabase.from('customers').upsert({
@@ -142,21 +231,17 @@ export async function createBooking(payload: PendingBookingPayload): Promise<{ b
     }
 
     // Double check if booking was actually created despite error response
-    const existing = await findExistingBooking(payload.barber, payload.booking_date, payload.booking_time);
-    if (existing) {
+    const myExisting = await findMyExistingBooking(payload.barber, payload.booking_date, payload.booking_time);
+    if (myExisting) {
       try {
         sessionStorage.setItem(LAST_BOOKING_KEY, String(Date.now()));
       } catch {
         // ignore
       }
-      return { booking: existing, error: null };
+      return { booking: myExisting, error: null };
     }
 
-    const rawError = res.error.message || '';
-    if (rawError.includes('idx_bookings_unique_active_slot') || rawError.includes('ya está reservado')) {
-      return { booking: null, error: 'El horario seleccionado ya no está disponible. Por favor, elige otra hora.' };
-    }
-    return { booking: null, error: rawError || 'No se pudo confirmar la reserva. Inténtalo de nuevo.' };
+    return { booking: null, error: res.error.message || 'No se pudo confirmar la reserva. Inténtalo de nuevo.' };
   }
 
   // Robust parsing of res.data across all possible Supabase response formats

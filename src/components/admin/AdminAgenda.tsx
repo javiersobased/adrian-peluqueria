@@ -32,6 +32,7 @@ interface AdminAgendaProps {
 export function AdminAgenda({ bookings, loading, onRefresh }: AdminAgendaProps) {
   const [barbers, setBarbers] = useState<Barber[]>([]);
   const [viewFilter, setViewFilter] = useState<'active' | 'cancelled' | 'all'>('active');
+  const [barberFilter, setBarberFilter] = useState<string>('all');
   const [selectedBooking, setSelectedBooking] = useState<SavedBooking | null>(null);
   const [selectedCustomer, setSelectedCustomer] = useState<{
     user_id?: string | null;
@@ -83,10 +84,15 @@ export function AdminAgenda({ bookings, loading, onRefresh }: AdminAgendaProps) 
   const cancelledCount = useMemo(() => cleanBookings.filter((b) => b.status === 'cancelled').length, [cleanBookings]);
 
   const filteredBookings = useMemo(() => {
-    if (viewFilter === 'active') return cleanBookings.filter((b) => b.status !== 'cancelled');
-    if (viewFilter === 'cancelled') return cleanBookings.filter((b) => b.status === 'cancelled');
-    return cleanBookings;
-  }, [cleanBookings, viewFilter]);
+    let list = cleanBookings;
+    if (viewFilter === 'active') list = list.filter((b) => b.status !== 'cancelled');
+    else if (viewFilter === 'cancelled') list = list.filter((b) => b.status === 'cancelled');
+
+    if (barberFilter !== 'all') {
+      list = list.filter((b) => b.barber === barberFilter);
+    }
+    return list;
+  }, [cleanBookings, viewFilter, barberFilter]);
 
   const groupedBookings = useMemo(() => {
     const sorted = [...filteredBookings].sort((a, b) =>
@@ -231,6 +237,44 @@ export function AdminAgenda({ bookings, loading, onRefresh }: AdminAgendaProps) 
         </div>
       </div>
 
+      {/* Selector de barbero para filtrar la agenda */}
+      {barbers.length > 1 && (
+        <div className="mb-4 flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar">
+          <button
+            type="button"
+            onClick={() => setBarberFilter('all')}
+            className={`shrink-0 px-3 py-1.5 text-xs font-semibold rounded-xl transition-all ${
+              barberFilter === 'all'
+                ? 'bg-zinc-800 text-white border border-white/20 shadow-sm'
+                : 'text-zinc-400 hover:text-zinc-200 bg-white/[0.03] border border-white/5'
+            }`}
+          >
+            Todos los barberos
+          </button>
+          {barbers.map((b) => (
+            <button
+              key={b.id}
+              type="button"
+              onClick={() => setBarberFilter(b.id)}
+              className={`shrink-0 flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-xl transition-all ${
+                barberFilter === b.id
+                  ? 'bg-gold/20 text-gold border border-gold/40 shadow-sm'
+                  : 'text-zinc-400 hover:text-zinc-200 bg-white/[0.03] border border-white/5'
+              }`}
+            >
+              {b.photo_url ? (
+                <img src={b.photo_url} alt="" className="h-3.5 w-3.5 rounded-full object-cover shrink-0" />
+              ) : (
+                <span className="flex h-3.5 w-3.5 items-center justify-center rounded-full gold-gradient text-[0.5rem] font-bold text-black shrink-0">
+                  {b.initials}
+                </span>
+              )}
+              <span>{b.name}</span>
+            </button>
+          ))}
+        </div>
+      )}
+
       {groupedBookings.length === 0 ? (
         <div className="rounded-3xl glass-card px-5 py-12 text-center">
           <CalendarDays className="mx-auto h-8 w-8 text-zinc-600" />
@@ -241,13 +285,16 @@ export function AdminAgenda({ bookings, loading, onRefresh }: AdminAgendaProps) 
               ? 'No hay citas activas programadas.'
               : 'No hay citas registradas.'}
           </p>
-          {viewFilter !== 'active' && (
+          {(viewFilter !== 'active' || barberFilter !== 'all') && (
             <button
               type="button"
-              onClick={() => setViewFilter('active')}
+              onClick={() => {
+                setViewFilter('active');
+                setBarberFilter('all');
+              }}
               className="mt-3 text-xs text-gold hover:underline"
             >
-              Volver a citas activas
+              Restablecer filtros
             </button>
           )}
         </div>
@@ -263,6 +310,10 @@ export function AdminAgenda({ bookings, loading, onRefresh }: AdminAgendaProps) 
               {group.items.map((b) => {
                 const barber = getBarber(b.barber);
                 const isCancelled = b.status === 'cancelled';
+                const isDuplicate = group.items.some(
+                  (other) => other.id !== b.id && other.status !== 'cancelled' && other.barber === b.barber && other.booking_time === b.booking_time
+                );
+
                 return (
                   <div
                     key={b.id}
@@ -271,7 +322,11 @@ export function AdminAgenda({ bookings, loading, onRefresh }: AdminAgendaProps) 
                     tabIndex={0}
                     onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') setSelectedBooking(b); }}
                     className={`group flex cursor-pointer items-start gap-2.5 sm:gap-3 rounded-2xl glass-card p-3 sm:p-3.5 transition-all duration-200 hover:border-gold/30 hover:bg-white/[0.04] hover:shadow-lg hover:shadow-gold/5 ${
-                      isCancelled ? 'opacity-80 border-red-500/20 bg-red-950/10' : ''
+                      isCancelled 
+                        ? 'opacity-80 border-red-500/20 bg-red-950/10' 
+                        : isDuplicate 
+                        ? 'border-amber-500/40 bg-amber-950/15 ring-1 ring-amber-500/30' 
+                        : ''
                     }`}
                   >
                     {/* Time block: compact, never stretches vertically, h on the right */}
@@ -282,15 +337,31 @@ export function AdminAgenda({ bookings, loading, onRefresh }: AdminAgendaProps) 
 
                     {/* Content */}
                     <div className="flex-1 min-w-0 space-y-1.5">
-                      {/* TOP: Client Name y Service */}
+                      {/* TOP: Client Name, Barber Tag y Service Price */}
                       <div className="flex items-baseline justify-between gap-2">
-                        <div className="flex items-center gap-2 min-w-0">
+                        <div className="flex items-center gap-2 min-w-0 flex-wrap">
                           <p className="truncate text-sm font-bold text-white group-hover:text-gold transition-colors">
                             {b.full_name}
                           </p>
+                          {/* Chip de barbero en la cabecera */}
+                          <span className="inline-flex items-center gap-1 rounded-md bg-white/5 px-1.5 py-0.5 text-[0.65rem] font-medium text-zinc-300 border border-white/5">
+                            {barber?.photo_url ? (
+                              <img src={barber.photo_url} alt="" className="h-3 w-3 rounded-full object-cover shrink-0" />
+                            ) : (
+                              <span className="flex h-3 w-3 items-center justify-center rounded-full gold-gradient text-[0.45rem] font-bold text-black shrink-0">
+                                {barber?.initials || b.barber.charAt(0).toUpperCase()}
+                              </span>
+                            )}
+                            <span className="truncate max-w-[90px]">{barber?.name || b.barber}</span>
+                          </span>
                           {isCancelled && (
                             <span className="shrink-0 inline-flex items-center gap-1 rounded-full bg-red-500/15 px-2 py-0.5 text-[0.65rem] font-semibold text-red-400 border border-red-500/20">
                               <XCircle className="h-2.5 w-2.5" /> Cancelada
+                            </span>
+                          )}
+                          {isDuplicate && !isCancelled && (
+                            <span className="shrink-0 inline-flex items-center gap-1 rounded-full bg-amber-500/20 px-2 py-0.5 text-[0.65rem] font-bold text-amber-300 border border-amber-500/40 animate-pulse">
+                              ⚠️ Cita duplicada
                             </span>
                           )}
                         </div>

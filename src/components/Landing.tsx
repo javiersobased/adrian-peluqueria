@@ -127,18 +127,8 @@ export function Landing({ onBook, onSignIn, onGoToPanel, user, role, onSignOut, 
 
   return (
     <div className="min-h-screen animate-fade-in">
-      {/* Top-right: unified login / panel access */}
+      {/* Top-right: user account and install app */}
       <div className="fixed right-4 top-4 z-40 flex items-center gap-2">
-        {isVerifiedStaff && (
-          <button
-            onClick={onGoToPanel}
-            className="flex items-center gap-2 rounded-full gold-gradient px-4 py-2 text-xs font-bold uppercase tracking-wider text-black transition-all hover:brightness-110 active:scale-95 gold-glow"
-          >
-            {role?.role === 'barber' ? <Scissors className="h-3.5 w-3.5" /> : <LayoutDashboard className="h-3.5 w-3.5" />}
-            {panelLabel}
-          </button>
-        )}
-
         {user ? (
           <div className="relative flex items-center gap-2">
             <InstallAppButton appName="Reservas Adrián Millán" compact />
@@ -221,6 +211,23 @@ export function Landing({ onBook, onSignIn, onGoToPanel, user, role, onSignOut, 
 
         <h1 className="sr-only">Peluquería y Barbería Adrián Millán en Huelva · Cita Previa Online</h1>
         <div className="animate-fade-up w-full max-w-4xl">
+          {/* Botón de acceso al panel para personal/administrador verificado */}
+          {isVerifiedStaff && (
+            <div className="mb-5 flex justify-center">
+              <button
+                onClick={onGoToPanel}
+                className="group inline-flex items-center gap-2 rounded-full gold-gradient px-5 py-2.5 text-xs font-bold uppercase tracking-wider text-black shadow-xl shadow-gold/20 transition-all duration-300 hover:brightness-110 active:scale-95 gold-glow"
+              >
+                {role?.role === 'barber' ? (
+                  <Scissors className="h-4 w-4" />
+                ) : (
+                  <LayoutDashboard className="h-4 w-4" />
+                )}
+                <span>{panelLabel}</span>
+              </button>
+            </div>
+          )}
+
           <p className="mb-3 text-xs font-semibold uppercase tracking-[0.35em] text-gold">Huelva</p>
           <ScrollFloat
             as="h2"

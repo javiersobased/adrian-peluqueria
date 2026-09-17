@@ -47,8 +47,20 @@ export const TEST_EMAILS = [
 ];
 
 export function AdminPanel({ userRole, onSignOut, onGoPublic }: AdminPanelProps) {
-  const [tab, setTab] = useState<AdminTab>('today');
-  const [selectedBarber, setSelectedBarber] = useState<string>('all');
+  const [tab, setTab] = useState<AdminTab>(() => {
+    try {
+      const saved = sessionStorage.getItem('admin_active_tab') as AdminTab;
+      if (saved) return saved;
+    } catch {}
+    return 'today';
+  });
+  const [selectedBarber, setSelectedBarber] = useState<string>(() => {
+    try {
+      const saved = sessionStorage.getItem('admin_selected_barber');
+      if (saved) return saved;
+    } catch {}
+    return 'all';
+  });
   const [barbers, setBarbers] = useState<Barber[]>([]);
   const [bookings, setBookings] = useState<SavedBooking[]>([]);
   const [blocks, setBlocks] = useState<BarberBlock[]>([]);
@@ -154,28 +166,23 @@ export function AdminPanel({ userRole, onSignOut, onGoPublic }: AdminPanelProps)
     setLoading(false);
   }, [fetchBookings, fetchBlocks, fetchCustomers, isAdmin]);
 
-  const handleManualRefresh = useCallback(async (forceHardReload = false) => {
-    if (forceHardReload) {
-      window.location.reload();
-      return;
+  const handleManualRefresh = useCallback(() => {
+    try {
+      sessionStorage.setItem('admin_active_tab', tab);
+      sessionStorage.setItem('admin_selected_barber', selectedBarber);
+    } catch {}
+    if (window.location.hash !== '#admin') {
+      window.location.hash = '#admin';
     }
     setRefreshing(true);
-    try {
-      await refresh();
-      notify.success('Panel actualizado', 'Datos y citas sincronizados');
-    } catch (err: any) {
-      console.error('Error al actualizar panel:', err);
-      notify.error('Error al actualizar', 'No se pudieron sincronizar los datos');
-    } finally {
-      setTimeout(() => setRefreshing(false), 500);
-    }
-  }, [refresh]);
+    window.location.reload();
+  }, [tab, selectedBarber]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'F5' || ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'r')) {
         e.preventDefault();
-        handleManualRefresh(e.shiftKey);
+        handleManualRefresh();
       }
     };
     window.addEventListener('keydown', handleKeyDown);
@@ -244,7 +251,20 @@ export function AdminPanel({ userRole, onSignOut, onGoPublic }: AdminPanelProps)
   const activeBarber = barbers.find((b) => b.id === selectedBarber) ?? null;
   const todayCount = bookings.filter((b) => b.booking_date === new Date().toISOString().slice(0, 10)).length;
 
-  const handleNav = (id: AdminTab) => { setTab(id); closeSidebar(); };
+  const handleNav = (id: AdminTab) => {
+    setTab(id);
+    closeSidebar();
+    try {
+      sessionStorage.setItem('admin_active_tab', id);
+    } catch {}
+  };
+
+  const handleSelectBarber = useCallback((id: string) => {
+    setSelectedBarber(id);
+    try {
+      sessionStorage.setItem('admin_selected_barber', id);
+    } catch {}
+  }, []);
 
   const panelTitle = isAdmin ? 'Panel de Administración' : 'Panel de Barbero';
 
@@ -276,7 +296,7 @@ export function AdminPanel({ userRole, onSignOut, onGoPublic }: AdminPanelProps)
 
       {/* Desktop Sidebar */}
       <div className="fixed left-16 top-0 z-30 hidden h-screen w-64 flex-col border-r border-white/5 bg-zinc-900/60 backdrop-blur-xl md:flex">
-        <SidebarContent barbers={barbers} selectedBarber={selectedBarber} setSelectedBarber={setSelectedBarber}
+        <SidebarContent barbers={barbers} selectedBarber={selectedBarber} setSelectedBarber={handleSelectBarber}
           activeBarber={activeBarber} search={search} setSearch={setSearch} tab={tab} onNav={handleNav}
           filteredNav={filteredNav} todayCount={todayCount} onSignOut={onSignOut} isAdmin={isAdmin} panelTitle={panelTitle} />
       </div>
@@ -289,7 +309,7 @@ export function AdminPanel({ userRole, onSignOut, onGoPublic }: AdminPanelProps)
             <button onClick={closeSidebar} className="absolute right-3 top-4 z-10 flex h-8 w-8 items-center justify-center rounded-full bg-white/5 text-zinc-400">
               <X className="h-4 w-4" />
             </button>
-            <SidebarContent barbers={barbers} selectedBarber={selectedBarber} setSelectedBarber={setSelectedBarber}
+            <SidebarContent barbers={barbers} selectedBarber={selectedBarber} setSelectedBarber={handleSelectBarber}
               activeBarber={activeBarber} search={search} setSearch={setSearch} tab={tab} onNav={handleNav}
               filteredNav={filteredNav} todayCount={todayCount} onSignOut={onSignOut} isAdmin={isAdmin} panelTitle={panelTitle} />
           </div>
@@ -310,10 +330,10 @@ export function AdminPanel({ userRole, onSignOut, onGoPublic }: AdminPanelProps)
           <div className="flex items-center gap-2 shrink-0">
             <InstallAppButton appName="Admin Adrián Millán" className="mr-1" compact />
             <button
-              onClick={(e) => handleManualRefresh(e.shiftKey)}
+              onClick={() => handleManualRefresh()}
               disabled={refreshing}
-              aria-label="Actualizar panel"
-              title="Actualizar panel (F5 / Ctrl+R)"
+              aria-label="Recargar página entera"
+              title="Recargar página entera del navegador (F5 / Ctrl+R)"
               className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/5 text-zinc-300 transition-all hover:bg-gold/10 hover:text-gold active:scale-95 disabled:opacity-50"
             >
               <RotateCw className={`h-4 w-4 ${refreshing ? 'animate-spin text-gold' : ''}`} />
@@ -345,10 +365,10 @@ export function AdminPanel({ userRole, onSignOut, onGoPublic }: AdminPanelProps)
             )}
             <InstallAppButton appName="Admin Adrián Millán" compact />
             <button
-              onClick={(e) => handleManualRefresh(e.shiftKey)}
+              onClick={() => handleManualRefresh()}
               disabled={refreshing}
-              aria-label="Actualizar panel"
-              title="Actualizar panel (F5 / Ctrl+R)"
+              aria-label="Recargar página entera"
+              title="Recargar página entera del navegador (F5 / Ctrl+R)"
               className="flex items-center gap-2 rounded-full glass-card px-3 py-2 text-xs font-medium text-zinc-300 transition-all hover:text-gold hover:border-gold/30 active:scale-95 disabled:opacity-50"
             >
               <RotateCw className={`h-4 w-4 ${refreshing ? 'animate-spin text-gold' : ''}`} />

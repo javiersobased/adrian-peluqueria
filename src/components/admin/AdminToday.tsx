@@ -93,7 +93,7 @@ export function AdminToday({ bookings, loading, onRefresh }: AdminTodayProps) {
   const dateLabel = `${WEEKDAY_SHORT[now.getDay()]} ${now.getDate()} ${MONTH_SHORT[now.getMonth()]}`;
 
   return (
-    <div className="mx-auto max-w-3xl space-y-6">
+    <div className="mx-auto max-w-6xl w-full min-w-0 space-y-4">
       {/* Stats cards */}
       <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
         <StatCard
@@ -144,7 +144,7 @@ export function AdminToday({ bookings, loading, onRefresh }: AdminTodayProps) {
           )}
         </div>
       ) : (
-        <div className="space-y-2.5">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
           {upcomingBookings.map((b, index) => {
             const barber = getBarber(b.barber);
             const isNext = index === 0;
@@ -249,7 +249,7 @@ export function AdminToday({ bookings, loading, onRefresh }: AdminTodayProps) {
           </button>
 
           {showPastBookings && (
-            <div className="mt-2.5 space-y-2 pl-2">
+            <div className="mt-2.5 grid grid-cols-1 md:grid-cols-2 gap-2 pl-2">
               {pastBookings.map((b) => {
                 const barber = getBarber(b.barber);
                 return (

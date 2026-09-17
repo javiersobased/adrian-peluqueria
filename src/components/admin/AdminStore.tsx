@@ -99,144 +99,156 @@ export function AdminStore() {
   }
 
   return (
-    <div className="mx-auto max-w-3xl w-full min-w-0 space-y-5">
-      {/* Categories section */}
-      <div className="space-y-3">
-        <div className="flex items-center justify-between">
-          <h3 className="text-sm font-bold uppercase tracking-wider text-gold">Categorías</h3>
-          <button
-            onClick={() => { setCreatingCategory(true); setEditingCategory(null); }}
-            className="flex items-center gap-1.5 rounded-full bg-gold/10 px-3 py-1.5 text-xs font-semibold text-gold transition-all hover:bg-gold/20 active:scale-95"
-          >
-            <Plus className="h-3.5 w-3.5" /> Nueva
-          </button>
-        </div>
-
-        {creatingCategory && (
-          <CategoryForm
-            category={null}
-            onClose={() => setCreatingCategory(false)}
-            onSaved={() => { setCreatingCategory(false); load(); }}
-          />
-        )}
-
-        {categories.map((cat) => (
-          <div key={cat.id}>
-            {editingCategory?.id === cat.id ? (
-              <CategoryForm
-                category={cat}
-                onClose={() => setEditingCategory(null)}
-                onSaved={() => { setEditingCategory(null); load(); }}
-              />
-            ) : (
-              <div className={`flex items-center justify-between gap-2 rounded-2xl glass-card p-3 sm:p-3.5 transition-colors ${selectedCategory === cat.id ? 'border-gold/30' : ''}`}>
-                <button onClick={() => setSelectedCategory(cat.id)} className="flex flex-1 items-center gap-2 text-left min-w-0">
-                  <span className={`text-sm font-bold truncate ${cat.active ? 'text-white' : 'text-zinc-600'}`}>{cat.name}</span>
-                  <span className="text-[0.6rem] text-zinc-600 shrink-0">{products.filter((p) => p.category_id === cat.id).length} prod.</span>
-                </button>
-                <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
-                  <button onClick={() => handleMoveCategory(cat, -1)} className="flex h-7 w-7 items-center justify-center rounded-lg glass-card text-zinc-400 hover:text-white" title="Subir">
-                    <ArrowUp className="h-3.5 w-3.5" />
-                  </button>
-                  <button onClick={() => handleMoveCategory(cat, 1)} className="flex h-7 w-7 items-center justify-center rounded-lg glass-card text-zinc-400 hover:text-white" title="Bajar">
-                    <ArrowDown className="h-3.5 w-3.5" />
-                  </button>
-                  <button onClick={() => { setEditingCategory(cat); setCreatingCategory(false); }} className="flex h-7 w-7 items-center justify-center rounded-lg glass-card text-zinc-400 hover:text-white" title="Editar">
-                    <Pencil className="h-3.5 w-3.5" />
-                  </button>
-                  <button onClick={() => handleDeleteCategory(cat.id)} className="flex h-7 w-7 items-center justify-center rounded-lg bg-red-500/10 text-red-400 hover:bg-red-500/20" title="Eliminar">
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
-        ))}
-      </div>
-
-      {/* Products section */}
-      {selectedCategory && (
-        <div className="space-y-3 border-t border-white/5 pt-5">
+    <div className="mx-auto max-w-6xl w-full min-w-0">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
+        {/* Categories section (Left Column) */}
+        <div className="lg:col-span-4 w-full min-w-0 space-y-3">
           <div className="flex items-center justify-between">
-            <h3 className="text-sm font-bold uppercase tracking-wider text-gold">
-              Productos · {categories.find((c) => c.id === selectedCategory)?.name}
-            </h3>
+            <h3 className="text-sm font-bold uppercase tracking-wider text-gold">Categorías</h3>
             <button
-              onClick={() => { setCreatingProduct(true); setEditingProduct(null); }}
-              className="flex items-center gap-1.5 rounded-full gold-gradient px-3 py-1.5 text-xs font-bold text-black transition-all hover:brightness-110 active:scale-95"
+              onClick={() => { setCreatingCategory(true); setEditingCategory(null); }}
+              className="flex items-center gap-1.5 rounded-full bg-gold/10 px-3 py-1.5 text-xs font-semibold text-gold transition-all hover:bg-gold/20 active:scale-95"
             >
-              <Plus className="h-3.5 w-3.5" /> Nuevo producto
+              <Plus className="h-3.5 w-3.5" /> Nueva
             </button>
           </div>
 
-          {creatingProduct && (
-            <ProductForm
-              product={null}
-              categoryId={selectedCategory}
-              onClose={() => setCreatingProduct(false)}
-              onSaved={() => { setCreatingProduct(false); load(); }}
+          {creatingCategory && (
+            <CategoryForm
+              category={null}
+              onClose={() => setCreatingCategory(false)}
+              onSaved={() => { setCreatingCategory(false); load(); }}
             />
           )}
 
-          {categoryProducts.map((p) => (
-            <div key={p.id}>
-              {editingProduct?.id === p.id ? (
+          <div className="space-y-2">
+            {categories.map((cat) => (
+              <div key={cat.id}>
+                {editingCategory?.id === cat.id ? (
+                  <CategoryForm
+                    category={cat}
+                    onClose={() => setEditingCategory(null)}
+                    onSaved={() => { setEditingCategory(null); load(); }}
+                  />
+                ) : (
+                  <div className={`flex items-center justify-between gap-2 rounded-2xl glass-card p-3 sm:p-3.5 transition-colors ${selectedCategory === cat.id ? 'border-gold/30 bg-gold/[0.04]' : ''}`}>
+                    <button onClick={() => setSelectedCategory(cat.id)} className="flex flex-1 items-center gap-2 text-left min-w-0">
+                      <span className={`text-sm font-bold truncate ${cat.active ? 'text-white' : 'text-zinc-600'}`}>{cat.name}</span>
+                      <span className="text-[0.6rem] text-zinc-500 shrink-0">{products.filter((p) => p.category_id === cat.id).length} prod.</span>
+                    </button>
+                    <div className="flex items-center gap-1 shrink-0">
+                      <button onClick={() => handleMoveCategory(cat, -1)} className="flex h-7 w-7 items-center justify-center rounded-lg glass-card text-zinc-400 hover:text-white" title="Subir">
+                        <ArrowUp className="h-3.5 w-3.5" />
+                      </button>
+                      <button onClick={() => handleMoveCategory(cat, 1)} className="flex h-7 w-7 items-center justify-center rounded-lg glass-card text-zinc-400 hover:text-white" title="Bajar">
+                        <ArrowDown className="h-3.5 w-3.5" />
+                      </button>
+                      <button onClick={() => { setEditingCategory(cat); setCreatingCategory(false); }} className="flex h-7 w-7 items-center justify-center rounded-lg glass-card text-zinc-400 hover:text-white" title="Editar">
+                        <Pencil className="h-3.5 w-3.5" />
+                      </button>
+                      <button onClick={() => handleDeleteCategory(cat.id)} className="flex h-7 w-7 items-center justify-center rounded-lg bg-red-500/10 text-red-400 hover:bg-red-500/20" title="Eliminar">
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Products section (Right Column) */}
+        <div className="lg:col-span-8 w-full min-w-0">
+          {selectedCategory ? (
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-bold uppercase tracking-wider text-gold">
+                  Productos · {categories.find((c) => c.id === selectedCategory)?.name}
+                </h3>
+                <button
+                  onClick={() => { setCreatingProduct(true); setEditingProduct(null); }}
+                  className="flex items-center gap-1.5 rounded-full gold-gradient px-3 py-1.5 text-xs font-bold text-black transition-all hover:brightness-110 active:scale-95"
+                >
+                  <Plus className="h-3.5 w-3.5" /> Nuevo producto
+                </button>
+              </div>
+
+              {creatingProduct && (
                 <ProductForm
-                  product={p}
+                  product={null}
                   categoryId={selectedCategory}
-                  onClose={() => setEditingProduct(null)}
-                  onSaved={() => { setEditingProduct(null); load(); }}
+                  onClose={() => setCreatingProduct(false)}
+                  onSaved={() => { setCreatingProduct(false); load(); }}
                 />
-              ) : (
-                <div className={`flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 sm:gap-3 rounded-2xl glass-card p-3 sm:p-3.5 ${!p.active ? 'opacity-50' : ''}`}>
-                  <div className="flex items-center gap-3 min-w-0 flex-1">
-                    <div className="flex h-11 w-11 sm:h-12 sm:w-12 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-gold/5">
-                      {p.image_url ? (
-                        <img src={p.image_url} alt="" className="h-full w-full object-cover" />
-                      ) : (
-                        <ImageIcon className="h-5 w-5 text-zinc-600" />
-                      )}
-                    </div>
-                    <div className="flex-1 min-w-0 space-y-0.5">
-                      <p className="truncate text-sm font-bold text-white">{p.name}</p>
-                      <p className="text-xs text-zinc-400">{p.price > 0 ? `${p.price}€` : 'Sin precio'}</p>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center justify-end gap-1 sm:gap-1.5 shrink-0 pt-2 sm:pt-0 border-t border-white/5 sm:border-t-0">
-                    <button onClick={() => handleMoveProduct(p, -1)} className="flex h-7 w-7 items-center justify-center rounded-lg glass-card text-zinc-400 hover:text-white" title="Subir">
-                      <ArrowUp className="h-3.5 w-3.5" />
-                    </button>
-                    <button onClick={() => handleMoveProduct(p, 1)} className="flex h-7 w-7 items-center justify-center rounded-lg glass-card text-zinc-400 hover:text-white" title="Bajar">
-                      <ArrowDown className="h-3.5 w-3.5" />
-                    </button>
-                    <button
-                      onClick={() => handleToggleProductActive(p)}
-                      className={`rounded-lg px-2 py-1 text-[0.65rem] font-semibold border transition-colors ${
-                        p.active
-                          ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
-                          : 'bg-white/5 text-zinc-500 border-white/10'
-                      }`}
-                    >
-                      {p.active ? 'Activo' : 'Inactivo'}
-                    </button>
-                    <button onClick={() => { setEditingProduct(p); setCreatingProduct(false); }} className="flex h-7 w-7 items-center justify-center rounded-lg glass-card text-zinc-400 hover:text-white" title="Editar">
-                      <Pencil className="h-3.5 w-3.5" />
-                    </button>
-                    <button onClick={() => handleDeleteProduct(p.id)} className="flex h-7 w-7 items-center justify-center rounded-lg bg-red-500/10 text-red-400 hover:bg-red-500/20" title="Eliminar">
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </button>
-                  </div>
-                </div>
               )}
-            </div>
-          ))}
 
-          {categoryProducts.length === 0 && !creatingProduct && (
-            <p className="py-8 text-center text-sm text-zinc-600">No hay productos en esta categoría.</p>
+              <div className="space-y-2.5 max-h-[calc(100vh-230px)] overflow-y-auto pr-1">
+                {categoryProducts.map((p) => (
+                  <div key={p.id}>
+                    {editingProduct?.id === p.id ? (
+                      <ProductForm
+                        product={p}
+                        categoryId={selectedCategory}
+                        onClose={() => setEditingProduct(null)}
+                        onSaved={() => { setEditingProduct(null); load(); }}
+                      />
+                    ) : (
+                      <div className={`flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 sm:gap-3 rounded-2xl glass-card p-3 sm:p-3.5 ${!p.active ? 'opacity-50' : ''}`}>
+                        <div className="flex items-center gap-3 min-w-0 flex-1">
+                          <div className="flex h-11 w-11 sm:h-12 sm:w-12 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-gold/5">
+                            {p.image_url ? (
+                              <img src={p.image_url} alt="" className="h-full w-full object-cover" />
+                            ) : (
+                              <ImageIcon className="h-5 w-5 text-zinc-600" />
+                            )}
+                          </div>
+                          <div className="flex-1 min-w-0 space-y-0.5">
+                            <p className="truncate text-sm font-bold text-white">{p.name}</p>
+                            <p className="text-xs text-zinc-400">{p.price > 0 ? `${p.price}€` : 'Sin precio'}</p>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center justify-end gap-1 sm:gap-1.5 shrink-0 pt-2 sm:pt-0 border-t border-white/5 sm:border-t-0">
+                          <button onClick={() => handleMoveProduct(p, -1)} className="flex h-7 w-7 items-center justify-center rounded-lg glass-card text-zinc-400 hover:text-white" title="Subir">
+                            <ArrowUp className="h-3.5 w-3.5" />
+                          </button>
+                          <button onClick={() => handleMoveProduct(p, 1)} className="flex h-7 w-7 items-center justify-center rounded-lg glass-card text-zinc-400 hover:text-white" title="Bajar">
+                            <ArrowDown className="h-3.5 w-3.5" />
+                          </button>
+                          <button
+                            onClick={() => handleToggleProductActive(p)}
+                            className={`rounded-lg px-2 py-1 text-[0.65rem] font-semibold border transition-colors ${
+                              p.active
+                                ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+                                : 'bg-white/5 text-zinc-500 border-white/10'
+                            }`}
+                          >
+                            {p.active ? 'Activo' : 'Inactivo'}
+                          </button>
+                          <button onClick={() => { setEditingProduct(p); setCreatingProduct(false); }} className="flex h-7 w-7 items-center justify-center rounded-lg glass-card text-zinc-400 hover:text-white" title="Editar">
+                            <Pencil className="h-3.5 w-3.5" />
+                          </button>
+                          <button onClick={() => handleDeleteProduct(p.id)} className="flex h-7 w-7 items-center justify-center rounded-lg bg-red-500/10 text-red-400 hover:bg-red-500/20" title="Eliminar">
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ))}
+
+                {categoryProducts.length === 0 && !creatingProduct && (
+                  <p className="py-8 text-center text-sm text-zinc-600">No hay productos en esta categoría.</p>
+                )}
+              </div>
+            </div>
+          ) : (
+            <div className="rounded-3xl glass-card px-5 py-12 text-center">
+              <p className="text-sm text-zinc-500">Selecciona una categoría para gestionar sus productos.</p>
+            </div>
           )}
         </div>
-      )}
+      </div>
     </div>
   );
 }

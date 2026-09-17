@@ -162,7 +162,7 @@ export function AdminStaff() {
   }
 
   return (
-    <div className="mx-auto max-w-2xl w-full min-w-0 space-y-6">
+    <div className="mx-auto max-w-6xl w-full min-w-0 space-y-6">
       {/* Barbers / Staff List */}
       <div className="space-y-4">
         <div className="flex items-center justify-between">
@@ -186,7 +186,7 @@ export function AdminStaff() {
           />
         )}
 
-        <div className="space-y-2.5">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
           {barbers.map((b) => (
             <div key={b.id} className="flex items-center gap-2.5 sm:gap-3.5 rounded-2xl glass-card p-3 sm:p-3.5 transition-colors hover:border-gold/20">
               {b.photo_url ? (

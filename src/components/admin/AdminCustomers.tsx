@@ -40,7 +40,7 @@ export function AdminCustomers({ customers, loading, onRefresh }: AdminCustomers
   }
 
   return (
-    <div className="mx-auto max-w-2xl w-full min-w-0 space-y-4">
+    <div className="mx-auto max-w-6xl w-full min-w-0 space-y-4">
       <div className="flex items-center gap-2 rounded-xl glass-card px-3 py-2.5">
         <Search className="h-4 w-4 text-zinc-500" />
         <input
@@ -58,7 +58,7 @@ export function AdminCustomers({ customers, loading, onRefresh }: AdminCustomers
           <p className="text-sm text-zinc-500">No hay clientes registrados.</p>
         </div>
       ) : (
-        <div className="space-y-2.5">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
           {filtered.map((c) => (
             <div
               key={c.user_id || c.phone}

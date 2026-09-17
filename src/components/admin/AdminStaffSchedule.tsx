@@ -177,7 +177,7 @@ export function AdminStaffSchedule() {
   }
 
   return (
-    <div className="mx-auto max-w-2xl w-full min-w-0 space-y-4">
+    <div className="mx-auto max-w-6xl w-full min-w-0 space-y-4">
       <div>
         <label className="mb-1.5 block text-xs text-zinc-500">Barbero</label>
         <div className="flex flex-wrap gap-2">
@@ -211,7 +211,7 @@ export function AdminStaffSchedule() {
         </button>
       </div>
 
-      <div className="space-y-2.5">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
         {DISPLAY_WEEKDAYS.map((weekday) => {
           const dayName = WEEKDAY_NAMES[weekday];
           const s = getSchedule(weekday);

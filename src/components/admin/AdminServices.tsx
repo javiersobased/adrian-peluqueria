@@ -71,10 +71,10 @@ export function AdminServices() {
   }
 
   return (
-    <div className="mx-auto max-w-2xl space-y-4">
+    <div className="mx-auto max-w-6xl w-full min-w-0 space-y-4">
       <button
         onClick={() => { setCreating(true); setEditing(null); }}
-        className="flex w-full items-center justify-center gap-2 rounded-full gold-gradient py-3.5 text-sm font-bold uppercase tracking-wider text-black transition-all hover:brightness-110 active:scale-[0.98] gold-glow"
+        className="flex w-full items-center justify-center gap-2 rounded-full gold-gradient py-3 text-sm font-bold uppercase tracking-wider text-black transition-all hover:brightness-110 active:scale-[0.98] gold-glow"
       >
         <Plus className="h-4 w-4" />Nuevo servicio
       </button>
@@ -83,7 +83,7 @@ export function AdminServices() {
         <ServiceForm service={editing} onClose={() => { setCreating(false); setEditing(null); }} onSaved={() => { setCreating(false); setEditing(null); load(); }} />
       )}
 
-      <div className="space-y-2.5">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
         {services.map((s) => {
           const iconSrc = getIconSrc(s.icon);
           return (

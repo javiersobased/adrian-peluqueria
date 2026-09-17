@@ -200,7 +200,7 @@ export function AdminAgenda({ bookings, loading, onRefresh }: AdminAgendaProps) 
   }
 
   return (
-    <div className="mx-auto max-w-3xl w-full min-w-0">
+    <div className="mx-auto max-w-6xl w-full min-w-0 space-y-4">
       <div className="mb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div className="flex items-center gap-2">
           <CalendarDays className="h-5 w-5 text-gold" />
@@ -313,14 +313,14 @@ export function AdminAgenda({ bookings, loading, onRefresh }: AdminAgendaProps) 
           )}
         </div>
       ) : (
-      <div data-lenis-prevent className="max-h-[70vh] space-y-6 overflow-y-auto overflow-x-hidden pr-1 sm:pr-2">
+      <div data-lenis-prevent className="max-h-[70vh] md:max-h-[calc(100vh-210px)] space-y-5 overflow-y-auto overflow-x-hidden pr-1 sm:pr-2">
         {groupedBookings.map((group) => (
           <div key={group.date}>
             <div className="sticky top-0 z-10 mb-2 rounded-xl bg-zinc-900/80 px-4 py-2 backdrop-blur-sm">
               <p className="font-display text-sm font-bold text-gold">{formatDateLabel(group.date)}</p>
               <p className="text-xs text-zinc-500">{group.items.length} {group.items.length === 1 ? 'cita' : 'citas'}</p>
             </div>
-            <div className="space-y-2.5">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
               {group.items.map((b) => {
                 const barber = getBarber(b.barber);
                 const isCancelled = b.status === 'cancelled';

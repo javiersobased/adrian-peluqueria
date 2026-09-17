@@ -58,66 +58,72 @@ export function AdminManualBooking({ onCreated }: AdminManualBookingProps) {
   }, [valid, barber, service, date, time, fullName, services, onCreated]);
 
   return (
-    <div className="mx-auto max-w-xl">
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <FormCard label="Barbero">
-          <div className="flex gap-2">
-            {barbers.map((b) => (
-              <button key={b.id} type="button" onClick={() => setBarber(b.id)}
-                className={`flex-1 rounded-xl py-2.5 text-sm font-medium transition-all ${
-                  barber === b.id ? 'gold-gradient text-black' : 'glass-card text-zinc-400 hover:text-white'
-                }`}>
-                {b.name}
-              </button>
-            ))}
-          </div>
-        </FormCard>
+    <div className="mx-auto max-w-4xl w-full min-w-0">
+      <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-4 items-start">
+        {/* Left Column: Barbero, Servicio, Fecha y hora */}
+        <div className="space-y-4">
+          <FormCard label="Barbero">
+            <div className="flex gap-2">
+              {barbers.map((b) => (
+                <button key={b.id} type="button" onClick={() => setBarber(b.id)}
+                  className={`flex-1 rounded-xl py-2.5 text-sm font-medium transition-all ${
+                    barber === b.id ? 'gold-gradient text-black' : 'glass-card text-zinc-400 hover:text-white'
+                  }`}>
+                  {b.name}
+                </button>
+              ))}
+            </div>
+          </FormCard>
 
-        <FormCard label="Servicio">
-          <select value={service} onChange={(e) => setService(e.target.value)}
-            className="w-full rounded-xl glass-card px-4 py-3 text-sm text-white focus:border-gold/30 focus:outline-none">
-            {services.map((s) => (
-              <option key={s.id} value={s.name} className="bg-zinc-900">{s.name}</option>
-            ))}
-          </select>
-        </FormCard>
-
-        <FormCard label="Fecha y hora">
-          <div className="flex items-center gap-2 rounded-xl glass-card px-3 py-2.5">
-            <Calendar className="h-4 w-4 text-zinc-500" />
-            <input type="date" value={date} onChange={(e) => setDate(e.target.value)}
-              className="w-full bg-transparent text-sm text-white focus:outline-none [color-scheme:dark]" />
-          </div>
-          <div className="mt-2 flex items-center gap-2">
-            <Clock className="h-4 w-4 text-zinc-500" />
-            <select value={time} onChange={(e) => setTime(e.target.value)}
-              className="flex-1 rounded-xl glass-card px-3 py-2.5 text-sm text-white focus:border-gold/30 focus:outline-none">
-              <option value="" className="bg-zinc-900">Selecciona hora</option>
-              {ALL_TIME_SLOTS.map((s) => <option key={s} value={s} className="bg-zinc-900">{s}</option>)}
+          <FormCard label="Servicio">
+            <select value={service} onChange={(e) => setService(e.target.value)}
+              className="w-full rounded-xl glass-card px-4 py-3 text-sm text-white focus:border-gold/30 focus:outline-none">
+              {services.map((s) => (
+                <option key={s.id} value={s.name} className="bg-zinc-900">{s.name}</option>
+              ))}
             </select>
-          </div>
-        </FormCard>
+          </FormCard>
 
-        <FormCard label="Cliente">
-          <div className="flex items-center gap-3 rounded-xl glass-card px-4 py-3 focus-within:border-gold/30">
-            <User className="h-4 w-4 text-zinc-500" />
-            <input type="text" value={fullName} onChange={(e) => setFullName(e.target.value)}
-              placeholder="Nombre del cliente"
-              className="w-full bg-transparent text-sm text-white placeholder:text-zinc-600 focus:outline-none" />
-          </div>
-        </FormCard>
+          <FormCard label="Fecha y hora">
+            <div className="flex items-center gap-2 rounded-xl glass-card px-3 py-2.5">
+              <Calendar className="h-4 w-4 text-zinc-500" />
+              <input type="date" value={date} onChange={(e) => setDate(e.target.value)}
+                className="w-full bg-transparent text-sm text-white focus:outline-none [color-scheme:dark]" />
+            </div>
+            <div className="mt-2 flex items-center gap-2">
+              <Clock className="h-4 w-4 text-zinc-500" />
+              <select value={time} onChange={(e) => setTime(e.target.value)}
+                className="flex-1 rounded-xl glass-card px-3 py-2.5 text-sm text-white focus:border-gold/30 focus:outline-none">
+                <option value="" className="bg-zinc-900">Selecciona hora</option>
+                {ALL_TIME_SLOTS.map((s) => <option key={s} value={s} className="bg-zinc-900">{s}</option>)}
+              </select>
+            </div>
+          </FormCard>
+        </div>
 
-        {error && <div className="rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-400">{error}</div>}
-        {success && <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-400">Cita registrada correctamente.</div>}
+        {/* Right Column: Cliente, Errores y Acción */}
+        <div className="space-y-4">
+          <FormCard label="Cliente">
+            <div className="flex items-center gap-3 rounded-xl glass-card px-4 py-3 focus-within:border-gold/30">
+              <User className="h-4 w-4 text-zinc-500" />
+              <input type="text" value={fullName} onChange={(e) => setFullName(e.target.value)}
+                placeholder="Nombre del cliente"
+                className="w-full bg-transparent text-sm text-white placeholder:text-zinc-600 focus:outline-none" />
+            </div>
+          </FormCard>
 
-        <button type="submit" disabled={!valid || saving}
-          className={`flex w-full items-center justify-center gap-2 rounded-full py-4 text-sm font-bold uppercase tracking-wider transition-all ${
-            valid && !saving ? 'gold-gradient text-black hover:brightness-110 active:scale-[0.98] gold-glow' : 'bg-white/5 text-zinc-600'
-          }`}>
-          {saving ? <span className="h-4 w-4 animate-spin rounded-full border-2 border-black/30 border-t-black" />
-          : success ? <Check className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
-          Registrar cita
-        </button>
+          {error && <div className="rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-400">{error}</div>}
+          {success && <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-400">Cita registrada correctamente.</div>}
+
+          <button type="submit" disabled={!valid || saving}
+            className={`flex w-full items-center justify-center gap-2 rounded-full py-3.5 text-sm font-bold uppercase tracking-wider transition-all ${
+              valid && !saving ? 'gold-gradient text-black hover:brightness-110 active:scale-[0.98] gold-glow' : 'bg-white/5 text-zinc-600'
+            }`}>
+            {saving ? <span className="h-4 w-4 animate-spin rounded-full border-2 border-black/30 border-t-black" />
+            : success ? <Check className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
+            Registrar cita
+          </button>
+        </div>
       </form>
     </div>
   );

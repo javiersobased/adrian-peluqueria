@@ -1,10 +1,11 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
 import { fetchAllBarbers } from '@/data/services';
-import type { Barber } from '@/types';
-import { Plus, Trash2, Pencil, Check, X, Upload, UserRound, Mail, Shield, ShieldCheck } from 'lucide-react';
+import type { Barber, SavedBooking } from '@/types';
+import { Plus, Trash2, Pencil, Check, X, Upload, UserRound, Mail, Shield, ShieldCheck, AlertTriangle, ArrowRight, UserCheck, Scissors, Phone } from 'lucide-react';
 import { notify } from '@/lib/notify';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
+import { toISO } from '@/lib/schedule';
 
 const MASTER_ADMINS = [
   { name: 'Adrián Millán (Dueño - Hotmail)', email: 'adrian.millan.peguero@hotmail.com' },
@@ -18,11 +19,21 @@ export const isAdrian = (b?: Barber | null): boolean => {
   return b.id === 'adrian' || lowerName === 'adrian' || lowerName === 'adrián' || lowerName.startsWith('adrián') || lowerName.startsWith('adrian');
 };
 
+interface DeletionConflictState {
+  barber: Barber;
+  bookings: SavedBooking[];
+  isAdrian: boolean;
+  otherBarbers: Barber[];
+}
+
 export function AdminStaff() {
   const [barbers, setBarbers] = useState<Barber[]>([]);
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
   const [editing, setEditing] = useState<Barber | null>(null);
+  const [deletionConflict, setDeletionConflict] = useState<DeletionConflictState | null>(null);
+  const [selectedReassignBarber, setSelectedReassignBarber] = useState<string>('adrian');
+  const [deleting, setDeleting] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -33,27 +44,112 @@ export function AdminStaff() {
 
   useEffect(() => { load(); }, [load]);
 
+  const executeDeleteBarber = async (barberId: string, barberName: string, googleEmail?: string | null) => {
+    try {
+      const { error: delError } = await supabase.from('barbers').delete().eq('id', barberId);
+      if (delError) throw delError;
+
+      if (googleEmail) {
+        const cleanEmail = googleEmail.toLowerCase().trim();
+        if (!MASTER_ADMINS.some((a) => a.email === cleanEmail)) {
+          await supabase.from('staff').delete().eq('email', cleanEmail);
+        }
+      }
+      notify.success('Barbero eliminado', `${barberName} y sus permisos fueron revocados`);
+      load();
+    } catch (err: any) {
+      notify.error('Error al eliminar barbero', err?.message || 'No se pudo eliminar al barbero');
+    }
+  };
+
   const handleDelete = async (b: Barber) => {
-    if (isAdrian(b)) {
+    const isCurrentAdrian = isAdrian(b);
+
+    // 1. Consultar si este barbero tiene citas activas futuras pendientes
+    const today = toISO(new Date());
+    const { data: futureBookings, error: fetchErr } = await supabase
+      .from('bookings')
+      .select('*')
+      .eq('barber', b.id)
+      .gte('booking_date', today)
+      .neq('status', 'cancelled');
+
+    if (fetchErr) {
+      notify.error('Error al comprobar citas', fetchErr.message);
+      return;
+    }
+
+    const pending = (futureBookings as SavedBooking[]) || [];
+
+    // 2. Si tiene citas futuras, exigir advertencia y reasignación
+    if (pending.length > 0) {
+      const others = barbers.filter((barber) => barber.id !== b.id && barber.active !== false);
+      const defaultTarget = isCurrentAdrian ? (others[0]?.id || '') : 'adrian';
+
+      if (isCurrentAdrian && others.length === 0) {
+        notify.error('Acción denegada', 'El perfil principal de Adrián tiene citas asignadas y no hay otros barberos para asumirlas.');
+        return;
+      }
+
+      setSelectedReassignBarber(defaultTarget);
+      setDeletionConflict({
+        barber: b,
+        bookings: pending,
+        isAdrian: isCurrentAdrian,
+        otherBarbers: others,
+      });
+      return;
+    }
+
+    // 3. Si es Adrián y no tiene citas, sigue estando protegido por defecto
+    if (isCurrentAdrian) {
       notify.error('Acción denegada', 'El perfil principal de Adrián no puede ser eliminado');
       return;
     }
 
     if (!confirm(`¿Eliminar al barbero "${b.name}"? Esta acción revocará de inmediato cualquier acceso al panel.`)) return;
-    try {
-      const { error: delError } = await supabase.from('barbers').delete().eq('id', b.id);
-      if (delError) throw delError;
+    executeDeleteBarber(b.id, b.name, b.google_email);
+  };
 
-      if (b.google_email) {
-        const cleanEmail = b.google_email.toLowerCase().trim();
-        if (!MASTER_ADMINS.some((a) => a.email === cleanEmail)) {
-          await supabase.from('staff').delete().eq('email', cleanEmail);
-        }
+  const handleConfirmDeletionWithReassignment = async () => {
+    if (!deletionConflict) return;
+    const targetId = selectedReassignBarber;
+    if (!targetId) {
+      notify.error('Selecciona un barbero', 'Debes indicar a qué barbero reasignar las citas.');
+      return;
+    }
+
+    setDeleting(true);
+    try {
+      // 1. Reasignar citas pendientes
+      const bookingIds = deletionConflict.bookings.map((x) => x.id);
+      const { error: reassignError } = await supabase
+        .from('bookings')
+        .update({ barber: targetId })
+        .in('id', bookingIds);
+
+      if (reassignError) {
+        throw reassignError;
       }
-      notify.success('Barbero eliminado', `${b.name} y sus permisos fueron revocados`);
-      load();
+
+      // 2. Eliminar barbero
+      await executeDeleteBarber(
+        deletionConflict.barber.id,
+        deletionConflict.barber.name,
+        deletionConflict.barber.google_email
+      );
+
+      const targetName = barbers.find((x) => x.id === targetId)?.name || targetId;
+      notify.success(
+        'Citas reasignadas con éxito',
+        `${bookingIds.length} ${bookingIds.length === 1 ? 'cita reasignada' : 'citas reasignadas'} a ${targetName}`
+      );
+      setDeletionConflict(null);
     } catch (err: any) {
-      notify.error('Error al eliminar barbero', err?.message || 'No se pudo eliminar al barbero');
+      console.error('Error al reasignar citas y eliminar:', err);
+      notify.error('Error en reasignación', err?.message || 'No se pudieron reasignar las citas');
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -158,6 +254,159 @@ export function AdminStaff() {
           ))}
         </div>
       </div>
+
+      {/* Modal de confirmación y reasignación preventiva antes de eliminar barbero */}
+      {deletionConflict && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div
+            className="absolute inset-0 bg-black/80 backdrop-blur-md animate-fade-in"
+            onClick={() => { if (!deleting) setDeletionConflict(null); }}
+          />
+          <div className="relative flex max-h-[90vh] w-full max-w-lg flex-col rounded-3xl border border-amber-500/30 bg-zinc-900/95 p-5 sm:p-6 shadow-2xl backdrop-blur-xl animate-scale-in">
+            {/* Header */}
+            <div className="flex items-start justify-between gap-3 border-b border-white/10 pb-4">
+              <div className="flex items-center gap-2.5">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-500/20 text-amber-400 border border-amber-500/30">
+                  <AlertTriangle className="h-5 w-5" />
+                </div>
+                <div>
+                  <h3 className="font-display text-base font-bold text-white">
+                    Citas pendientes asignadas ({deletionConflict.bookings.length})
+                  </h3>
+                  <p className="text-xs text-zinc-400">
+                    {deletionConflict.barber.name} tiene citas pendientes en el sistema
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => { if (!deleting) setDeletionConflict(null); }}
+                className="rounded-full p-1 text-zinc-400 hover:text-white transition-colors"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            {/* Content info & reassignment selector */}
+            <div className="my-4 space-y-3.5 overflow-y-auto pr-1 text-xs">
+              {deletionConflict.isAdrian ? (
+                <div className="rounded-2xl border border-amber-500/30 bg-amber-500/10 p-3.5 space-y-2">
+                  <p className="font-semibold text-amber-300">
+                    Reasignación de citas de Adrián Millán
+                  </p>
+                  <p className="text-zinc-300 text-[0.75rem] leading-relaxed">
+                    Selecciona qué barbero del equipo atenderá las {deletionConflict.bookings.length} citas pendientes antes de proceder:
+                  </p>
+                  {deletionConflict.otherBarbers.length === 0 ? (
+                    <p className="text-red-400 text-xs font-semibold">
+                      No hay otros barberos disponibles para reasignar estas citas.
+                    </p>
+                  ) : (
+                    <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      {deletionConflict.otherBarbers.map((b) => (
+                        <button
+                          key={b.id}
+                          type="button"
+                          onClick={() => setSelectedReassignBarber(b.id)}
+                          className={`flex items-center gap-2.5 rounded-xl p-2.5 text-left transition-all ${
+                            selectedReassignBarber === b.id
+                              ? 'border border-gold bg-gold/15 text-white font-bold'
+                              : 'border border-white/10 bg-white/5 text-zinc-300 hover:bg-white/10'
+                          }`}
+                        >
+                          {b.photo_url ? (
+                            <img src={b.photo_url} alt="" className="h-6 w-6 rounded-full object-cover shrink-0" />
+                          ) : (
+                            <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full gold-gradient text-[0.6rem] font-bold text-black">
+                              {b.initials}
+                            </div>
+                          )}
+                          <span className="truncate text-xs">{b.name}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="rounded-2xl border border-gold/30 bg-gold/10 p-3.5 space-y-1.5">
+                  <div className="flex items-center gap-2 text-gold font-bold">
+                    <UserCheck className="h-4 w-4" />
+                    <span>Reasignación automática a Adrián Millán</span>
+                  </div>
+                  <p className="text-zinc-300 text-[0.75rem] leading-relaxed">
+                    Antes de eliminar al barbero <strong>{deletionConflict.barber.name}</strong>, sus {deletionConflict.bookings.length} citas pendientes se reasignarán automáticamente a <strong>Adrián Millán</strong> para que ningún cliente se quede sin servicio.
+                  </p>
+                </div>
+              )}
+
+              {/* Lista de citas afectadas */}
+              <div className="space-y-2">
+                <p className="text-[0.65rem] uppercase tracking-wider font-semibold text-zinc-500">
+                  Citas que se transferirán ({deletionConflict.bookings.length})
+                </p>
+                <div className="max-h-[35vh] space-y-2 overflow-y-auto pr-1">
+                  {deletionConflict.bookings.map((b) => (
+                    <div
+                      key={b.id}
+                      className="flex items-start justify-between gap-3 rounded-xl border border-white/5 bg-white/[0.03] p-3 text-xs"
+                    >
+                      <div className="space-y-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="rounded-md bg-gold/15 px-1.5 py-0.5 font-mono text-[0.7rem] font-bold text-gold border border-gold/20">
+                            {b.booking_date} · {b.booking_time}h
+                          </span>
+                          <span className="truncate font-semibold text-white">{b.full_name}</span>
+                        </div>
+                        <p className="text-[0.7rem] text-zinc-400 flex items-center gap-1.5 truncate">
+                          <Scissors className="h-3 w-3 text-gold/80 shrink-0" />
+                          <span className="truncate">{b.service}</span>
+                          <span className="text-gold font-mono shrink-0">({b.service_price}€)</span>
+                        </p>
+                        {b.phone && (
+                          <p className="text-[0.65rem] text-zinc-500 flex items-center gap-1">
+                            <Phone className="h-2.5 w-2.5 shrink-0" />
+                            <span>{b.phone}</span>
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Actions */}
+            <div className="flex flex-col-reverse sm:flex-row items-center justify-end gap-2 border-t border-white/10 pt-4">
+              <button
+                type="button"
+                disabled={deleting}
+                onClick={() => setDeletionConflict(null)}
+                className="w-full sm:w-auto rounded-xl border border-white/10 px-4 py-2.5 text-xs font-semibold text-zinc-300 hover:bg-white/5 transition-colors disabled:opacity-50"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                disabled={deleting || (deletionConflict.isAdrian && deletionConflict.otherBarbers.length === 0)}
+                onClick={handleConfirmDeletionWithReassignment}
+                className="w-full sm:w-auto flex items-center justify-center gap-2 rounded-xl bg-red-600 hover:bg-red-500 px-5 py-2.5 text-xs font-bold uppercase tracking-wider text-white active:scale-95 transition-all shadow-md disabled:opacity-50"
+              >
+                {deleting ? (
+                  <>
+                    <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+                    <span>Reasignando y eliminando...</span>
+                  </>
+                ) : (
+                  <>
+                    <ArrowRight className="h-3.5 w-3.5" />
+                    <span>Reasignar citas y eliminar barbero</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -154,7 +154,21 @@ export function AdminAgenda({ bookings, loading, onRefresh }: AdminAgendaProps) 
     }
   };
 
-  const getBarber = (id: string) => barbers.find((b) => b.id === id);
+  const getBarber = (id: string): Barber => {
+    const found = barbers.find((b) => b.id === id);
+    if (found) return found;
+    const adrian = barbers.find((b) => b.id === 'adrian');
+    if (id === 'adrian' && adrian) return adrian;
+    return {
+      id: id || 'barber',
+      name: id === 'adrian' ? 'Adrián Millán' : id ? `Barbero (${id})` : 'Barbero no asignado',
+      role: 'Barbero',
+      initials: (id || '?').substring(0, 2).toUpperCase(),
+      active: true,
+      services: [],
+      working_hours: { start: '09:00', end: '20:30', days: [1, 2, 3, 4, 5, 6] },
+    };
+  };
 
   const formatDateLabel = (iso: string) => {
     const d = new Date(iso + 'T00:00:00');
@@ -531,9 +545,9 @@ export function AdminAgenda({ bookings, loading, onRefresh }: AdminAgendaProps) 
                 <div className="rounded-2xl glass-card p-3.5 border border-white/5 bg-zinc-900/40">
                   <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500">Barbero</p>
                   <div className="mt-1 flex items-center gap-2">
-                    {getBarber(selectedBooking.barber)?.photo_url ? (
+                    {getBarber(selectedBooking.barber).photo_url ? (
                       <img
-                        src={getBarber(selectedBooking.barber)!.photo_url!}
+                        src={getBarber(selectedBooking.barber).photo_url!}
                         alt=""
                         className="h-5 w-5 rounded-full object-cover"
                       />

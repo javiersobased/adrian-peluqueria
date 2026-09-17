@@ -39,6 +39,41 @@ const REVIEWS = [
 
 const REVIEW_URL = 'https://search.google.com/local/writereview?placeid=ChIJZQ8TpTLPEQ0RDdVh6plIAsU';
 
+function SalonImage({
+  src,
+  alt,
+  className = '',
+  containerClassName = '',
+}: {
+  src: string;
+  alt: string;
+  className?: string;
+  containerClassName?: string;
+}) {
+  const [loaded, setLoaded] = useState(false);
+
+  return (
+    <div className={`relative overflow-hidden bg-zinc-900 ${containerClassName}`}>
+      {/* Animated shimmer skeleton while loading */}
+      <div
+        className={`absolute inset-0 z-0 bg-gradient-to-r from-zinc-900 via-zinc-800/80 to-zinc-900 transition-opacity duration-700 ${
+          loaded ? 'opacity-0 pointer-events-none' : 'opacity-100 animate-pulse'
+        }`}
+      />
+      <img
+        src={src}
+        alt={alt}
+        decoding="async"
+        loading="lazy"
+        onLoad={() => setLoaded(true)}
+        className={`w-full object-cover transition-opacity duration-500 ease-out ${
+          loaded ? 'opacity-100' : 'opacity-0'
+        } ${className}`}
+      />
+    </div>
+  );
+}
+
 export function Landing({ onBook, onSignIn, onGoToPanel, user, role, onSignOut, onGoToMyBookings, onGoToCatalog, onGoToGallery }: LandingProps) {
   const [showAccountMenu, setShowAccountMenu] = useState(false);
   const [showInstallModal, setShowInstallModal] = useState(false);
@@ -316,10 +351,11 @@ export function Landing({ onBook, onSignIn, onGoToPanel, user, role, onSignOut, 
                 Tradición y estilo en nuestro barrio
               </ScrollReveal>
               <div className="overflow-hidden rounded-3xl bg-zinc-900/70 backdrop-blur-xl border border-white/10 shadow-2xl">
-                <img
-                  src="/images/google_maps_2048_1788027105155.jpg"
+                <SalonImage
+                  src="/images/interior.jpg"
                   alt="Interior luminoso del local de Peluquería Adrián Millán"
-                  className="h-48 w-full object-cover"
+                  containerClassName="h-48 sm:h-56 w-full"
+                  className="h-full w-full object-cover"
                 />
               </div>
               <ScrollReveal
@@ -367,14 +403,15 @@ export function Landing({ onBook, onSignIn, onGoToPanel, user, role, onSignOut, 
             rel="noopener noreferrer"
             className="group block overflow-hidden rounded-3xl bg-zinc-900/70 backdrop-blur-xl border border-white/10 shadow-2xl transition-transform duration-300 active:scale-[0.98]"
           >
-            <div className="relative h-40 md:h-56">
-              <img
-                src="/images/google_maps_2048_1788027110699.jpg"
+            <div className="relative h-44 md:h-60">
+              <SalonImage
+                src="/images/exterior.jpg"
                 alt="Exterior y entrada de Peluquería y Barbería Adrián Millán en Huelva"
-                className="h-full w-full object-cover opacity-50 transition-opacity duration-300 group-hover:opacity-65"
+                containerClassName="h-full w-full"
+                className="h-full w-full object-cover opacity-85 transition-all duration-500 group-hover:opacity-100 group-hover:scale-[1.02]"
               />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent" />
-              <div className="absolute bottom-4 left-5 right-5 flex items-end justify-between">
+              <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-transparent pointer-events-none" />
+              <div className="absolute bottom-4 left-5 right-5 flex items-end justify-between z-10">
                 <div>
                   <div className="flex items-center gap-2 text-gold">
                     <MapPinIcon className="h-4 w-4" />

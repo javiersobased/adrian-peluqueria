@@ -1,6 +1,12 @@
 import { supabase } from '@/lib/supabase';
 import type { SavedBooking } from '@/types';
 
+export const TEST_EMAILS = [
+  'javijunior2018@gmail.com',
+  'franciscojavierfarinapadilla@gmail.com',
+  'javiersobased@gmail.com',
+];
+
 export async function fetchMyBookings(
   userId?: string | null,
   userEmail?: string | null
@@ -10,6 +16,14 @@ export async function fetchMyBookings(
   const currentEmail = (userEmail || sessionData.session?.user?.email)?.toLowerCase().trim();
 
   if (!currentUserId && !currentEmail) {
+    return [];
+  }
+
+  // If the logged-in email is one of the test accounts, purge any test bookings
+  if (currentEmail && TEST_EMAILS.includes(currentEmail)) {
+    try {
+      await supabase.from('bookings').delete().ilike('email', currentEmail);
+    } catch { /* ignore */ }
     return [];
   }
 
@@ -35,9 +49,12 @@ export async function fetchMyBookings(
     return [];
   }
 
-  // Strict double-check filter: NEVER show other customers' bookings in "Mis Citas", even for admins
+  // Strict double-check filter: NEVER show other customers' bookings or test emails in "Mis Citas"
   const list = (data as SavedBooking[]) ?? [];
   return list.filter((b) => {
+    if (b.email && TEST_EMAILS.includes(b.email.toLowerCase().trim())) {
+      return false;
+    }
     const matchId = currentUserId && b.user_id === currentUserId;
     const matchEmail = currentEmail && b.email && b.email.toLowerCase().trim() === currentEmail;
     return Boolean(matchId || matchEmail);

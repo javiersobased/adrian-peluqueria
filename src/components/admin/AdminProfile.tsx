@@ -237,7 +237,7 @@ export function AdminProfile({ userRole, onBarberUpdated }: AdminProfileProps) {
             </button>
           </div>
 
-          {/* Basic Info & Photo Actions */}
+          {/* Basic Info y Photo Actions */}
           <div className="flex-1 text-center sm:text-left space-y-4">
             <div>
               <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2">
@@ -346,7 +346,7 @@ export function AdminProfile({ userRole, onBarberUpdated }: AdminProfileProps) {
             <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-gold/10 text-gold mb-2">
               <Scissors className="h-4 w-4" />
             </div>
-            <p className="text-xs font-semibold text-zinc-200">Especialidades & Bio</p>
+            <p className="text-xs font-semibold text-zinc-200">Especialidades y Bio</p>
             <p className="text-[11px] leading-relaxed text-zinc-400">
               Presentación personal y técnicas destacadas que verán tus clientes.
             </p>

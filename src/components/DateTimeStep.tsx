@@ -373,7 +373,7 @@ export function DateTimeStep({ barber, service, onBack, onContinue }: DateTimeSt
       {/* Modal Card wrapper - centered on desktop, edge-to-edge on mobile */}
       <div className="flex flex-col h-full w-full max-w-xl mx-auto sm:my-auto sm:max-h-[94vh] sm:rounded-3xl sm:border sm:border-white/10 sm:bg-zinc-950/80 sm:backdrop-blur-xl sm:shadow-2xl overflow-hidden">
         
-        {/* Header: Centered Month & Year with Close button on right */}
+        {/* Header: Centered Month y Year with Close button on right */}
         <div className="relative flex items-center justify-between px-4 sm:px-6 py-3.5 border-b border-white/10 shrink-0">
           <div className="w-8" />
           <h2 className="font-display text-base sm:text-lg font-bold text-white capitalize text-center">
@@ -606,7 +606,7 @@ export function DateTimeStep({ barber, service, onBack, onContinue }: DateTimeSt
                 </button>
               </div>
 
-              {/* Service & Barber Card (Embed) */}
+              {/* Service y Barber Card (Embed) */}
               <div className="rounded-2xl border border-white/10 bg-zinc-900/90 backdrop-blur-md p-4 sm:p-5 shadow-xl mt-3 sm:mt-4">
                 {/* Fila superior: Servicio, Precio y Rango Horario */}
                 <div className="flex items-start justify-between gap-3">
@@ -657,7 +657,7 @@ export function DateTimeStep({ barber, service, onBack, onContinue }: DateTimeSt
                 </div>
               </div>
 
-              {/* Total & Duration section */}
+              {/* Total y Duration section */}
               <div className="mt-4 sm:mt-5 flex flex-col items-end px-1">
                 <div className="flex items-baseline gap-2">
                   <span className="text-xs sm:text-sm text-zinc-400">Total :</span>

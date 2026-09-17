@@ -39,18 +39,25 @@ interface NavItem {
   barberOnly?: boolean;
 }
 
+export const TEST_EMAILS = [
+  'javijunior2018@gmail.com',
+  'franciscojavierfarinapadilla@gmail.com',
+  'javiersobased@gmail.com',
+];
+
 export function AdminPanel({ userRole, onSignOut, onGoPublic }: AdminPanelProps) {
-  const isAdmin = userRole.role === 'admin' && userRole.status === 'verified';
   const [tab, setTab] = useState<AdminTab>('today');
+  const [selectedBarber, setSelectedBarber] = useState<string>('all');
+  const [barbers, setBarbers] = useState<Barber[]>([]);
   const [bookings, setBookings] = useState<SavedBooking[]>([]);
   const [blocks, setBlocks] = useState<BarberBlock[]>([]);
-  const [barbers, setBarbers] = useState<Barber[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
-  const [selectedBarber, setSelectedBarber] = useState<string>('all');
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [search, setSearch] = useState('');
+
+  const isAdmin = userRole.role === 'admin' && userRole.status === 'verified';
 
   useEffect(() => { setActivePwaContext('admin'); }, []);
 
@@ -58,8 +65,9 @@ export function AdminPanel({ userRole, onSignOut, onGoPublic }: AdminPanelProps)
     setSidebarOpen(false);
   }, []);
 
-  const reloadBarbers = useCallback(() => {
-    fetchAllBarbers().then((b) => setBarbers(b));
+  const reloadBarbers = useCallback(async () => {
+    const data = await fetchAllBarbers();
+    setBarbers(data);
   }, []);
 
   useEffect(() => { reloadBarbers(); }, [reloadBarbers]);
@@ -71,11 +79,26 @@ export function AdminPanel({ userRole, onSignOut, onGoPublic }: AdminPanelProps)
   }, [isAdmin, userRole.barber_id]);
 
   const fetchBookings = useCallback(async () => {
+    if (isAdmin) {
+      try {
+        for (const email of TEST_EMAILS) {
+          await supabase.from('bookings').delete().ilike('email', email);
+        }
+      } catch (err) {
+        console.warn('Error purgando citas de prueba:', err);
+      }
+    }
+
     let query = supabase.from('bookings').select('*').order('booking_date', { ascending: true }).order('booking_time', { ascending: true });
     if (selectedBarber !== 'all') query = query.eq('barber', selectedBarber);
     const { data } = await query;
-    setBookings((data as SavedBooking[]) ?? []);
-  }, [selectedBarber]);
+    const rawList = (data as SavedBooking[]) ?? [];
+    const filtered = rawList.filter((b) => {
+      if (!b.email) return true;
+      return !TEST_EMAILS.includes(b.email.toLowerCase().trim());
+    });
+    setBookings(filtered);
+  }, [selectedBarber, isAdmin]);
 
   const fetchBlocks = useCallback(async () => {
     let query = supabase.from('barber_blocks').select('*').order('created_at', { ascending: false });
@@ -85,9 +108,19 @@ export function AdminPanel({ userRole, onSignOut, onGoPublic }: AdminPanelProps)
   }, [selectedBarber]);
 
   const fetchCustomers = useCallback(async () => {
+    if (isAdmin) {
+      try {
+        for (const email of TEST_EMAILS) {
+          await supabase.from('customers').delete().ilike('email', email);
+        }
+      } catch (err) {
+        console.warn('Error purgando clientes de prueba:', err);
+      }
+    }
     const { data } = await supabase.from('customers').select('*').order('created_at', { ascending: false });
-    setCustomers((data as Customer[]) ?? []);
-  }, []);
+    const rawCustomers = (data as Customer[]) ?? [];
+    setCustomers(rawCustomers.filter((c) => !c.email || !TEST_EMAILS.includes(c.email.toLowerCase().trim())));
+  }, [isAdmin]);
 
   const refresh = useCallback(async () => {
     setLoading(true);

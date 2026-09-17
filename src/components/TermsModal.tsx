@@ -39,7 +39,7 @@ export function TermsModal({ onAccept, onSignOut, saving = false }: TermsModalPr
         </div>
 
         <h2 className="text-center font-display text-xl font-bold text-white tracking-tight">
-          Términos de Servicio & Privacidad
+          Términos de Servicio y Privacidad
         </h2>
         <p className="mt-2 text-center text-xs text-zinc-400 leading-relaxed">
           Bienvenido a Peluquería Adrián Millán. Para tramitar tus citas de forma segura y cumplir con la legislación española (RGPD y LOPDGDD), confirma los siguientes puntos:

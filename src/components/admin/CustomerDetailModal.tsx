@@ -191,7 +191,7 @@ export function CustomerDetailModal({ customer, onClose }: CustomerDetailModalPr
             </button>
           </div>
 
-          {/* Quick Action Buttons: WhatsApp & Call */}
+          {/* Quick Action Buttons: WhatsApp y Call */}
           <div className="mt-4 flex flex-wrap gap-2.5">
             <a
               href={getWhatsAppUrl(customer.phone, `¡Hola ${customer.full_name}! Te escribimos de Peluquería Adrián...`)}

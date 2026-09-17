@@ -260,7 +260,7 @@ export function Landing({ onBook, onSignIn, onGoToPanel, user, role, onSignOut, 
           <div className="mb-6 flex flex-col sm:flex-row items-start sm:items-end justify-between gap-4">
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.3em] text-gold">Nuestros Cortes</p>
-              <h3 className="font-display text-2xl font-bold text-white sm:text-3xl">Estilos & Degradados</h3>
+              <h3 className="font-display text-2xl font-bold text-white sm:text-3xl">Estilos y Degradados</h3>
               <p className="mt-1 text-xs text-zinc-400">Trabajos reales realizados en nuestro salón en Huelva.</p>
             </div>
             {onGoToGallery && (

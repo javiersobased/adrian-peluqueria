@@ -290,7 +290,7 @@ export function MyBookings({ onBack, userEmail, userId, onSignOut }: MyBookingsP
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
               <h3 className="text-xs font-semibold uppercase tracking-wider text-zinc-400">
-                Privacidad & Derecho al Olvido (RGPD)
+                Privacidad y Derecho al Olvido (RGPD)
               </h3>
               <p className="mt-1 text-xs text-zinc-500 max-w-md leading-relaxed">
                 Puedes solicitar la eliminación definitiva de tu cuenta y el borrado de tus datos personales de contacto de nuestro sistema.

@@ -165,7 +165,7 @@ export function InstallAppModal({ isOpen, onClose, appName = 'Adrián Millán' }
 
               {/* Screen Inner Container with exact website aesthetic */}
               <div className="relative w-full h-full rounded-[1.4rem] bg-zinc-950 overflow-hidden flex flex-col justify-between border border-white/5 select-none">
-                {/* Background gradient & wallpaper matching site */}
+                {/* Background gradient y wallpaper matching site */}
                 <div className="absolute inset-0 -z-10 bg-gradient-to-b from-zinc-900/90 via-black to-zinc-950" />
                 <div className="absolute -top-12 -right-12 w-32 h-32 rounded-full bg-gold/10 blur-2xl pointer-events-none" />
 

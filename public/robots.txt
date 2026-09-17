@@ -6,7 +6,7 @@ Allow: /
 Disallow: /admin
 Disallow: /api/
 
-# AI Search & Indexing bots (Perplexity, OpenAI Search, Anthropic)
+# AI Search y Indexing bots (Perplexity, OpenAI Search, Anthropic)
 User-agent: GPTBot
 Allow: /
 

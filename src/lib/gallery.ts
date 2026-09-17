@@ -5,14 +5,14 @@ export const DEFAULT_GALLERY_PHOTOS: GalleryPhoto[] = [
   {
     id: 'seed-1',
     image_url: 'https://images.unsplash.com/photo-1622286342621-4bd786c2447c?auto=compress&cs=tinysrgb&w=800&q=80',
-    title: 'Fade clásico & textura',
+    title: 'Fade clásico y textura',
     barber_id: 'adrian',
     created_at: new Date().toISOString(),
   },
   {
     id: 'seed-2',
     image_url: 'https://images.unsplash.com/photo-1503951914875-452162b0f3f1?auto=compress&cs=tinysrgb&w=800&q=80',
-    title: 'Arreglo de barba & perfilado',
+    title: 'Arreglo de barba y perfilado',
     barber_id: 'adrian',
     created_at: new Date().toISOString(),
   },
@@ -33,7 +33,7 @@ export const DEFAULT_GALLERY_PHOTOS: GalleryPhoto[] = [
   {
     id: 'seed-5',
     image_url: 'https://images.unsplash.com/photo-1517832606299-7ae9b720a186?auto=compress&cs=tinysrgb&w=800&q=80',
-    title: 'Diseño moderno & peinado',
+    title: 'Diseño moderno y peinado',
     barber_id: 'adrian',
     created_at: new Date().toISOString(),
   },

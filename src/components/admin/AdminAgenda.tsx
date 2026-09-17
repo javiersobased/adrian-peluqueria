@@ -248,7 +248,7 @@ export function AdminAgenda({ bookings, loading, onRefresh }: AdminAgendaProps) 
 
                     {/* Content */}
                     <div className="flex-1 min-w-0 space-y-1.5">
-                      {/* TOP: Client Name & Service */}
+                      {/* TOP: Client Name y Service */}
                       <div className="flex items-baseline justify-between gap-2">
                         <div className="flex items-center gap-2 min-w-0">
                           <p className="truncate text-sm font-bold text-white group-hover:text-gold transition-colors">
@@ -282,7 +282,7 @@ export function AdminAgenda({ bookings, loading, onRefresh }: AdminAgendaProps) 
                         <p className="truncate text-xs text-zinc-500 italic">"{b.comments}"</p>
                       )}
 
-                      {/* BOTTOM: Barber Photo & "Cita para [barber_name]" */}
+                      {/* BOTTOM: Barber Photo y "Cita para [barber_name]" */}
                       <div className="pt-1.5 flex items-center gap-2 border-t border-white/[0.04] text-xs text-zinc-400">
                         {barber?.photo_url ? (
                           <img src={barber.photo_url} alt="" className="h-4 w-4 rounded-full object-cover shrink-0" />
@@ -297,7 +297,7 @@ export function AdminAgenda({ bookings, loading, onRefresh }: AdminAgendaProps) 
                       </div>
                     </div>
 
-                    {/* Actions & Chevron */}
+                    {/* Actions y Chevron */}
                     <div className="flex items-center gap-1 sm:gap-1.5 shrink-0 self-center">
                       {isCancelled ? (
                         <button
@@ -401,7 +401,7 @@ export function AdminAgenda({ bookings, loading, onRefresh }: AdminAgendaProps) 
                 )}
               </div>
 
-              {/* Service & Barber */}
+              {/* Service y Barber */}
               <div className="grid grid-cols-2 gap-3">
                 <div className="rounded-2xl glass-card p-3.5 border border-white/5 bg-zinc-900/40">
                   <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500">Servicio</p>

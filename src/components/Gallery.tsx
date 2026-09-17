@@ -115,7 +115,7 @@ export function Gallery({ onBack, onBook, userRole, userEmail }: GalleryProps) {
           </button>
 
           <div className="text-center">
-            <h1 className="font-display text-base font-bold text-white tracking-wide">Cortes & Estilos</h1>
+            <h1 className="font-display text-base font-bold text-white tracking-wide">Cortes y Estilos</h1>
             <p className="text-[0.65rem] uppercase tracking-widest text-gold font-semibold">Galería Adrián Millán</p>
           </div>
 

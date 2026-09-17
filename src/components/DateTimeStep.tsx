@@ -131,7 +131,7 @@ export function DateTimeStep({ barber, service, onBack, onContinue }: DateTimeSt
 
   // Cargar reservas de todos los días mostrados para calcular la disponibilidad de cada día
   useEffect(() => {
-    if (loading || schedules.length === 0) return;
+    if (loading) return;
 
     let active = true;
     const datesToFetch = dayPills
@@ -154,9 +154,11 @@ export function DateTimeStep({ barber, service, onBack, onContinue }: DateTimeSt
               const { data, error } = await supabase.rpc('get_booked_intervals', { p_barber: barber.id, p_date: iso });
               if (!error && Array.isArray(data)) {
                 const intervals = data.map((item: any) => {
-                  const sName = item.service;
-                  const sFound = allServices.find((s) => s.name === sName || s.id === sName);
-                  const dur = sFound ? getServiceDurationMinutes(sFound) : (item.duration_minutes || 30);
+                  const sName = (item.service || '').trim().toLowerCase();
+                  const sFound = allServices.find((s) => s.name.trim().toLowerCase() === sName || s.id === item.service);
+                  const dur = item.duration_minutes && item.duration_minutes > 0
+                    ? item.duration_minutes
+                    : (sFound ? getServiceDurationMinutes(sFound) : 30);
                   return { start: item.booking_time, duration: dur };
                 });
                 return { iso, intervals };
@@ -186,18 +188,23 @@ export function DateTimeStep({ barber, service, onBack, onContinue }: DateTimeSt
     if (!date) return;
     const iso = toISO(date);
 
-    if (allBookingsByDate[iso]) {
-      setBookedIntervals(allBookingsByDate[iso]);
-      return;
-    }
+    // Si ya existe en caché, mostrarlo inmediatamente para fluidez
+    setAllBookingsByDate((prev) => {
+      if (prev[iso]) {
+        setBookedIntervals(prev[iso]);
+      }
+      return prev;
+    });
 
     try {
       const { data, error } = await supabase.rpc('get_booked_intervals', { p_barber: barber.id, p_date: iso });
       if (!error && Array.isArray(data)) {
         const intervals = data.map((item: any) => {
-          const sName = item.service;
-          const sFound = allServices.find((s) => s.name === sName || s.id === sName);
-          const dur = sFound ? getServiceDurationMinutes(sFound) : (item.duration_minutes || 30);
+          const sName = (item.service || '').trim().toLowerCase();
+          const sFound = allServices.find((s) => s.name.trim().toLowerCase() === sName || s.id === item.service);
+          const dur = item.duration_minutes && item.duration_minutes > 0
+            ? item.duration_minutes
+            : (sFound ? getServiceDurationMinutes(sFound) : 30);
           return {
             start: item.booking_time,
             duration: dur,
@@ -216,7 +223,7 @@ export function DateTimeStep({ barber, service, onBack, onContinue }: DateTimeSt
     const fallbackIntervals = slotList.map((s) => ({ start: s, duration: 30 }));
     setBookedIntervals(fallbackIntervals);
     setAllBookingsByDate((prev) => ({ ...prev, [iso]: fallbackIntervals }));
-  }, [barber.id, allServices, allBookingsByDate]);
+  }, [barber.id, allServices]);
 
   useEffect(() => {
     fetchBookedSlots(selected);
@@ -347,6 +354,7 @@ export function DateTimeStep({ barber, service, onBack, onContinue }: DateTimeSt
     if (!isDayAvailable(d, today, daySchedule, blocks, vacations)) return;
     setSelected(d);
     setSelectedTime('');
+    fetchBookedSlots(d);
   };
 
   const scrollDays = (direction: 'left' | 'right') => {
@@ -391,6 +399,30 @@ export function DateTimeStep({ barber, service, onBack, onContinue }: DateTimeSt
 
         {/* Scrollable Content */}
         <div data-lenis-prevent className="flex-1 overflow-y-auto px-4 sm:px-6 py-3">
+          {/* Badge informativo de barbero seleccionado para evitar confusiones */}
+          <div className="mb-3 flex items-center justify-between rounded-2xl bg-white/[0.04] border border-white/5 px-3.5 py-2">
+            <div className="flex items-center gap-2.5 min-w-0">
+              {barber.photo_url ? (
+                <img src={barber.photo_url} alt="" className="h-7 w-7 rounded-full object-cover shrink-0 ring-1 ring-gold/30" />
+              ) : (
+                <span className="flex h-7 w-7 items-center justify-center rounded-full gold-gradient font-display text-[0.65rem] font-bold text-black shrink-0">
+                  {barber.initials}
+                </span>
+              )}
+              <div className="min-w-0 truncate">
+                <p className="text-[0.65rem] uppercase tracking-wider text-zinc-400">Barbero seleccionado</p>
+                <p className="text-xs font-bold text-white truncate">{barber.name}</p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={onBack}
+              className="shrink-0 text-xs font-semibold text-gold hover:text-gold/80 hover:underline px-2 py-1"
+            >
+              Cambiar
+            </button>
+          </div>
+
           {loading ? (
             <div className="flex justify-center py-16">
               <span className="h-7 w-7 animate-spin rounded-full border-2 border-zinc-700 border-t-gold" />

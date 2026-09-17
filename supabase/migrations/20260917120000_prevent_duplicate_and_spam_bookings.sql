@@ -3,8 +3,8 @@
 -- Fecha: 2026-09-17
 -- ============================================================================
 
--- 1. LIMPIEZA PREVENTIVA DE POSIBLES DUPLICADOS HISTÓRICOS
--- Si existen dos citas activas con el mismo barbero, fecha y hora, conservamos la más reciente y cancelamos la anterior.
+-- 1. LIMPIEZA PREVENTIVA DE POSIBLES DUPLICADOS HISTÓRICOS Y SOLAPAMIENTOS
+-- A. Cancelar citas duplicadas exactas (mismo barbero, fecha y hora exacta)
 WITH duplicates AS (
   SELECT id,
          ROW_NUMBER() OVER (
@@ -19,6 +19,28 @@ SET status = 'cancelled'
 WHERE id IN (
   SELECT id FROM duplicates WHERE rnum > 1
 );
+
+-- B. Cancelar solapamientos históricos residuales (por duración de servicio)
+WITH intervals AS (
+  SELECT b.id, b.barber, b.booking_date, b.booking_time, b.created_at,
+         ((substring(b.booking_time from '^(\d+)')::integer * 60) + (substring(b.booking_time from ':(\d+)$')::integer)) as start_min,
+         ((substring(b.booking_time from '^(\d+)')::integer * 60) + (substring(b.booking_time from ':(\d+)$')::integer)) + coalesce(s.duration_minutes, 30) as end_min
+  FROM public.bookings b
+  LEFT JOIN public.services s ON (s.name = b.service OR s.id::text = b.service)
+  WHERE b.status != 'cancelled'
+),
+overlapping_pairs AS (
+  SELECT i2.id as duplicate_id
+  FROM intervals i1
+  JOIN intervals i2 ON i1.barber = i2.barber 
+                   AND i1.booking_date = i2.booking_date 
+                   AND i1.id != i2.id
+  WHERE GREATEST(i1.start_min, i2.start_min) < LEAST(i1.end_min, i2.end_min)
+    AND (i1.start_min < i2.start_min OR (i1.start_min = i2.start_min AND i1.created_at < i2.created_at))
+)
+UPDATE public.bookings
+SET status = 'cancelled'
+WHERE id IN (SELECT duplicate_id FROM overlapping_pairs);
 
 -- 2. ÍNDICE ÚNICO PARCIAL EN BASE DE DATOS
 -- Garantiza a nivel de motor de almacenamiento B-Tree que NUNCA podrán existir dos reservas activas
@@ -43,6 +65,12 @@ DECLARE
   v_madrid_date date;
   v_madrid_time time;
   v_booking_slot_time time;
+  v_new_duration integer := 30;
+  v_new_start_min integer;
+  v_new_end_min integer;
+  v_conflict_service text;
+  v_conflict_time text;
+  v_conflict_duration integer;
 BEGIN
   -- Si el estado pasa a 'cancelled', permitir la operación sin restricciones
   IF NEW.status = 'cancelled' THEN
@@ -117,6 +145,49 @@ BEGIN
   ) THEN
     RAISE EXCEPTION 'El horario seleccionado (% a las %) ya está reservado para este barbero.', NEW.booking_date, NEW.booking_time;
   END IF;
+
+  -- 4.B PREVENCIÓN DE SOLAPAMIENTO POR DURACIÓN DE SERVICIO
+  SELECT coalesce(duration_minutes, 30) INTO v_new_duration
+  FROM public.services
+  WHERE name = NEW.service OR id::text = NEW.service
+  LIMIT 1;
+
+  IF v_new_duration IS NULL OR v_new_duration <= 0 THEN
+    v_new_duration := 30;
+  END IF;
+
+  BEGIN
+    v_new_start_min := (substring(NEW.booking_time from '^(\d+)')::integer * 60) + (substring(NEW.booking_time from ':(\d+)$')::integer);
+    v_new_end_min := v_new_start_min + v_new_duration;
+
+    SELECT b.booking_time, b.service, coalesce(s.duration_minutes, 30)
+    INTO v_conflict_time, v_conflict_service, v_conflict_duration
+    FROM public.bookings b
+    LEFT JOIN public.services s ON (s.name = b.service OR s.id::text = b.service)
+    WHERE b.barber = NEW.barber
+      AND b.booking_date = NEW.booking_date
+      AND b.status != 'cancelled'
+      AND (TG_OP = 'INSERT' OR b.id != NEW.id)
+      AND (
+        GREATEST(
+          v_new_start_min,
+          (substring(b.booking_time from '^(\d+)')::integer * 60) + (substring(b.booking_time from ':(\d+)$')::integer)
+        ) < LEAST(
+          v_new_end_min,
+          ((substring(b.booking_time from '^(\d+)')::integer * 60) + (substring(b.booking_time from ':(\d+)$')::integer)) + coalesce(s.duration_minutes, 30)
+        )
+      )
+    LIMIT 1;
+
+    IF v_conflict_time IS NOT NULL THEN
+      RAISE EXCEPTION 'El horario seleccionado (% a las %) se solapa con la cita de "%" reservada a las % (% min).',
+        NEW.booking_date, NEW.booking_time, v_conflict_service, v_conflict_time, v_conflict_duration;
+    END IF;
+  EXCEPTION WHEN OTHERS THEN
+    IF SQLERRM LIKE '%se solapa%' THEN
+      RAISE;
+    END IF;
+  END;
 
   -- 5. PREVENCIÓN DE SOLAPAMIENTO DEL MISMO CLIENTE:
   -- Un cliente no puede tener dos citas a la misma fecha y hora exacta (aunque sea con distinto barbero)
@@ -288,4 +359,32 @@ END;
 $$;
 
 GRANT EXECUTE ON FUNCTION public.create_booking(text, integer, text, date, text, text, text, text) TO authenticated;
+
+-- 6. ACTUALIZAR get_booked_intervals RPC CON DURACIÓN INTEGRADA
+CREATE OR REPLACE FUNCTION public.get_booked_intervals(p_barber text, p_date date)
+RETURNS jsonb
+LANGUAGE sql
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+  SELECT coalesce(
+    jsonb_agg(
+      jsonb_build_object(
+        'booking_time', b.booking_time,
+        'service', b.service,
+        'duration_minutes', coalesce(s.duration_minutes, 30)
+      )
+      ORDER BY b.booking_time ASC
+    ),
+    '[]'::jsonb
+  )
+  FROM public.bookings b
+  LEFT JOIN public.services s ON (s.name = b.service OR s.id::text = b.service)
+  WHERE b.barber = p_barber
+    AND b.booking_date = p_date
+    AND b.status != 'cancelled';
+$$;
+
+GRANT EXECUTE ON FUNCTION public.get_booked_intervals(text, date) TO anon, authenticated;
+
 NOTIFY pgrst, 'reload schema';

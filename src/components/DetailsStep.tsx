@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { StepHeader } from '@/components/ServiceStep';
 import { UserIcon, CheckIcon } from '@/components/icons';
 import { supabase } from '@/lib/supabase';
@@ -27,6 +27,8 @@ export function DetailsStep({ onBack, onSubmit, submitting, error }: DetailsStep
   const [selectedCountry, setSelectedCountry] = useState<Country>(DEFAULT_COUNTRY);
   const [nationalNumber, setNationalNumber] = useState('');
   const [comments, setComments] = useState('');
+  const [honeypot, setHoneypot] = useState('');
+  const isSubmittingRef = useRef(false);
 
   const [touched, setTouched] = useState<{
     firstName?: boolean;
@@ -39,6 +41,13 @@ export function DetailsStep({ onBack, onSubmit, submitting, error }: DetailsStep
   const [showConfirmationNotice, setShowConfirmationNotice] = useState(false);
   const [showCountryModal, setShowCountryModal] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+
+  // Sincronizar el ref de envío con el estado submitting
+  useEffect(() => {
+    if (!submitting) {
+      isSubmittingRef.current = false;
+    }
+  }, [submitting]);
 
   // Load user details from Google OAuth or Customers / Previous Bookings / Pending storage
   useEffect(() => {
@@ -188,9 +197,18 @@ export function DetailsStep({ onBack, onSubmit, submitting, error }: DetailsStep
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    // Trampa invisible para bots automáticos
+    if (honeypot) {
+      console.warn('[Security] Detección de bot por honeypot');
+      return;
+    }
+    // Evitar envíos concurrentes por doble clic o pulsación rápida
+    if (isSubmittingRef.current || submitting) return;
+
     setTouched({ firstName: true, lastName: true, phone: true });
     if (!isValid) return;
 
+    isSubmittingRef.current = true;
     const trimmedFirst = firstName.trim();
     const trimmedLast = lastName.trim();
     const combinedFullName = `${trimmedFirst} ${trimmedLast}`.trim();
@@ -221,6 +239,24 @@ export function DetailsStep({ onBack, onSubmit, submitting, error }: DetailsStep
       <StepHeader title="Tus datos" subtitle="Paso 4 de 4" onBack={onBack} />
 
       <form onSubmit={handleSubmit} className="flex flex-1 flex-col overflow-hidden">
+        {/* Campo trampa anti-spam (invisible para humanos, rellenado por bots) */}
+        <div
+          className="sr-only"
+          aria-hidden="true"
+          style={{ position: 'absolute', opacity: 0, pointerEvents: 'none', height: 0, width: 0 }}
+        >
+          <label htmlFor="b_security_code">Security Code</label>
+          <input
+            id="b_security_code"
+            type="text"
+            name="b_security_code"
+            tabIndex={-1}
+            autoComplete="off"
+            value={honeypot}
+            onChange={(e) => setHoneypot(e.target.value)}
+          />
+        </div>
+
         <div data-lenis-prevent className="flex-1 overflow-y-auto px-4 py-2 sm:px-5 sm:py-3 space-y-2.5">
           {prefilledFromGoogle ? (
             <div className="flex items-center gap-2 rounded-xl border border-gold/20 bg-gold/10 px-3 py-1.5 text-[0.7rem] text-gold">

@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import type { Service, Barber, BookingForm, SavedBooking } from '@/types';
 import type { PendingBookingPayload } from '@/lib/pendingBooking';
 import { clearPendingBooking } from '@/lib/pendingBooking';
@@ -16,6 +16,7 @@ export function useBooking() {
   const [confirmation, setConfirmation] = useState<SavedBooking | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const submittingRef = useRef(false);
 
   const startBooking = useCallback(() => {
     setError(null);
@@ -67,8 +68,11 @@ export function useBooking() {
 
   const submitBooking = useCallback(
     async (form: BookingForm) => {
+      if (submittingRef.current) return;
       const payload = buildPayload(form);
       if (!payload) return;
+
+      submittingRef.current = true;
       setSubmitting(true);
       setError(null);
       try {
@@ -100,13 +104,21 @@ export function useBooking() {
           return;
         }
 
-        if (msg.includes('already booked') || msg.includes('time slot')) {
-          setError('Ese horario ya no está disponible. Elige otra hora.');
+        if (
+          msg.includes('already booked') ||
+          msg.includes('time slot') ||
+          msg.includes('ya está reservado') ||
+          msg.includes('idx_bookings_unique_active_slot')
+        ) {
+          setError('Ese horario ya no está disponible. Por favor, elige otra hora.');
           setStep('datetime');
+        } else if (msg) {
+          setError(msg);
         } else {
           setError('No se pudo confirmar la reserva. Inténtalo de nuevo en unos segundos.');
         }
       } finally {
+        submittingRef.current = false;
         setSubmitting(false);
       }
     },

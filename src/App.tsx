@@ -10,7 +10,6 @@ import { SuccessStep } from '@/components/SuccessStep';
 import { FloatingButtons } from '@/components/FloatingButtons';
 import { LoginModal } from '@/components/LoginModal';
 import { TermsModal } from '@/components/TermsModal';
-import { CookieBanner } from '@/components/CookieBanner';
 import type { SavedBooking } from '@/types';
 import { getPendingBooking, clearPendingBooking, savePendingBooking } from '@/lib/pendingBooking';
 import { createBooking } from '@/lib/bookings';
@@ -439,8 +438,6 @@ function App() {
       {resumingBooking && (
         <ScreenLoader message="Confirmando tu reserva…" />
       )}
-
-      <CookieBanner />
     </div>
   );
 }

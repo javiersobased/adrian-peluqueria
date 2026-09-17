@@ -10,7 +10,8 @@ import {
   Clock, 
   CheckCircle2, 
   XCircle,
-  RotateCw
+  RotateCw,
+  Trash2
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { fetchAllBarbers } from '@/data/services';
@@ -93,6 +94,21 @@ export function AdminAgenda({ bookings, loading, onRefresh }: AdminAgendaProps) 
       onRefresh();
     } catch (err: any) {
       notify.error('Error al restaurar', err?.message || 'No se pudo restaurar la cita');
+    }
+  };
+
+  const handlePermanentDelete = async (id: string) => {
+    if (!confirm('¿Eliminar por completo esta cita de la base de datos?\n\nEsta acción es irreversible y borrará el registro definitivamente.')) return;
+    try {
+      const { error } = await supabase.from('bookings').delete().eq('id', id);
+      if (error) throw error;
+      notify.success('Cita eliminada definitivamente', 'El registro se ha borrado por completo de la base de datos');
+      if (selectedBooking?.id === id) {
+        setSelectedBooking(null);
+      }
+      onRefresh();
+    } catch (err: any) {
+      notify.error('Error al eliminar', err?.message || 'No se pudo eliminar la cita');
     }
   };
 
@@ -300,19 +316,33 @@ export function AdminAgenda({ bookings, loading, onRefresh }: AdminAgendaProps) 
                     {/* Actions y Chevron */}
                     <div className="flex items-center gap-1 sm:gap-1.5 shrink-0 self-center">
                       {isCancelled ? (
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleRestore(b.id);
-                          }}
-                          aria-label="Restaurar cita"
-                          title="Restaurar cita a la agenda activa"
-                          className="flex h-7 px-2 sm:h-8 sm:px-2.5 shrink-0 items-center gap-1 rounded-xl bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 text-xs font-semibold hover:bg-emerald-500/25 active:scale-95 transition-all"
-                        >
-                          <RotateCw className="h-3.5 w-3.5" />
-                          <span className="hidden sm:inline text-[0.7rem]">Restaurar</span>
-                        </button>
+                        <>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleRestore(b.id);
+                            }}
+                            aria-label="Restaurar cita"
+                            title="Restaurar cita a la agenda activa"
+                            className="flex h-7 px-2 sm:h-8 sm:px-2.5 shrink-0 items-center gap-1 rounded-xl bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 text-xs font-semibold hover:bg-emerald-500/25 active:scale-95 transition-all"
+                          >
+                            <RotateCw className="h-3.5 w-3.5" />
+                            <span className="hidden sm:inline text-[0.7rem]">Restaurar</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handlePermanentDelete(b.id);
+                            }}
+                            aria-label="Eliminar cita por completo"
+                            title="Eliminar cita por completo de la base de datos"
+                            className="flex h-7 w-7 sm:h-8 sm:w-8 shrink-0 items-center justify-center rounded-xl bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20 active:scale-95 transition-all"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        </>
                       ) : (
                         <button
                           type="button"
@@ -321,7 +351,7 @@ export function AdminAgenda({ bookings, loading, onRefresh }: AdminAgendaProps) 
                             handleCancel(b.id);
                           }}
                           aria-label="Cancelar cita"
-                          title="Cancelar cita"
+                          title="Cancelar cita (marcar como cancelada)"
                           className="flex h-7 w-7 sm:h-8 sm:w-8 shrink-0 items-center justify-center rounded-full bg-red-500/10 text-red-400 transition-colors hover:bg-red-500/20"
                         >
                           <X className="h-3.5 w-3.5" />
@@ -487,12 +517,22 @@ export function AdminAgenda({ bookings, loading, onRefresh }: AdminAgendaProps) 
                 <button
                   type="button"
                   onClick={() => handleCancel(selectedBooking.id)}
-                  className="w-full flex items-center justify-center gap-2 rounded-xl bg-red-500/10 py-2 text-xs font-semibold text-red-400 border border-red-500/20 hover:bg-red-500/20 active:scale-95 transition-all mt-1"
+                  className="w-full flex items-center justify-center gap-2 rounded-xl bg-white/5 py-2 text-xs font-semibold text-zinc-400 border border-white/10 hover:bg-white/10 hover:text-white active:scale-95 transition-all mt-1"
                 >
                   <X className="h-3.5 w-3.5" />
-                  <span>Cancelar esta cita</span>
+                  <span>Cancelar esta cita (marcar cancelada)</span>
                 </button>
               )}
+
+              {/* Botón para eliminar por completo */}
+              <button
+                type="button"
+                onClick={() => handlePermanentDelete(selectedBooking.id)}
+                className="w-full flex items-center justify-center gap-2 rounded-xl bg-red-500/10 py-2 text-xs font-semibold text-red-400 border border-red-500/20 hover:bg-red-500/20 active:scale-95 transition-all mt-1 shadow-sm shadow-red-950/20"
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+                <span>Eliminar por completo de la base de datos</span>
+              </button>
             </div>
           </div>
         </div>

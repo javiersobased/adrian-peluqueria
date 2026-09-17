@@ -1,4 +1,4 @@
-import { CalendarDays, Clock, Scissors, Phone, X, ChevronDown, ChevronUp, History, CheckCircle2 } from 'lucide-react';
+import { CalendarDays, Clock, Scissors, Phone, X, ChevronDown, ChevronUp, History, CheckCircle2, Trash2 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { fetchAllBarbers } from '@/data/services';
 import type { SavedBooking, Barber } from '@/types';
@@ -63,6 +63,19 @@ export function AdminToday({ bookings, loading, onRefresh }: AdminTodayProps) {
     } catch (err: any) {
       console.error('Error al cancelar cita:', err);
       notify.error('Error al cancelar', err?.message || 'No se pudo cancelar la cita');
+    }
+  };
+
+  const handlePermanentDelete = async (id: string) => {
+    if (!confirm('¿Eliminar por completo esta cita de la base de datos?\n\nEsta acción es irreversible y borrará el registro definitivamente.')) return;
+    try {
+      const { error } = await supabase.from('bookings').delete().eq('id', id);
+      if (error) throw error;
+      notify.success('Cita eliminada definitivamente', 'El registro se ha borrado por completo');
+      onRefresh();
+    } catch (err: any) {
+      console.error('Error al eliminar cita:', err);
+      notify.error('Error al eliminar', err?.message || 'No se pudo eliminar la cita');
     }
   };
 
@@ -189,14 +202,24 @@ export function AdminToday({ bookings, loading, onRefresh }: AdminTodayProps) {
                   </div>
                 </div>
 
-                <button
-                  onClick={() => handleCancel(b.id)}
-                  aria-label="Cancelar cita"
-                  title="Cancelar cita"
-                  className="flex h-8 w-8 shrink-0 items-center justify-center self-center rounded-full bg-red-500/10 text-red-400 transition-colors hover:bg-red-500/20"
-                >
-                  <X className="h-4 w-4" />
-                </button>
+                <div className="flex items-center gap-1.5 shrink-0 self-center">
+                  <button
+                    onClick={() => handleCancel(b.id)}
+                    aria-label="Cancelar cita"
+                    title="Cancelar cita (marcar como cancelada)"
+                    className="flex h-8 w-8 items-center justify-center rounded-full bg-white/5 text-zinc-400 transition-colors hover:bg-white/10 hover:text-white"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                  <button
+                    onClick={() => handlePermanentDelete(b.id)}
+                    aria-label="Eliminar cita por completo"
+                    title="Eliminar cita por completo de la base de datos"
+                    className="flex h-8 w-8 items-center justify-center rounded-full bg-red-500/10 text-red-400 transition-colors hover:bg-red-500/20"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                </div>
               </div>
             );
           })}
@@ -244,14 +267,24 @@ export function AdminToday({ bookings, loading, onRefresh }: AdminTodayProps) {
                       <p className="truncate text-xs font-medium text-zinc-300">{b.full_name}</p>
                       <p className="truncate text-[0.7rem] text-zinc-500">{b.service} {barber ? `· ${barber.name}` : ''}</p>
                     </div>
-                    {b.phone && (
-                      <a
-                        href={`tel:${b.phone}`}
-                        className="text-xs text-zinc-500 hover:text-zinc-300 transition-colors p-1"
+                    <div className="flex items-center gap-1 shrink-0">
+                      {b.phone && (
+                        <a
+                          href={`tel:${b.phone}`}
+                          className="text-xs text-zinc-500 hover:text-zinc-300 transition-colors p-1"
+                        >
+                          <Phone className="h-3.5 w-3.5" />
+                        </a>
+                      )}
+                      <button
+                        onClick={() => handlePermanentDelete(b.id)}
+                        aria-label="Eliminar cita por completo"
+                        title="Eliminar cita por completo de la base de datos"
+                        className="text-zinc-600 hover:text-red-400 transition-colors p-1 rounded hover:bg-red-500/10"
                       >
-                        <Phone className="h-3.5 w-3.5" />
-                      </a>
-                    )}
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
                   </div>
                 );
               })}

@@ -1,7 +1,7 @@
 import { CalendarIcon, MapPinIcon, ClockIcon, ChevronRightIcon } from '@/components/icons';
 import { Star, LogIn, LayoutDashboard, Scissors, ChevronDown, CalendarDays, ShoppingBag, Camera, Download } from 'lucide-react';
 import { OPENING_HOURS, SALON_MAPS_URL, SALON_ADDRESS } from '@/data/services';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import ScrollFloat from '@/components/reactbits/ScrollFloat';
 import ScrollReveal from '@/components/reactbits/ScrollReveal';
 import Dock from '@/components/reactbits/Dock';
@@ -51,22 +51,32 @@ function SalonImage({
   containerClassName?: string;
 }) {
   const [loaded, setLoaded] = useState(false);
+  const imgRef = useRef<HTMLImageElement>(null);
+
+  useEffect(() => {
+    // If browser already cached the image, onLoad might not fire
+    if (imgRef.current && imgRef.current.complete) {
+      setLoaded(true);
+    }
+  }, [src]);
 
   return (
     <div className={`relative overflow-hidden bg-zinc-900 ${containerClassName}`}>
       {/* Animated shimmer skeleton while loading */}
       <div
-        className={`absolute inset-0 z-0 bg-gradient-to-r from-zinc-900 via-zinc-800/80 to-zinc-900 transition-opacity duration-700 ${
+        className={`absolute inset-0 z-0 bg-gradient-to-r from-zinc-900 via-zinc-800/80 to-zinc-900 transition-opacity duration-300 ${
           loaded ? 'opacity-0 pointer-events-none' : 'opacity-100 animate-pulse'
         }`}
       />
       <img
+        ref={imgRef}
         src={src}
         alt={alt}
         decoding="async"
-        loading="lazy"
+        loading="eager"
         onLoad={() => setLoaded(true)}
-        className={`w-full object-cover transition-opacity duration-500 ease-out ${
+        onError={() => setLoaded(true)}
+        className={`w-full object-cover transition-opacity duration-300 ease-out ${
           loaded ? 'opacity-100' : 'opacity-0'
         } ${className}`}
       />

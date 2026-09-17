@@ -6,6 +6,11 @@ import { Toaster } from 'sileo';
 import './index.css';
 import 'sileo/styles.css';
 
+// Handle stale chunk errors across deployments
+window.addEventListener('vite:preloadError', () => {
+  window.location.reload();
+});
+
 const rootEl = document.getElementById('root')!;
 
 createRoot(rootEl).render(

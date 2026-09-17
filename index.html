@@ -7,6 +7,30 @@
         window.location.replace('https://www.adrianmillan.es' + window.location.pathname + window.location.search + window.location.hash);
       }
     </script>
+    <!-- Automatic recovery for stale deployments or chunk loading failures -->
+    <script>
+      (function() {
+        function reloadWithFreshAssets() {
+          var key = 'amm_chunk_reload_ts';
+          var last = sessionStorage.getItem(key);
+          var now = Date.now();
+          if (!last || (now - parseInt(last, 10)) > 10000) {
+            sessionStorage.setItem(key, String(now));
+            window.location.reload();
+          }
+        }
+        window.addEventListener('vite:preloadError', function(e) {
+          e.preventDefault();
+          reloadWithFreshAssets();
+        });
+        window.addEventListener('error', function(e) {
+          var target = e.target;
+          if (target && (target.tagName === 'SCRIPT' || target.tagName === 'LINK')) {
+            reloadWithFreshAssets();
+          }
+        }, true);
+      })();
+    </script>
     <meta http-equiv="content-language" content="es" />
     <meta name="google-site-verification" content="p_aUO87K1OHqHos3232sKDPMoKPrOU9Syu3ynewquvU" />
     

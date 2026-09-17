@@ -1,4 +1,4 @@
-import { CalendarDays, Clock, Scissors, Phone, X, ChevronDown, ChevronUp, History, CheckCircle2, Trash2 } from 'lucide-react';
+import { CalendarDays, CalendarClock, Clock, Scissors, Phone, X, ChevronDown, ChevronUp, History, CheckCircle2, Trash2 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { fetchAllBarbers } from '@/data/services';
 import type { SavedBooking, Barber } from '@/types';
@@ -6,6 +6,7 @@ import { MONTH_SHORT, WEEKDAY_SHORT, toISO } from '@/lib/schedule';
 import { useEffect, useState } from 'react';
 import { notify } from '@/lib/notify';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
+import { ReorganizeBookingModal } from '@/components/admin/ReorganizeBookingModal';
 
 interface AdminTodayProps {
   bookings: SavedBooking[];
@@ -16,6 +17,7 @@ interface AdminTodayProps {
 export function AdminToday({ bookings, loading, onRefresh }: AdminTodayProps) {
   const [barbers, setBarbers] = useState<Barber[]>([]);
   const [showPastBookings, setShowPastBookings] = useState(false);
+  const [reorganizingBooking, setReorganizingBooking] = useState<SavedBooking | null>(null);
   const [currentTimeStr, setCurrentTimeStr] = useState(() => {
     const d = new Date();
     return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
@@ -204,14 +206,16 @@ export function AdminToday({ bookings, loading, onRefresh }: AdminTodayProps) {
 
                 <div className="flex items-center gap-1.5 shrink-0 self-center">
                   <button
-                    onClick={() => handleCancel(b.id)}
-                    aria-label="Cancelar cita"
-                    title="Cancelar cita (marcar como cancelada)"
-                    className="flex h-8 w-8 items-center justify-center rounded-full bg-white/5 text-zinc-400 transition-colors hover:bg-white/10 hover:text-white"
+                    type="button"
+                    onClick={() => setReorganizingBooking(b)}
+                    aria-label="Reorganizar cita"
+                    title="Reorganizar cita (cambiar hora o sugerir cambio al cliente)"
+                    className="flex h-8 w-8 items-center justify-center rounded-full bg-gold/10 text-gold border border-gold/20 hover:bg-gold/20 hover:scale-105 active:scale-95 transition-all shadow-sm shadow-gold/5"
                   >
-                    <X className="h-4 w-4" />
+                    <CalendarClock className="h-4 w-4" />
                   </button>
                   <button
+                    type="button"
                     onClick={() => handlePermanentDelete(b.id)}
                     aria-label="Eliminar cita por completo"
                     title="Eliminar cita por completo de la base de datos"
@@ -277,6 +281,16 @@ export function AdminToday({ bookings, loading, onRefresh }: AdminTodayProps) {
                         </a>
                       )}
                       <button
+                        type="button"
+                        onClick={() => setReorganizingBooking(b)}
+                        aria-label="Reorganizar cita"
+                        title="Reorganizar cita (reprogramar a otro día u hora)"
+                        className="text-zinc-500 hover:text-gold transition-colors p-1 rounded hover:bg-gold/10"
+                      >
+                        <CalendarClock className="h-3.5 w-3.5" />
+                      </button>
+                      <button
+                        type="button"
                         onClick={() => handlePermanentDelete(b.id)}
                         aria-label="Eliminar cita por completo"
                         title="Eliminar cita por completo de la base de datos"
@@ -291,6 +305,18 @@ export function AdminToday({ bookings, loading, onRefresh }: AdminTodayProps) {
             </div>
           )}
         </div>
+      )}
+
+      {/* Reorganize Booking Modal */}
+      {reorganizingBooking && (
+        <ReorganizeBookingModal
+          booking={reorganizingBooking}
+          barbers={barbers}
+          allBookings={bookings}
+          onClose={() => setReorganizingBooking(null)}
+          onUpdated={onRefresh}
+          onCancelBooking={handleCancel}
+        />
       )}
     </div>
   );

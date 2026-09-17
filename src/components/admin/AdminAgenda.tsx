@@ -1,6 +1,7 @@
 import { useMemo, useState, useEffect } from 'react';
 import { 
-  CalendarDays, 
+  CalendarDays,
+  CalendarClock,
   Scissors, 
   Phone, 
   X, 
@@ -20,6 +21,7 @@ import { WEEKDAY_SHORT, MONTH_SHORT, toISO, isCancelledBookingExpired } from '@/
 import { notify } from '@/lib/notify';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import { CustomerDetailModal } from '@/components/admin/CustomerDetailModal';
+import { ReorganizeBookingModal } from '@/components/admin/ReorganizeBookingModal';
 import { getWhatsAppUrl, getCallUrl } from '@/lib/phoneActions';
 import { WhatsAppIcon } from '@/components/icons';
 
@@ -34,6 +36,7 @@ export function AdminAgenda({ bookings, loading, onRefresh }: AdminAgendaProps) 
   const [viewFilter, setViewFilter] = useState<'active' | 'cancelled' | 'all'>('active');
   const [barberFilter, setBarberFilter] = useState<string>('all');
   const [selectedBooking, setSelectedBooking] = useState<SavedBooking | null>(null);
+  const [reorganizingBooking, setReorganizingBooking] = useState<SavedBooking | null>(null);
   const [selectedCustomer, setSelectedCustomer] = useState<{
     user_id?: string | null;
     full_name: string;
@@ -451,13 +454,13 @@ export function AdminAgenda({ bookings, loading, onRefresh }: AdminAgendaProps) 
                           type="button"
                           onClick={(e) => {
                             e.stopPropagation();
-                            handleCancel(b.id);
+                            setReorganizingBooking(b);
                           }}
-                          aria-label="Cancelar cita"
-                          title="Cancelar cita (marcar como cancelada)"
-                          className="flex h-7 w-7 sm:h-8 sm:w-8 shrink-0 items-center justify-center rounded-full bg-red-500/10 text-red-400 transition-colors hover:bg-red-500/20"
+                          aria-label="Reorganizar cita"
+                          title="Reorganizar cita (cambiar fecha/hora o sugerir cambio)"
+                          className="flex h-7 w-7 sm:h-8 sm:w-8 shrink-0 items-center justify-center rounded-full bg-gold/10 text-gold border border-gold/20 hover:bg-gold/20 hover:scale-105 active:scale-95 transition-all shadow-sm shadow-gold/5"
                         >
-                          <X className="h-3.5 w-3.5" />
+                          <CalendarClock className="h-3.5 w-3.5" />
                         </button>
                       )}
                       <div className="text-zinc-600 group-hover:text-gold group-hover:translate-x-0.5 transition-all">
@@ -617,14 +620,28 @@ export function AdminAgenda({ bookings, loading, onRefresh }: AdminAgendaProps) 
                   <span>Restaurar esta cita en la agenda</span>
                 </button>
               ) : (
-                <button
-                  type="button"
-                  onClick={() => handleCancel(selectedBooking.id)}
-                  className="w-full flex items-center justify-center gap-2 rounded-xl bg-white/5 py-2 text-xs font-semibold text-zinc-400 border border-white/10 hover:bg-white/10 hover:text-white active:scale-95 transition-all mt-1"
-                >
-                  <X className="h-3.5 w-3.5" />
-                  <span>Cancelar esta cita (marcar cancelada)</span>
-                </button>
+                <>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const b = selectedBooking;
+                      setSelectedBooking(null);
+                      setReorganizingBooking(b);
+                    }}
+                    className="w-full flex items-center justify-center gap-2 rounded-xl bg-gold/15 py-2.5 text-xs font-bold text-gold border border-gold/30 hover:bg-gold/25 active:scale-95 transition-all mt-1 shadow-sm shadow-gold/10"
+                  >
+                    <CalendarClock className="h-4 w-4" />
+                    <span>Reorganizar cita (sugerir cambio de hora)</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => handleCancel(selectedBooking.id)}
+                    className="w-full text-center text-[0.7rem] text-zinc-500 hover:text-red-400 py-1 transition-colors"
+                  >
+                    Cancelar esta cita (marcar cancelada)
+                  </button>
+                </>
               )}
 
               {/* Botón para eliminar por completo */}
@@ -646,6 +663,18 @@ export function AdminAgenda({ bookings, loading, onRefresh }: AdminAgendaProps) 
         <CustomerDetailModal
           customer={selectedCustomer}
           onClose={() => setSelectedCustomer(null)}
+        />
+      )}
+
+      {/* Reorganize Booking Modal from Agenda */}
+      {reorganizingBooking && (
+        <ReorganizeBookingModal
+          booking={reorganizingBooking}
+          barbers={barbers}
+          allBookings={bookings}
+          onClose={() => setReorganizingBooking(null)}
+          onUpdated={onRefresh}
+          onCancelBooking={handleCancel}
         />
       )}
     </div>

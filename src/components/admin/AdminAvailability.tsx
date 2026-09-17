@@ -1,9 +1,9 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { supabase } from '@/lib/supabase';
 import { fetchAllBarbers } from '@/data/services';
 import type { BarberBlock, Barber, BarberVacation } from '@/types';
 import { Trash2, CalendarOff, Clock, Plane } from 'lucide-react';
-import { BLOCK_START_SLOTS, BLOCK_END_SLOTS, toISO } from '@/lib/schedule';
+import { BLOCK_START_SLOTS, BLOCK_END_SLOTS, toISO, isBlockExpired, isVacationExpired } from '@/lib/schedule';
 import { notify } from '@/lib/notify';
 
 interface AdminAvailabilityProps {
@@ -25,6 +25,25 @@ export function AdminAvailability({ blocks: initialBlocks, onRefresh }: AdminAva
   const [saving, setSaving] = useState(false);
   const [blocks, setBlocks] = useState<BarberBlock[]>(initialBlocks ?? []);
   const [vacations, setVacations] = useState<BarberVacation[]>([]);
+  const [nowState, setNowState] = useState(() => {
+    const d = new Date();
+    return {
+      iso: toISO(d),
+      time: `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`,
+    };
+  });
+
+  // Re-evaluar la hora actual cada 15 segundos para eliminar automáticamente al cumplirse la hora fin
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const d = new Date();
+      setNowState({
+        iso: toISO(d),
+        time: `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`,
+      });
+    }, 15000);
+    return () => clearInterval(interval);
+  }, []);
 
   useEffect(() => {
     fetchAllBarbers().then((b) => { setBarbers(b); if (b.length > 0) setBarber(b[0].id); });
@@ -38,7 +57,18 @@ export function AdminAvailability({ blocks: initialBlocks, onRefresh }: AdminAva
       .eq('barber', barber)
       .order('block_date', { ascending: false })
       .order('created_at', { ascending: false });
-    setBlocks((data as BarberBlock[]) ?? []);
+    const list = (data as BarberBlock[]) ?? [];
+
+    // Purgar de la base de datos cualquier bloqueo expirado de días o tramos anteriores
+    const d = new Date();
+    const curIso = toISO(d);
+    const curTime = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+    const expiredIds = list.filter((b) => isBlockExpired(b, curIso, curTime)).map((b) => b.id);
+    if (expiredIds.length > 0) {
+      supabase.from('barber_blocks').delete().in('id', expiredIds).then(() => {});
+    }
+
+    setBlocks(list.filter((b) => !isBlockExpired(b, curIso, curTime)));
   }, [barber]);
 
   const fetchVacations = useCallback(async () => {
@@ -48,8 +78,40 @@ export function AdminAvailability({ blocks: initialBlocks, onRefresh }: AdminAva
       .select('*')
       .eq('barber', barber)
       .order('start_date', { ascending: false });
-    setVacations((data as BarberVacation[]) ?? []);
+    const list = (data as BarberVacation[]) ?? [];
+
+    // Purgar vacaciones ya finalizadas de la base de datos
+    const d = new Date();
+    const curIso = toISO(d);
+    const curTime = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+    const expiredIds = list.filter((v) => isVacationExpired(v, curIso, curTime)).map((v) => v.id);
+    if (expiredIds.length > 0) {
+      supabase.from('barber_vacations').delete().in('id', expiredIds).then(() => {});
+    }
+
+    setVacations(list.filter((v) => !isVacationExpired(v, curIso, curTime)));
   }, [barber]);
+
+  // Al cambiar el minuto actual, si algún bloqueo acaba de expirar, se borra de BD inmediatamente
+  useEffect(() => {
+    const expiredBlockIds = blocks
+      .filter((b) => isBlockExpired(b, nowState.iso, nowState.time))
+      .map((b) => b.id);
+    if (expiredBlockIds.length > 0) {
+      supabase.from('barber_blocks').delete().in('id', expiredBlockIds).then(() => {
+        setBlocks((prev) => prev.filter((b) => !expiredBlockIds.includes(b.id)));
+      });
+    }
+
+    const expiredVacIds = vacations
+      .filter((v) => isVacationExpired(v, nowState.iso, nowState.time))
+      .map((v) => v.id);
+    if (expiredVacIds.length > 0) {
+      supabase.from('barber_vacations').delete().in('id', expiredVacIds).then(() => {
+        setVacations((prev) => prev.filter((v) => !expiredVacIds.includes(v.id)));
+      });
+    }
+  }, [nowState, blocks, vacations]);
 
   const loadAvailability = useCallback(async () => {
     if (!barber) return;
@@ -128,7 +190,20 @@ export function AdminAvailability({ blocks: initialBlocks, onRefresh }: AdminAva
     { id: 'vacation', label: 'Vacaciones', icon: Plane },
   ];
 
-  const barberBlocks = blocks.filter((b) => b.block_type === 'day_off' || b.block_type === 'time_range');
+  const activeBlocks = useMemo(
+    () =>
+      blocks.filter(
+        (b) =>
+          (b.block_type === 'day_off' || b.block_type === 'time_range') &&
+          !isBlockExpired(b, nowState.iso, nowState.time)
+      ),
+    [blocks, nowState]
+  );
+
+  const activeVacations = useMemo(
+    () => vacations.filter((v) => !isVacationExpired(v, nowState.iso, nowState.time)),
+    [vacations, nowState]
+  );
 
   return (
     <div className="mx-auto max-w-xl w-full min-w-0 space-y-5">
@@ -248,14 +323,14 @@ export function AdminAvailability({ blocks: initialBlocks, onRefresh }: AdminAva
 
       <div>
         <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-gold">Bloqueos activos</p>
-        {barberBlocks.length === 0 && vacations.length === 0 ? (
+        {activeBlocks.length === 0 && activeVacations.length === 0 ? (
           <div className="rounded-3xl glass-card px-5 py-8 text-center">
             <CalendarOff className="mx-auto h-7 w-7 text-zinc-600" />
-            <p className="mt-2 text-sm text-zinc-500">No hay bloqueos de disponibilidad.</p>
+            <p className="mt-2 text-sm text-zinc-500">No hay bloqueos activos de disponibilidad.</p>
           </div>
         ) : (
           <div className="space-y-2">
-            {vacations.map((v) => (
+            {activeVacations.map((v) => (
               <div key={v.id} className="flex items-center gap-3 rounded-2xl glass-card p-3">
                 <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-gold/5 text-gold"><Plane className="h-4 w-4" /></div>
                 <div className="flex-1 min-w-0">
@@ -266,7 +341,7 @@ export function AdminAvailability({ blocks: initialBlocks, onRefresh }: AdminAva
                   className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-red-500/10 text-red-400 transition-colors hover:bg-red-500/20"><Trash2 className="h-4 w-4" /></button>
               </div>
             ))}
-            {barberBlocks.map((b) => (
+            {activeBlocks.map((b) => (
               <div key={b.id} className="flex items-center gap-3 rounded-2xl glass-card p-3">
                 <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-gold/5 text-gold">
                   {b.block_type === 'time_range' ? <Clock className="h-4 w-4" /> : <CalendarOff className="h-4 w-4" />}

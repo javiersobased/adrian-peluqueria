@@ -236,3 +236,43 @@ export const BLOCK_END_SLOTS: string[] = (() => {
   return slots;
 })();
 
+/**
+ * Checks if a barber block has expired (passed its end date or end time).
+ * - Full day (day_off): expired if block_date < nowISO, or on same day if nowTime >= '20:30' (salon closing).
+ * - Time range (time_range): expired if block_date < nowISO, or on same day if nowTime >= block_end_time.
+ * - Slot block: expired if block_date < nowISO, or on same day if nowTime >= block_time.
+ */
+export function isBlockExpired(b: BarberBlock, nowISO: string, nowTime: string): boolean {
+  if (b.block_type === 'weekly_off') return false;
+  if (!b.block_date) return false;
+
+  if (b.block_date < nowISO) {
+    return true;
+  }
+
+  if (b.block_date === nowISO) {
+    if (b.block_type === 'time_range' && b.block_end_time) {
+      return nowTime >= b.block_end_time;
+    }
+    if (b.block_type === 'day_off') {
+      return nowTime >= '20:30';
+    }
+    if (b.block_type === 'slot_block' && b.block_time) {
+      return nowTime >= b.block_time;
+    }
+  }
+
+  return false;
+}
+
+/**
+ * Checks if a vacation period has expired (passed its end date or closing time).
+ */
+export function isVacationExpired(v: BarberVacation, nowISO: string, nowTime: string): boolean {
+  if (!v.end_date) return false;
+  if (v.end_date < nowISO) return true;
+  if (v.end_date === nowISO && nowTime >= '20:30') return true;
+  return false;
+}
+
+

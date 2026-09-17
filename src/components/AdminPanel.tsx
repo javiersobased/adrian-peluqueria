@@ -19,6 +19,7 @@ import {
 import { InstallAppButton } from '@/components/InstallAppButton';
 import { setActivePwaContext } from '@/lib/pwaContext';
 import { notify } from '@/lib/notify';
+import { toISO, isBlockExpired } from '@/lib/schedule';
 
 const CATEGORIES = ['Principal', 'Control', 'Gestión'];
 
@@ -104,7 +105,17 @@ export function AdminPanel({ userRole, onSignOut, onGoPublic }: AdminPanelProps)
     let query = supabase.from('barber_blocks').select('*').order('created_at', { ascending: false });
     if (selectedBarber !== 'all') query = query.eq('barber', selectedBarber);
     const { data } = await query;
-    setBlocks((data as BarberBlock[]) ?? []);
+    const rawBlocks = (data as BarberBlock[]) ?? [];
+
+    const d = new Date();
+    const curIso = toISO(d);
+    const curTime = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+    const expiredIds = rawBlocks.filter((b) => isBlockExpired(b, curIso, curTime)).map((b) => b.id);
+    if (expiredIds.length > 0) {
+      supabase.from('barber_blocks').delete().in('id', expiredIds).then(() => {});
+    }
+
+    setBlocks(rawBlocks.filter((b) => !isBlockExpired(b, curIso, curTime)));
   }, [selectedBarber]);
 
   const fetchCustomers = useCallback(async () => {

@@ -70,7 +70,7 @@ export async function createBooking(payload: PendingBookingPayload): Promise<{ b
   // 1. Client-side cooldown guard (prevent rapid double-clicks or bot flooding)
   try {
     const lastTs = sessionStorage.getItem(LAST_BOOKING_KEY);
-    if (lastTs && (Date.now() - parseInt(lastTs, 10)) < 15000) {
+    if (lastTs && (Date.now() - parseInt(lastTs, 10)) < 8000) {
       return {
         booking: null,
         error: 'Has realizado una reserva recientemente. Por favor, espera unos segundos antes de solicitar otra.',

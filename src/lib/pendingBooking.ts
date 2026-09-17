@@ -29,5 +29,6 @@ export function getPendingBooking(): PendingBookingPayload | null {
 export function clearPendingBooking() {
   try {
     localStorage.removeItem(KEY);
+    sessionStorage.removeItem('amm_client_details_draft');
   } catch { /* ignore */ }
 }

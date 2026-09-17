@@ -121,7 +121,26 @@ export function MyBookings({ onBack, userEmail, userId, onSignOut }: MyBookingsP
     }
   }, [userId, userEmail, onSignOut, onBack]);
 
-  const getBarber = (id: string) => barbers.find((b) => b.id === id);
+  const getBarber = (id: string): Barber => {
+    const found = barbers.find((b) => b.id === id);
+    if (found) return found;
+    const adrian = barbers.find((b) => b.id === 'adrian');
+    if (adrian) return adrian;
+    if (barbers.length > 0) return barbers[0];
+    return {
+      id: id || 'adrian',
+      name: 'Adrián Millán',
+      role: 'Barbero',
+      initials: 'AM',
+      active: true,
+      services: [],
+      working_hours: {
+        start: '09:00',
+        end: '20:30',
+        days: [1, 2, 3, 4, 5, 6],
+      },
+    };
+  };
   const now = new Date().toISOString().slice(0, 10);
 
   const nonCancelled = bookings.filter((b) => b.status !== 'cancelled');

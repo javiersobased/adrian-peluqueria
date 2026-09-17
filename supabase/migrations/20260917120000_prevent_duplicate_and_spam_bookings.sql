@@ -61,6 +61,7 @@ DECLARE
   v_clean_phone text;
   v_digits text;
   v_active_count integer := 0;
+  v_daily_count integer := 0;
   v_madrid_now timestamp;
   v_madrid_date date;
   v_madrid_time time;
@@ -208,33 +209,34 @@ BEGIN
 
   -- 6. RESTRICCIONES ANTI-SPAM Y ANTI-FLOOD PARA CLIENTES (El personal está exento)
   IF NOT v_is_staff THEN
-    -- A. Cooldown anti-flood: Mínimo 20 segundos entre reservas para evitar dobles clics o bucles
+    -- A. Cooldown anti-flood: Mínimo 10 segundos entre reservas para evitar dobles clics o bucles
     IF TG_OP = 'INSERT' AND EXISTS (
       SELECT 1 FROM public.bookings
       WHERE (
         (NEW.user_id IS NOT NULL AND user_id = NEW.user_id)
         OR (v_clean_phone IS NOT NULL AND phone = v_clean_phone)
       )
-      AND created_at > (now() - interval '20 seconds')
+      AND created_at > (now() - interval '10 seconds')
     ) THEN
       RAISE EXCEPTION 'Por favor, espera unos segundos antes de realizar otra reserva.';
     END IF;
 
-    -- B. Máximo 1 cita por día para el mismo cliente (evita acaparar la agenda por error)
-    IF EXISTS (
-      SELECT 1 FROM public.bookings
-      WHERE (
-        (NEW.user_id IS NOT NULL AND user_id = NEW.user_id)
-        OR (v_clean_phone IS NOT NULL AND phone = v_clean_phone)
-      )
-      AND booking_date = NEW.booking_date
-      AND status != 'cancelled'
-      AND (TG_OP = 'INSERT' OR id != NEW.id)
-    ) THEN
-      RAISE EXCEPTION 'Ya tienes una cita reservada para el día %. Para citas adicionales el mismo día, contacta con nosotros.', NEW.booking_date;
+    -- B. Máximo 2 citas por día para el mismo cliente (permite citas familiares como padre e hijo, pero evita acaparar la agenda)
+    SELECT count(*) INTO v_daily_count
+    FROM public.bookings
+    WHERE (
+      (NEW.user_id IS NOT NULL AND user_id = NEW.user_id)
+      OR (v_clean_phone IS NOT NULL AND phone = v_clean_phone)
+    )
+    AND booking_date = NEW.booking_date
+    AND status != 'cancelled'
+    AND (TG_OP = 'INSERT' OR id != NEW.id);
+
+    IF v_daily_count >= 2 THEN
+      RAISE EXCEPTION 'Ya tienes 2 citas reservadas para el día %. Para citas adicionales el mismo día, contacta con nosotros.', NEW.booking_date;
     END IF;
 
-    -- C. Límite máximo de citas activas futuras simultáneas: máximo 2 por cliente
+    -- C. Límite máximo de citas activas futuras simultáneas: máximo 4 por cliente
     SELECT count(*) INTO v_active_count
     FROM public.bookings
     WHERE (
@@ -246,8 +248,8 @@ BEGIN
     AND booking_date >= v_madrid_date
     AND (TG_OP = 'INSERT' OR id != NEW.id);
 
-    IF v_active_count >= 2 THEN
-      RAISE EXCEPTION 'Ya tienes 2 citas activas reservadas. Si necesitas otra cita, contacta directamente con la peluquería.';
+    IF v_active_count >= 4 THEN
+      RAISE EXCEPTION 'Ya tienes 4 citas activas reservadas. Si necesitas citas adicionales, contacta directamente con la peluquería.';
     END IF;
   END IF;
 

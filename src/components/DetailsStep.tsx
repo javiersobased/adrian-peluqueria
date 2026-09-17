@@ -12,7 +12,9 @@ import {
   formatDigitsForDisplay,
   detectCountryFromInput,
 } from '@/lib/countries';
-import { Search, ChevronDown, X, Sparkles } from 'lucide-react';
+import { Search, ChevronDown, X, Sparkles, AlertCircle, Clock } from 'lucide-react';
+
+const DRAFT_KEY = 'amm_client_details_draft';
 
 interface DetailsStepProps {
   onBack: () => void;
@@ -22,13 +24,65 @@ interface DetailsStepProps {
 }
 
 export function DetailsStep({ onBack, onSubmit, submitting, error }: DetailsStepProps) {
-  const [firstName, setFirstName] = useState('');
-  const [lastName, setLastName] = useState('');
-  const [selectedCountry, setSelectedCountry] = useState<Country>(DEFAULT_COUNTRY);
-  const [nationalNumber, setNationalNumber] = useState('');
-  const [comments, setComments] = useState('');
+  const [firstName, setFirstName] = useState(() => {
+    try {
+      const saved = sessionStorage.getItem(DRAFT_KEY);
+      if (saved) return JSON.parse(saved).firstName || '';
+    } catch {}
+    return '';
+  });
+  const [lastName, setLastName] = useState(() => {
+    try {
+      const saved = sessionStorage.getItem(DRAFT_KEY);
+      if (saved) return JSON.parse(saved).lastName || '';
+    } catch {}
+    return '';
+  });
+  const [selectedCountry, setSelectedCountry] = useState<Country>(() => {
+    try {
+      const saved = sessionStorage.getItem(DRAFT_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed.countryCode) {
+          const match = COUNTRIES.find((c) => c.code === parsed.countryCode);
+          if (match) return match;
+        }
+      }
+    } catch {}
+    return DEFAULT_COUNTRY;
+  });
+  const [nationalNumber, setNationalNumber] = useState(() => {
+    try {
+      const saved = sessionStorage.getItem(DRAFT_KEY);
+      if (saved) return JSON.parse(saved).nationalNumber || '';
+    } catch {}
+    return '';
+  });
+  const [comments, setComments] = useState(() => {
+    try {
+      const saved = sessionStorage.getItem(DRAFT_KEY);
+      if (saved) return JSON.parse(saved).comments || '';
+    } catch {}
+    return '';
+  });
   const [honeypot, setHoneypot] = useState('');
   const isSubmittingRef = useRef(false);
+
+  // Sincronizar borrador local en sessionStorage para no perder datos si el usuario cambia de horario
+  useEffect(() => {
+    try {
+      sessionStorage.setItem(
+        DRAFT_KEY,
+        JSON.stringify({
+          firstName,
+          lastName,
+          nationalNumber,
+          comments,
+          countryCode: selectedCountry.code,
+        })
+      );
+    } catch {}
+  }, [firstName, lastName, nationalNumber, comments, selectedCountry]);
 
   const [touched, setTouched] = useState<{
     firstName?: boolean;
@@ -125,38 +179,18 @@ export function DetailsStep({ onBack, onSubmit, submitting, error }: DetailsStep
         }
       }
 
-      // 3. Fallback a cliente genérico si no se halló por user_id
-      if (!foundPhone) {
-        try {
-          const { data: genericCust } = await supabase
-            .from('customers')
-            .select('full_name, phone, comments')
-            .maybeSingle();
-
-          if (genericCust) {
-            if (genericCust.phone) foundPhone = genericCust.phone;
-            if (genericCust.comments) setComments((prev) => prev || genericCust.comments || '');
-            if (genericCust.full_name) {
-              const parts = genericCust.full_name.trim().split(/\s+/);
-              setFirstName((prev) => prev || parts[0] || '');
-              setLastName((prev) => prev || parts.slice(1).join(' ') || '');
-            }
-          }
-        } catch {
-          // ignore
-        }
-      }
-
-      // 4. Si encontramos un teléfono de cita previa o perfil, autorellenarlo
+      // 3. Si encontramos un teléfono de su propia cita previa o perfil autenticado, autorellenarlo
       if (foundPhone) {
-        const detected = detectCountryFromInput(foundPhone);
-        if (detected) {
-          setSelectedCountry(detected.country);
-          setNationalNumber(formatDigitsForDisplay(detected.country.code, detected.nationalNumber));
-        } else {
-          const digits = foundPhone.replace(/\D/g, '');
-          setNationalNumber(formatDigitsForDisplay('ES', digits));
-        }
+        setNationalNumber((prev) => {
+          if (prev) return prev;
+          const detected = detectCountryFromInput(foundPhone!);
+          if (detected) {
+            setSelectedCountry(detected.country);
+            return formatDigitsForDisplay(detected.country.code, detected.nationalNumber);
+          }
+          const digits = foundPhone!.replace(/\D/g, '');
+          return formatDigitsForDisplay('ES', digits);
+        });
         setPhoneAutofilled(true);
         setShowConfirmationNotice(true);
       }
@@ -194,6 +228,19 @@ export function DetailsStep({ onBack, onSubmit, submitting, error }: DetailsStep
   }, [firstName, lastName, phoneValidation.error]);
 
   const isValid = !errors.firstName && !errors.lastName && phoneValidation.isValid;
+
+  const isSlotConflict = useMemo(() => {
+    if (!error) return false;
+    const lower = error.toLowerCase();
+    return (
+      lower.includes('horario') ||
+      lower.includes('disponible') ||
+      lower.includes('solapa') ||
+      lower.includes('ocupado') ||
+      lower.includes('reservado') ||
+      lower.includes('ya está')
+    );
+  }, [error]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -383,9 +430,29 @@ export function DetailsStep({ onBack, onSubmit, submitting, error }: DetailsStep
           </div>
 
           {error && (
-            <div className="rounded-xl border border-red-500/20 bg-red-500/10 px-3 py-2 text-xs text-red-400">
-              {error}
-            </div>
+            isSlotConflict ? (
+              <div className="rounded-2xl border border-amber-500/30 bg-amber-500/10 p-3.5 text-xs text-amber-200 animate-fade-in space-y-2.5">
+                <div className="flex items-start gap-2.5">
+                  <AlertCircle className="h-4 w-4 shrink-0 text-amber-400 mt-0.5" />
+                  <div className="flex-1 min-w-0">
+                    <p className="font-semibold text-amber-300">Horario ya no disponible</p>
+                    <p className="text-[0.75rem] text-zinc-300 mt-0.5 leading-relaxed">{error}</p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={onBack}
+                  className="w-full flex items-center justify-center gap-2 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 py-2.5 px-3 text-xs font-bold text-amber-300 transition-all active:scale-95"
+                >
+                  <Clock className="h-3.5 w-3.5" />
+                  <span>Elegir otro horario disponible</span>
+                </button>
+              </div>
+            ) : (
+              <div className="rounded-xl border border-red-500/20 bg-red-500/10 px-3 py-2 text-xs text-red-400">
+                {error}
+              </div>
+            )
           )}
         </div>
 

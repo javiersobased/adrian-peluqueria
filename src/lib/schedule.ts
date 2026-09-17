@@ -275,4 +275,21 @@ export function isVacationExpired(v: BarberVacation, nowISO: string, nowTime: st
   return false;
 }
 
+/**
+ * Checks if a cancelled booking has expired (its original scheduled date and time has passed).
+ * If passed, it is auto-deleted to keep the agenda and database clean.
+ */
+export function isCancelledBookingExpired(
+  b: { status?: string | null; booking_date?: string | null; booking_time?: string | null },
+  nowISO: string,
+  nowTime: string
+): boolean {
+  if (b.status !== 'cancelled') return false;
+  if (!b.booking_date) return false;
+  if (b.booking_date < nowISO) return true;
+  if (b.booking_date === nowISO && (b.booking_time ?? '') <= nowTime) return true;
+  return false;
+}
+
+
 

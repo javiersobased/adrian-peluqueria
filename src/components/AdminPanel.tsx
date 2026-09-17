@@ -19,7 +19,7 @@ import {
 import { InstallAppButton } from '@/components/InstallAppButton';
 import { setActivePwaContext } from '@/lib/pwaContext';
 import { notify } from '@/lib/notify';
-import { toISO, isBlockExpired } from '@/lib/schedule';
+import { toISO, isBlockExpired, isCancelledBookingExpired } from '@/lib/schedule';
 
 const CATEGORIES = ['Principal', 'Control', 'Gestión'];
 
@@ -98,7 +98,19 @@ export function AdminPanel({ userRole, onSignOut, onGoPublic }: AdminPanelProps)
       if (!b.email) return true;
       return !TEST_EMAILS.includes(b.email.toLowerCase().trim());
     });
-    setBookings(filtered);
+
+    // Purgar de la base de datos citas canceladas cuya fecha y hora original ya haya pasado
+    const d = new Date();
+    const curIso = toISO(d);
+    const curTime = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+    const expiredCancelledIds = filtered
+      .filter((b) => isCancelledBookingExpired(b, curIso, curTime))
+      .map((b) => b.id);
+    if (expiredCancelledIds.length > 0) {
+      supabase.from('bookings').delete().in('id', expiredCancelledIds).then(() => {});
+    }
+
+    setBookings(filtered.filter((b) => !isCancelledBookingExpired(b, curIso, curTime)));
   }, [selectedBarber, isAdmin]);
 
   const fetchBlocks = useCallback(async () => {
@@ -182,6 +194,37 @@ export function AdminPanel({ userRole, onSignOut, onGoPublic }: AdminPanelProps)
       .subscribe();
     return () => { supabase.removeChannel(channel); };
   }, [fetchBookings, fetchBlocks]);
+
+  // Auto-purga periódica cada 15s de citas canceladas expiradas y bloqueos pasados
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const d = new Date();
+      const curIso = toISO(d);
+      const curTime = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+
+      // Purgar citas canceladas expiradas de la base de datos y de la vista
+      setBookings((prev) => {
+        const expiredIds = prev.filter((b) => isCancelledBookingExpired(b, curIso, curTime)).map((b) => b.id);
+        if (expiredIds.length > 0) {
+          supabase.from('bookings').delete().in('id', expiredIds).then(() => {});
+          return prev.filter((b) => !expiredIds.includes(b.id));
+        }
+        return prev;
+      });
+
+      // Purgar bloqueos pasados de la base de datos y de la vista
+      setBlocks((prev) => {
+        const expiredBlockIds = prev.filter((b) => isBlockExpired(b, curIso, curTime)).map((b) => b.id);
+        if (expiredBlockIds.length > 0) {
+          supabase.from('barber_blocks').delete().in('id', expiredBlockIds).then(() => {});
+          return prev.filter((b) => !expiredBlockIds.includes(b.id));
+        }
+        return prev;
+      });
+    }, 15000);
+
+    return () => clearInterval(interval);
+  }, []);
 
   const allNavItems: NavItem[] = [
     { id: 'today', label: 'Citas de Hoy', icon: CalendarDays, category: 'Principal' },

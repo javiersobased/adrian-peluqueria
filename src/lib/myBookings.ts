@@ -1,5 +1,6 @@
 import { supabase } from '@/lib/supabase';
 import type { SavedBooking } from '@/types';
+import { toISO, isCancelledBookingExpired } from '@/lib/schedule';
 
 export const TEST_EMAILS = [
   'javijunior2018@gmail.com',
@@ -51,8 +52,23 @@ export async function fetchMyBookings(
 
   // Strict double-check filter: NEVER show other customers' bookings or test emails in "Mis Citas"
   const list = (data as SavedBooking[]) ?? [];
+
+  // Purgar de la BD citas canceladas cuya fecha y hora original ya haya pasado
+  const d = new Date();
+  const curIso = toISO(d);
+  const curTime = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+  const expiredCancelledIds = list
+    .filter((b) => isCancelledBookingExpired(b, curIso, curTime))
+    .map((b) => b.id);
+  if (expiredCancelledIds.length > 0) {
+    supabase.from('bookings').delete().in('id', expiredCancelledIds).then(() => {});
+  }
+
   return list.filter((b) => {
     if (b.email && TEST_EMAILS.includes(b.email.toLowerCase().trim())) {
+      return false;
+    }
+    if (isCancelledBookingExpired(b, curIso, curTime)) {
       return false;
     }
     const matchId = currentUserId && b.user_id === currentUserId;

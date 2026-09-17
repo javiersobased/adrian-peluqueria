@@ -16,7 +16,7 @@ import {
 import { supabase } from '@/lib/supabase';
 import { fetchAllBarbers } from '@/data/services';
 import type { SavedBooking, Barber } from '@/types';
-import { WEEKDAY_SHORT, MONTH_SHORT } from '@/lib/schedule';
+import { WEEKDAY_SHORT, MONTH_SHORT, toISO, isCancelledBookingExpired } from '@/lib/schedule';
 import { notify } from '@/lib/notify';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import { CustomerDetailModal } from '@/components/admin/CustomerDetailModal';
@@ -43,14 +43,50 @@ export function AdminAgenda({ bookings, loading, onRefresh }: AdminAgendaProps) 
 
   useEffect(() => { fetchAllBarbers().then(setBarbers); }, []);
 
-  const activeCount = useMemo(() => bookings.filter((b) => b.status !== 'cancelled').length, [bookings]);
-  const cancelledCount = useMemo(() => bookings.filter((b) => b.status === 'cancelled').length, [bookings]);
+  const [nowState, setNowState] = useState(() => {
+    const d = new Date();
+    return {
+      iso: toISO(d),
+      time: `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`,
+    };
+  });
+
+  // Re-evaluar cada 15 segundos para auto-eliminar citas canceladas expiradas
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const d = new Date();
+      setNowState({
+        iso: toISO(d),
+        time: `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`,
+      });
+    }, 15000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // Eliminar de la base de datos citas canceladas cuya fecha y hora original ya haya pasado
+  useEffect(() => {
+    const expiredCancelledIds = bookings
+      .filter((b) => isCancelledBookingExpired(b, nowState.iso, nowState.time))
+      .map((b) => b.id);
+    if (expiredCancelledIds.length > 0) {
+      supabase.from('bookings').delete().in('id', expiredCancelledIds).then(() => {
+        onRefresh();
+      });
+    }
+  }, [nowState, bookings, onRefresh]);
+
+  const cleanBookings = useMemo(() => {
+    return bookings.filter((b) => !isCancelledBookingExpired(b, nowState.iso, nowState.time));
+  }, [bookings, nowState]);
+
+  const activeCount = useMemo(() => cleanBookings.filter((b) => b.status !== 'cancelled').length, [cleanBookings]);
+  const cancelledCount = useMemo(() => cleanBookings.filter((b) => b.status === 'cancelled').length, [cleanBookings]);
 
   const filteredBookings = useMemo(() => {
-    if (viewFilter === 'active') return bookings.filter((b) => b.status !== 'cancelled');
-    if (viewFilter === 'cancelled') return bookings.filter((b) => b.status === 'cancelled');
-    return bookings;
-  }, [bookings, viewFilter]);
+    if (viewFilter === 'active') return cleanBookings.filter((b) => b.status !== 'cancelled');
+    if (viewFilter === 'cancelled') return cleanBookings.filter((b) => b.status === 'cancelled');
+    return cleanBookings;
+  }, [cleanBookings, viewFilter]);
 
   const groupedBookings = useMemo(() => {
     const sorted = [...filteredBookings].sort((a, b) =>
@@ -190,28 +226,10 @@ export function AdminAgenda({ bookings, loading, onRefresh }: AdminAgendaProps) 
                 : 'text-zinc-400 hover:text-white'
             }`}
           >
-            Todas ({bookings.length})
+            Todas ({cleanBookings.length})
           </button>
         </div>
       </div>
-
-      {cancelledCount > 0 && viewFilter === 'active' && (
-        <div className="mb-4 flex items-center justify-between gap-3 rounded-2xl border border-amber-500/20 bg-amber-500/10 p-3 text-xs text-amber-300 animate-fade-in">
-          <div className="flex items-center gap-2">
-            <RotateCw className="h-4 w-4 shrink-0 text-amber-400" />
-            <span>
-              Hay <strong>{cancelledCount} {cancelledCount === 1 ? 'cita cancelada' : 'citas canceladas'}</strong>. Puedes ver sus detalles y restaurarla a la agenda con un clic.
-            </span>
-          </div>
-          <button
-            type="button"
-            onClick={() => setViewFilter('cancelled')}
-            className="shrink-0 rounded-lg bg-amber-500/20 px-2.5 py-1 font-semibold text-amber-200 hover:bg-amber-500/30 transition-colors"
-          >
-            Ver canceladas
-          </button>
-        </div>
-      )}
 
       {groupedBookings.length === 0 ? (
         <div className="rounded-3xl glass-card px-5 py-12 text-center">

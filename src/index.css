@@ -17,19 +17,33 @@
     -webkit-tap-highlight-color: transparent;
   }
 
-  html.lenis {
-    scroll-behavior: auto !important;
+  /* Solo scroll suave en ordenadores de escritorio (ratón/puntero fino) */
+  @media (min-width: 769px) and (pointer: fine) {
+    html:not(.lenis) {
+      scroll-behavior: smooth;
+    }
+    body {
+      overscroll-behavior-y: none;
+    }
   }
 
-  html:not(.lenis) {
-    scroll-behavior: smooth;
+  /* Versión móvil y dispositivos táctiles: desactivar completamente animación de scroll CSS */
+  /* y habilitar inercia táctil nativa del sistema operativo para evitar saltos o tirones inversos */
+  @media (max-width: 768px), (pointer: coarse) {
+    html,
+    html:not(.lenis),
+    html.lenis,
+    body {
+      scroll-behavior: auto !important;
+      -webkit-overflow-scrolling: touch !important;
+      overscroll-behavior-y: auto !important;
+    }
   }
 
   body {
     font-family: 'Inter', system-ui, sans-serif;
     background-color: var(--ink);
     color: #e4e4e7;
-    overscroll-behavior-y: none;
   }
 
   ::selection {

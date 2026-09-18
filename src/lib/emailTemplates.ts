@@ -70,6 +70,29 @@ function wrapTemplate(bodyContent: string): string {
 </html>`;
 }
 
+function renderDetailsTable(rows: { label: string; value: string; highlight?: boolean; strike?: boolean; italic?: boolean }[]): string {
+  const trs = rows.map((r, i) => {
+    const isLast = i === rows.length - 1;
+    const border = isLast ? 'border-bottom: none;' : 'border-bottom: 1px solid rgba(255, 255, 255, 0.07);';
+    const valColor = r.highlight ? '#d4af37' : '#ffffff';
+    const valWeight = r.highlight ? '700' : '600';
+    const textDecor = r.strike ? 'text-decoration: line-through; opacity: 0.65;' : '';
+    const fontStyle = r.italic ? 'font-style: italic;' : '';
+    const labelText = r.label.endsWith(':') ? r.label : `${r.label}:`;
+
+    return `<tr>
+      <td style="padding: 12px 16px; ${border} color: #a1a1aa; font-size: 14px; font-weight: 500; width: 42%; vertical-align: top; text-align: left;">${labelText}</td>
+      <td style="padding: 12px 16px; ${border} color: ${valColor}; font-size: 14px; font-weight: ${valWeight}; ${textDecor} ${fontStyle} text-align: right; vertical-align: top;">${r.value}</td>
+    </tr>`;
+  }).join('');
+
+  return `<table style="width: 100%; border-collapse: collapse; background-color: #18181d; border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 14px; overflow: hidden; margin: 20px 0 24px 0;">
+    <tbody>
+      ${trs}
+    </tbody>
+  </table>`;
+}
+
 /**
  * 1. Email de Confirmación de Cita al Cliente
  */
@@ -78,35 +101,16 @@ export function getBookingConfirmationEmail(booking: SavedBooking) {
 
   const html = wrapTemplate(`
     <h2 class="hero-title">¡Tu cita ha sido confirmada! ✂️</h2>
-    <p class="hero-text">Hola <strong>${booking.full_name}</strong>, gracias por confiar en nosotros. Tu reserva ha quedado registrada en nuestro sistema con los siguientes detalles:</p>
+    <p class="hero-text">Hola <strong>${booking.full_name}</strong>, gracias por confiar en nosotros. Tu reserva ha quedado registrada con los siguientes detalles:</p>
     
-    <div class="card">
-      <div class="card-row">
-        <span class="card-label">Servicio</span>
-        <span class="card-value">${booking.service}</span>
-      </div>
-      <div class="card-row">
-        <span class="card-label">Precio</span>
-        <span class="card-value highlight">${booking.service_price} €</span>
-      </div>
-      <div class="card-row">
-        <span class="card-label">Barbero asignado</span>
-        <span class="card-value">${booking.barber === 'adrian' ? 'Adrián Millán' : booking.barber}</span>
-      </div>
-      <div class="card-row">
-        <span class="card-label">Fecha</span>
-        <span class="card-value highlight">${formatDateHuman(booking.booking_date)}</span>
-      </div>
-      <div class="card-row">
-        <span class="card-label">Hora</span>
-        <span class="card-value highlight">${booking.booking_time} h</span>
-      </div>
-      ${booking.comments ? `
-      <div class="card-row">
-        <span class="card-label">Tus notas</span>
-        <span class="card-value">"${booking.comments}"</span>
-      </div>` : ''}
-    </div>
+    ${renderDetailsTable([
+      { label: 'Servicio', value: booking.service },
+      { label: 'Precio', value: `${booking.service_price} €`, highlight: true },
+      { label: 'Barbero asignado', value: booking.barber === 'adrian' ? 'Adrián Millán' : booking.barber },
+      { label: 'Fecha', value: formatDateHuman(booking.booking_date), highlight: true },
+      { label: 'Hora', value: `${booking.booking_time} h`, highlight: true },
+      ...(booking.comments ? [{ label: 'Tus notas', value: `"${booking.comments}"`, italic: true }] : []),
+    ])}
 
     <div class="btn-container">
       <a href="${CITAS_URL}" class="btn-gold">Ver o gestionar mi cita</a>
@@ -135,34 +139,18 @@ export function getBookingRescheduledEmail(
     <h2 class="hero-title" style="color: #d4af37;">Horario de tu cita actualizado 🔄</h2>
     <p class="hero-text">Hola <strong>${booking.full_name}</strong>, te informamos de que el horario de tu cita ha sido actualizado:</p>
 
-    <div class="card">
-      ${oldDate || oldTime ? `
-      <div class="card-row" style="opacity: 0.7;">
-        <span class="card-label">Horario anterior</span>
-        <span class="card-value" style="text-decoration: line-through;">${oldDate ? formatDateHuman(oldDate) : ''} a las ${oldTime || ''}h</span>
-      </div>` : ''}
-      <div class="card-row">
-        <span class="card-label">Nueva Fecha</span>
-        <span class="card-value highlight">${formatDateHuman(booking.booking_date)}</span>
-      </div>
-      <div class="card-row">
-        <span class="card-label">Nueva Hora</span>
-        <span class="card-value highlight">${booking.booking_time} h</span>
-      </div>
-      <div class="card-row">
-        <span class="card-label">Servicio</span>
-        <span class="card-value">${booking.service} (${booking.service_price} €)</span>
-      </div>
-      <div class="card-row">
-        <span class="card-label">Barbero</span>
-        <span class="card-value">${booking.barber === 'adrian' ? 'Adrián Millán' : booking.barber}</span>
-      </div>
-      ${reason ? `
-      <div class="card-row">
-        <span class="card-label">Motivo</span>
-        <span class="card-value" style="font-style: italic;">${reason}</span>
-      </div>` : ''}
-    </div>
+    ${renderDetailsTable([
+      ...(oldDate || oldTime ? [{
+        label: 'Horario anterior',
+        value: `${oldDate ? formatDateHuman(oldDate) : ''} a las ${oldTime || ''}h`,
+        strike: true,
+      }] : []),
+      { label: 'Nueva Fecha', value: formatDateHuman(booking.booking_date), highlight: true },
+      { label: 'Nueva Hora', value: `${booking.booking_time} h`, highlight: true },
+      { label: 'Servicio', value: `${booking.service} (${booking.service_price} €)` },
+      { label: 'Barbero', value: booking.barber === 'adrian' ? 'Adrián Millán' : booking.barber },
+      ...(reason ? [{ label: 'Motivo', value: reason, italic: true }] : []),
+    ])}
 
     <div class="btn-container">
       <a href="${CITAS_URL}" class="btn-gold">Ver mi cita actualizada</a>
@@ -182,20 +170,11 @@ export function getBookingCancelledEmail(booking: SavedBooking) {
     <h2 class="hero-title" style="color: #f87171;">Tu cita ha sido cancelada</h2>
     <p class="hero-text">Hola <strong>${booking.full_name}</strong>, te confirmamos que tu cita programada para el <strong>${formatDateHuman(booking.booking_date)} a las ${booking.booking_time}h</strong> ha sido cancelada.</p>
 
-    <div class="card">
-      <div class="card-row">
-        <span class="card-label">Servicio que estaba programado</span>
-        <span class="card-value">${booking.service}</span>
-      </div>
-      <div class="card-row">
-        <span class="card-label">Barbero</span>
-        <span class="card-value">${booking.barber === 'adrian' ? 'Adrián Millán' : booking.barber}</span>
-      </div>
-      <div class="card-row">
-        <span class="card-label">Estado</span>
-        <span class="card-value" style="color: #f87171;">Cancelada</span>
-      </div>
-    </div>
+    ${renderDetailsTable([
+      { label: 'Servicio programado', value: booking.service },
+      { label: 'Barbero', value: booking.barber === 'adrian' ? 'Adrián Millán' : booking.barber },
+      { label: 'Estado', value: 'Cancelada', highlight: true },
+    ])}
 
     <p class="hero-text">Si deseas volver a reservar cuando te venga bien, puedes hacerlo en 1 minuto desde nuestra web oficial:</p>
 
@@ -217,42 +196,16 @@ export function getBarberNewBookingEmail(booking: SavedBooking, barberName: stri
     <h2 class="hero-title">¡Nueva cita en tu agenda!</h2>
     <p class="hero-text">Hola <strong>${barberName}</strong>, un cliente ha reservado una cita contigo:</p>
 
-    <div class="card">
-      <div class="card-row">
-        <span class="card-label">Cliente</span>
-        <span class="card-value highlight">${booking.full_name}</span>
-      </div>
-      <div class="card-row">
-        <span class="card-label">Teléfono</span>
-        <span class="card-value"><a href="tel:${booking.phone}" style="color:#d4af37;">${booking.phone}</a></span>
-      </div>
-      ${booking.email ? `
-      <div class="card-row">
-        <span class="card-label">Email</span>
-        <span class="card-value">${booking.email}</span>
-      </div>` : ''}
-      <div class="card-row">
-        <span class="card-label">Servicio</span>
-        <span class="card-value">${booking.service}</span>
-      </div>
-      <div class="card-row">
-        <span class="card-label">Precio</span>
-        <span class="card-value highlight">${booking.service_price} €</span>
-      </div>
-      <div class="card-row">
-        <span class="card-label">Fecha</span>
-        <span class="card-value highlight">${formatDateHuman(booking.booking_date)}</span>
-      </div>
-      <div class="card-row">
-        <span class="card-label">Hora</span>
-        <span class="card-value highlight">${booking.booking_time} h</span>
-      </div>
-      ${booking.comments ? `
-      <div class="card-row">
-        <span class="card-label">Nota cliente</span>
-        <span class="card-value">"${booking.comments}"</span>
-      </div>` : ''}
-    </div>
+    ${renderDetailsTable([
+      { label: 'Cliente', value: booking.full_name, highlight: true },
+      { label: 'Teléfono', value: `<a href="tel:${booking.phone}" style="color:#d4af37; text-decoration:none;">${booking.phone}</a>` },
+      ...(booking.email ? [{ label: 'Email', value: booking.email }] : []),
+      { label: 'Servicio', value: booking.service },
+      { label: 'Precio', value: `${booking.service_price} €`, highlight: true },
+      { label: 'Fecha', value: formatDateHuman(booking.booking_date), highlight: true },
+      { label: 'Hora', value: `${booking.booking_time} h`, highlight: true },
+      ...(booking.comments ? [{ label: 'Nota cliente', value: `"${booking.comments}"`, italic: true }] : []),
+    ])}
 
     <div class="btn-container">
       <a href="${ADMIN_URL}" class="btn-gold">Ver en Panel de Gestión</a>
@@ -272,24 +225,12 @@ export function getBarberUrgentTodayCancellationEmail(booking: SavedBooking, bar
     <h2 class="hero-title" style="color: #ef4444;">⚠️ Cita de HOY cancelada</h2>
     <p class="hero-text">Hola <strong>${barberName}</strong>, se ha cancelado una cita para <strong>HOY</strong> en tu agenda:</p>
 
-    <div class="card" style="border-color: rgba(239, 68, 68, 0.4);">
-      <div class="card-row">
-        <span class="card-label">Cliente</span>
-        <span class="card-value">${booking.full_name}</span>
-      </div>
-      <div class="card-row">
-        <span class="card-label">Hora liberada</span>
-        <span class="card-value highlight" style="color: #f87171;">Hoy a las ${booking.booking_time} h</span>
-      </div>
-      <div class="card-row">
-        <span class="card-label">Servicio</span>
-        <span class="card-value">${booking.service}</span>
-      </div>
-      <div class="card-row">
-        <span class="card-label">Teléfono cliente</span>
-        <span class="card-value">${booking.phone}</span>
-      </div>
-    </div>
+    ${renderDetailsTable([
+      { label: 'Cliente', value: booking.full_name },
+      { label: 'Hora liberada', value: `Hoy a las ${booking.booking_time} h`, highlight: true },
+      { label: 'Servicio', value: booking.service },
+      { label: 'Teléfono cliente', value: `<a href="tel:${booking.phone}" style="color:#d4af37; text-decoration:none;">${booking.phone}</a>` },
+    ])}
 
     <p style="text-align:center; color: #a1a1aa; font-size: 13px;">
       El hueco de las <strong>${booking.booking_time}h</strong> ha quedado libre en tu turno de hoy.
@@ -317,25 +258,12 @@ export function getBarberUrgentTodayRescheduledEmail(
     <h2 class="hero-title" style="color: #f59e0b;">🔄 Cita de HOY modificada</h2>
     <p class="hero-text">Hola <strong>${barberName}</strong>, la cita de <strong>${booking.full_name}</strong> ha cambiado de horario para tu turno de hoy:</p>
 
-    <div class="card">
-      ${oldTime ? `
-      <div class="card-row">
-        <span class="card-label">Hora anterior</span>
-        <span class="card-value" style="text-decoration: line-through;">${oldTime} h</span>
-      </div>` : ''}
-      <div class="card-row">
-        <span class="card-label">Nueva hora fijada</span>
-        <span class="card-value highlight">Hoy a las ${booking.booking_time} h</span>
-      </div>
-      <div class="card-row">
-        <span class="card-label">Servicio</span>
-        <span class="card-value">${booking.service}</span>
-      </div>
-      <div class="card-row">
-        <span class="card-label">Teléfono</span>
-        <span class="card-value">${booking.phone}</span>
-      </div>
-    </div>
+    ${renderDetailsTable([
+      ...(oldTime ? [{ label: 'Hora anterior', value: `${oldTime} h`, strike: true }] : []),
+      { label: 'Nueva hora fijada', value: `Hoy a las ${booking.booking_time} h`, highlight: true },
+      { label: 'Servicio', value: booking.service },
+      { label: 'Teléfono', value: `<a href="tel:${booking.phone}" style="color:#d4af37; text-decoration:none;">${booking.phone}</a>` },
+    ])}
 
     <div class="btn-container">
       <a href="${ADMIN_URL}" class="btn-gold">Ver en Agenda de Hoy</a>

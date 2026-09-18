@@ -101,16 +101,54 @@ export async function syncOneSignalUser(
 /**
  * Requests native browser permission for push notifications
  */
-export async function requestPushPermission(): Promise<boolean> {
-  if (typeof window === 'undefined') return false;
+export async function requestPushPermission(): Promise<{ granted: boolean; status: 'granted' | 'denied' | 'unsupported' }> {
+  if (typeof window === 'undefined') return { granted: false, status: 'unsupported' };
 
   try {
     await initOneSignal();
+
+    // 1. If native Notification API exists in window
+    if ('Notification' in window) {
+      if (Notification.permission === 'denied') {
+        console.warn('[Push] Notifications are blocked by user in browser settings');
+        return { granted: false, status: 'denied' };
+      }
+
+      if (Notification.permission === 'granted') {
+        try {
+          await OneSignal.User.PushSubscription.optIn();
+        } catch (e) {
+          console.warn('[OneSignal] optIn error:', e);
+        }
+        return { granted: true, status: 'granted' };
+      }
+
+      // Explicitly trigger browser native permission dialog
+      const nativePerm = await Notification.requestPermission();
+      if (nativePerm === 'granted') {
+        try {
+          await OneSignal.User.PushSubscription.optIn();
+        } catch (e) {
+          console.warn('[OneSignal] optIn error:', e);
+        }
+        return { granted: true, status: 'granted' };
+      }
+
+      return { granted: false, status: nativePerm === 'denied' ? 'denied' : 'unsupported' };
+    }
+
+    // 2. Fallback to OneSignal Notifications API
     const permission = await OneSignal.Notifications.requestPermission();
-    return permission;
+    if (permission) {
+      try {
+        await OneSignal.User.PushSubscription.optIn();
+      } catch {}
+      return { granted: true, status: 'granted' };
+    }
+    return { granted: false, status: 'unsupported' };
   } catch (err) {
     console.warn('[OneSignal] Error requesting permission:', err);
-    return false;
+    return { granted: false, status: 'unsupported' };
   }
 }
 

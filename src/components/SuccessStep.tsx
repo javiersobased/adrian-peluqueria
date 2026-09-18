@@ -1,10 +1,11 @@
 import { CheckIcon, CalendarIcon, ClockIcon, HomeIcon } from '@/components/icons';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 import type { SavedBooking, Barber } from '@/types';
 import { safeCap, googleCalendarUrl, downloadIcs } from '@/lib/calendar';
 import { notifyBookingConfirmed } from '@/lib/notifications';
-import { requestPushPermission } from '@/lib/onesignal';
+import { requestPushPermission, updateOneSignalMarketingConsent } from '@/lib/onesignal';
+import { notify } from '@/lib/notify';
 import { SALON_ADDRESS } from '@/data/services';
 import { Mail, Bell } from 'lucide-react';
 
@@ -25,34 +26,99 @@ function prettyDate(iso: string | null | undefined): string {
   return `${safeCap(MONTHS_ES[d.getMonth()])} ${d.getDate()}, ${d.getFullYear()}`;
 }
 
-
-
 export function SuccessStep({ booking, onHome }: SuccessStepProps) {
   const [barber, setBarber] = useState<Barber | null>(null);
   const [showModal, setShowModal] = useState(true);
-
-  useEffect(() => {
-    if (!booking?.barber) return;
-    supabase
-      .from('barbers')
-      .select('*')
-      .eq('id', booking.barber)
-      .maybeSingle()
-      .then(({ data }) => setBarber(data as Barber | null));
-  }, [booking?.barber]);
-
+  const [enablingPush, setEnablingPush] = useState(false);
   const [pushEnabled, setPushEnabled] = useState(false);
+  const notifiedBookingIdRef = useRef<string | null>(null);
 
+  // Check if push/reminders have already been activated previously on this device/account
+  const [alreadyConfigured, setAlreadyConfigured] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    const stored = localStorage.getItem('push_notifications_enabled') === 'true' ||
+                   localStorage.getItem('notification_prompt_completed') === 'true';
+    const browserGranted = 'Notification' in window && Notification.permission === 'granted';
+    return stored || browserGranted;
+  });
+
+  // Disparar confirmación de cita (Push y Email) EXACTAMENTE UNA VEZ por cita
   useEffect(() => {
-    if (booking?.id) {
-      notifyBookingConfirmed(booking, barber);
-    }
-  }, [booking?.id, barber]);
+    if (!booking?.id) return;
+    if (notifiedBookingIdRef.current === booking.id) return;
+    notifiedBookingIdRef.current = booking.id;
+
+    const resolveBarberAndNotify = async () => {
+      let resolvedBarber: Barber | null = null;
+      if (booking.barber) {
+        try {
+          const { data } = await supabase
+            .from('barbers')
+            .select('*')
+            .eq('id', booking.barber)
+            .maybeSingle();
+          resolvedBarber = data as Barber | null;
+          setBarber(resolvedBarber);
+        } catch {
+          // ignore
+        }
+      }
+      notifyBookingConfirmed(booking, resolvedBarber);
+    };
+
+    resolveBarberAndNotify();
+  }, [booking?.id, booking?.barber]);
 
   const handleEnablePush = async () => {
-    const granted = await requestPushPermission();
-    if (granted) {
+    setEnablingPush(true);
+    try {
+      const res = await requestPushPermission();
+      if (res.status === 'denied') {
+        notify.error(
+          'Notificaciones bloqueadas',
+          'Están bloqueadas en tu navegador. Puedes activarlas pulsando en el candado 🔒 junto a la URL.'
+        );
+        return;
+      }
+
+      // Guardar que el usuario activó los avisos para no volver a mostrar el botón
       setPushEnabled(true);
+      setAlreadyConfigured(true);
+      localStorage.setItem('push_notifications_enabled', 'true');
+      localStorage.setItem('notification_prompt_completed', 'true');
+
+      // Guardar también consentimiento para comunicaciones comerciales
+      localStorage.setItem('marketing_accepted', 'true');
+      if (booking?.user_id) {
+        localStorage.setItem(`marketing_accepted_${booking.user_id}`, 'true');
+        await supabase.auth.updateUser({
+          data: { marketing_accepted: true },
+        }).catch(() => {});
+      }
+
+      // Actualizar tabla customers
+      if (booking?.phone || booking?.email) {
+        await supabase
+          .from('customers')
+          .upsert({
+            user_id: booking?.user_id || null,
+            full_name: booking?.full_name || '',
+            phone: booking?.phone || '',
+            email: booking?.email || null,
+            marketing_accepted: true,
+            updated_at: new Date().toISOString(),
+          }, { onConflict: 'phone' })
+          .catch(() => {});
+      }
+
+      // Sincronizar etiqueta de marketing en OneSignal
+      await updateOneSignalMarketingConsent(true);
+
+      notify.success('¡Avisos activados!', 'Recibirás recordatorios de tu cita y promociones en tu móvil');
+    } catch (err) {
+      console.error('Error enabling push:', err);
+    } finally {
+      setEnablingPush(false);
     }
   };
 
@@ -207,14 +273,15 @@ export function SuccessStep({ booking, onHome }: SuccessStepProps) {
                 <span>Añadir a Apple Calendar</span>
               </button>
 
-              {!pushEnabled && (
+              {!alreadyConfigured && !pushEnabled && (
                 <button
                   type="button"
                   onClick={handleEnablePush}
-                  className="flex w-full items-center justify-center gap-2 rounded-full bg-gold/15 px-5 py-3 text-sm font-bold text-gold transition-all hover:bg-gold/25 active:scale-[0.98] border border-gold/30 shadow-sm shadow-gold/10"
+                  disabled={enablingPush}
+                  className="flex w-full items-center justify-center gap-2 rounded-full bg-gold/15 px-5 py-3 text-sm font-bold text-gold transition-all hover:bg-gold/25 active:scale-[0.98] border border-gold/30 shadow-sm shadow-gold/10 disabled:opacity-60"
                 >
                   <Bell className="h-4 w-4 text-gold" />
-                  <span>Activar avisos y recordatorios en el móvil</span>
+                  <span>{enablingPush ? 'Activando avisos...' : 'Activar avisos y recordatorios en el móvil'}</span>
                 </button>
               )}
             </div>

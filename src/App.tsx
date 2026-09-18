@@ -319,7 +319,7 @@ function App() {
         </div>
         <div className="relative z-10 mx-auto w-full max-w-5xl">
           <Suspense fallback={<ScreenLoader message="Cargando catálogo..." />}>
-            <Catalog onBack={goPublic} />
+            <Catalog onBack={goPublic} userRole={auth.role} />
           </Suspense>
         </div>
       </div>

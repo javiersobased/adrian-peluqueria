@@ -10,7 +10,7 @@ import { AdminServices } from '@/components/admin/AdminServices';
 import { AdminStaff } from '@/components/admin/AdminStaff';
 import { AdminStaffSchedule } from '@/components/admin/AdminStaffSchedule';
 import { AdminCustomers } from '@/components/admin/AdminCustomers';
-import { AdminStore } from '@/components/admin/AdminStore';
+import { Catalog } from '@/components/Catalog';
 import { AdminProfile } from '@/components/admin/AdminProfile';
 import {
   CalendarDays, Clock, PlusCircle, SlidersHorizontal, Scissors, Users, ShoppingBag,
@@ -371,7 +371,11 @@ export function AdminPanel({ userRole, onSignOut, onGoPublic }: AdminPanelProps)
           {tab === 'staff' && isAdmin && <AdminStaff />}
           {tab === 'schedule' && isAdmin && <AdminStaffSchedule />}
           {tab === 'customers' && isAdmin && <AdminCustomers customers={customers} loading={loading} onRefresh={refresh} />}
-          {tab === 'store' && isAdmin && <AdminStore />}
+          {tab === 'store' && isAdmin && (
+            <div className="w-full">
+              <Catalog onBack={() => setTab('today')} userRole={userRole} />
+            </div>
+          )}
           </div>
         </div>
       </div>

@@ -135,6 +135,9 @@ export interface StoreProduct {
   image_url: string | null;
   sort_order: number;
   active: boolean;
+  card_size?: 'normal' | 'wide';
+  is_featured?: boolean;
+  badge?: string | null;
   created_at: string;
 }
 

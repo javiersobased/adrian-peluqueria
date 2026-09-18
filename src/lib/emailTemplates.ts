@@ -59,7 +59,7 @@ function wrapTemplate(bodyContent: string): string {
       </div>
       <div class="footer">
         <p><strong>Peluquería y Barbería Adrián Millán</strong></p>
-        <p>${SALON_ADDRESS} · Teléfono: ${SALON_PHONE}</p>
+        <p>${SALON_ADDRESS} · Teléfono: ${SALON_PHONE} · Email: <a href="mailto:citas@adrianmillan.es">citas@adrianmillan.es</a></p>
         <p style="margin-top: 12px;">
           <a href="${CITAS_URL}">Ver mis citas online</a> · <a href="${SITE_URL}">Visitar web oficial</a>
         </p>
@@ -183,6 +183,10 @@ export function getBookingCancelledEmail(
       { label: 'Estado', value: 'Cancelada', highlight: true },
       ...(reason ? [{ label: 'Motivo', value: reason, italic: true }] : []),
     ])}
+
+    <p class="hero-text" style="font-size: 13px; color: #a1a1aa; margin-top: 16px;">
+      Si tienes cualquier duda sobre esta cancelación o necesitas contactarnos, puedes responder directamente a este correo o escribir a <a href="mailto:citas@adrianmillan.es" style="color: #d4af37; text-decoration: underline;">citas@adrianmillan.es</a>.
+    </p>
 
     <p class="hero-text">Si deseas volver a reservar cuando te venga bien, puedes hacerlo en 1 minuto desde nuestra web oficial:</p>
 

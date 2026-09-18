@@ -26,6 +26,18 @@ export async function fetchProductsByCategory(categoryId: string): Promise<Store
     .select('*')
     .eq('category_id', categoryId)
     .eq('active', true)
+    .order('is_featured', { ascending: false })
+    .order('sort_order', { ascending: true });
+  if (error) return [];
+  return (data as StoreProduct[]) ?? [];
+}
+
+export async function fetchAdminProductsByCategory(categoryId: string): Promise<StoreProduct[]> {
+  const { data, error } = await supabase
+    .from('store_products')
+    .select('*')
+    .eq('category_id', categoryId)
+    .order('is_featured', { ascending: false })
     .order('sort_order', { ascending: true });
   if (error) return [];
   return (data as StoreProduct[]) ?? [];
@@ -35,6 +47,7 @@ export async function fetchAllStoreProducts(): Promise<StoreProduct[]> {
   const { data, error } = await supabase
     .from('store_products')
     .select('*')
+    .order('is_featured', { ascending: false })
     .order('sort_order', { ascending: true });
   if (error) return [];
   return (data as StoreProduct[]) ?? [];

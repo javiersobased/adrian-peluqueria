@@ -147,11 +147,24 @@ export function AdminAgenda({ bookings, loading, onRefresh }: AdminAgendaProps) 
   };
 
   const handlePermanentDelete = async (id: string) => {
-    if (!confirm('¿Eliminar por completo esta cita de la base de datos?\n\nEsta acción es irreversible y borrará el registro definitivamente.')) return;
+    const target = bookings.find((b) => b.id === id) || (selectedBooking?.id === id ? selectedBooking : null);
+    const clientLabel = target ? ` de ${target.full_name} (${target.email || target.phone})` : '';
+    if (!confirm(`¿Eliminar por completo la cita${clientLabel} de la base de datos?\n\nEsta acción es irreversible y enviará la notificación y correo de cancelación al cliente.`)) return;
     try {
+      if (target) {
+        const targetBarber = barbers.find((b) => b.id === target.barber) || getBarber(target.barber);
+        await notifyBookingCancelled(target, targetBarber, 'Cita eliminada de la agenda por la administración').catch((err) => {
+          console.warn('[handlePermanentDelete] Error notificando al cliente:', err);
+        });
+      }
       const { error } = await supabase.from('bookings').delete().eq('id', id);
       if (error) throw error;
-      notify.success('Cita eliminada definitivamente', 'El registro se ha borrado por completo de la base de datos');
+      notify.success(
+        'Cita eliminada definitivamente',
+        target?.email
+          ? `El registro se ha borrado y se notificó por correo a ${target.email}`
+          : 'El registro se ha borrado y se notificó al cliente'
+      );
       if (selectedBooking?.id === id) {
         setSelectedBooking(null);
       }

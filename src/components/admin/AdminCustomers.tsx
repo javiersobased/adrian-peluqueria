@@ -1,8 +1,9 @@
 import { useState, useEffect, useCallback } from 'react';
 import type { Customer } from '@/types';
-import { Search, Users, Phone, Mail, MessageSquare, ChevronRight, PhoneCall } from 'lucide-react';
+import { Search, Users, Phone, Mail, MessageSquare, ChevronRight, PhoneCall, Megaphone } from 'lucide-react';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import { CustomerDetailModal } from '@/components/admin/CustomerDetailModal';
+import { PromotionalCampaignModal } from '@/components/admin/PromotionalCampaignModal';
 import { getWhatsAppUrl, getCallUrl } from '@/lib/phoneActions';
 import { WhatsAppIcon } from '@/components/icons';
 
@@ -15,6 +16,7 @@ interface AdminCustomersProps {
 export function AdminCustomers({ customers, loading, onRefresh }: AdminCustomersProps) {
   const [search, setSearch] = useState('');
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
+  const [showPromoModal, setShowPromoModal] = useState(false);
 
   useEffect(() => { onRefresh(); }, [onRefresh]);
 
@@ -41,15 +43,25 @@ export function AdminCustomers({ customers, loading, onRefresh }: AdminCustomers
 
   return (
     <div className="mx-auto max-w-6xl w-full min-w-0 space-y-4">
-      <div className="flex items-center gap-2 rounded-xl glass-card px-3 py-2.5">
-        <Search className="h-4 w-4 text-zinc-500" />
-        <input
-          type="text"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder="Buscar por nombre, teléfono o email..."
-          className="w-full bg-transparent text-sm text-white placeholder:text-zinc-600 focus:outline-none"
-        />
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="flex flex-1 items-center gap-2 rounded-xl glass-card px-3 py-2.5">
+          <Search className="h-4 w-4 text-zinc-500" />
+          <input
+            type="text"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Buscar por nombre, teléfono o email..."
+            className="w-full bg-transparent text-sm text-white placeholder:text-zinc-600 focus:outline-none"
+          />
+        </div>
+
+        <button
+          onClick={() => setShowPromoModal(true)}
+          className="flex items-center justify-center gap-2 rounded-xl gold-gradient px-4 py-2.5 text-xs font-semibold text-black transition-all hover:brightness-110 active:scale-95 shadow-lg shadow-gold/10 shrink-0"
+        >
+          <Megaphone className="h-4 w-4" />
+          <span>Campaña Promocional</span>
+        </button>
       </div>
 
       {filtered.length === 0 ? (
@@ -79,6 +91,11 @@ export function AdminCustomers({ customers, loading, onRefresh }: AdminCustomers
                       {c.user_id && (
                         <span className="rounded-full bg-gold/10 px-1.5 py-0.5 text-[0.6rem] font-semibold text-gold border border-gold/20 shrink-0">
                           Google
+                        </span>
+                      )}
+                      {c.marketing_accepted && (
+                        <span className="rounded-full bg-emerald-500/10 px-1.5 py-0.5 text-[0.6rem] font-semibold text-emerald-400 border border-emerald-500/20 shrink-0" title="Consentimiento de promociones aceptado">
+                          Promo Sí
                         </span>
                       )}
                     </div>
@@ -140,6 +157,12 @@ export function AdminCustomers({ customers, loading, onRefresh }: AdminCustomers
           onClose={() => setSelectedCustomer(null)}
         />
       )}
+
+      {/* Promotional Campaign Modal */}
+      <PromotionalCampaignModal
+        isOpen={showPromoModal}
+        onClose={() => setShowPromoModal(false)}
+      />
     </div>
   );
 }

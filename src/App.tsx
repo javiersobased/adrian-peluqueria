@@ -17,6 +17,7 @@ import { setActivePwaContext } from '@/lib/pwaContext';
 import { supabase } from '@/lib/supabase';
 import { ScreenLoader } from '@/components/ui/LoadingSpinner';
 import { hasAcceptedTerms, acceptUserTerms } from '@/lib/terms';
+import { initOneSignal, syncOneSignalUser } from '@/lib/onesignal';
 
 const AdminPanel = lazy(() => import('@/components/AdminPanel').then(m => ({ default: m.AdminPanel })));
 const Catalog = lazy(() => import('@/components/Catalog').then(m => ({ default: m.Catalog })));
@@ -38,36 +39,63 @@ function App() {
   const [showTermsModal, setShowTermsModal] = useState(false);
   const [savingTerms, setSavingTerms] = useState(false);
 
-  // Detect hash changes for direct linking (#admin, #galeria, #catalogo, #mis-citas)
+  // Initialize OneSignal on mount
   useEffect(() => {
-    const handleHash = () => {
+    initOneSignal();
+  }, []);
+
+  // Sync OneSignal user identity and tags (role, barber_id, marketing_accepted)
+  useEffect(() => {
+    if (!auth.loading) {
+      syncOneSignalUser(auth.user, auth.role);
+    }
+  }, [auth.user, auth.role, auth.loading]);
+
+  // Detect hash, path, and subdomain changes for direct linking (#admin, #mis-citas, citas.adrianmillan.es)
+  useEffect(() => {
+    const handleNavigation = () => {
       const h = window.location.hash.toLowerCase();
-      if (h === '#admin') {
+      const path = window.location.pathname.toLowerCase();
+      const host = window.location.hostname.toLowerCase();
+
+      // 1. Direct subdomain support: citas.adrianmillan.es
+      if (host.startsWith('citas.')) {
+        setView('my-bookings');
+        return;
+      }
+
+      // 2. Direct paths or hash linking
+      if (h === '#admin' || path === '/admin') {
         setView('admin');
         if (!auth.loading && !auth.user) {
           setLoginPurpose('general');
           setShowLoginModal(true);
         }
-      } else if (h === '#galeria' || h === '#gallery' || h === '#cortes') {
+      } else if (h === '#galeria' || h === '#gallery' || h === '#cortes' || path === '/galeria') {
         setView('gallery');
-      } else if (h === '#catalogo' || h === '#tienda' || h === '#productos') {
+      } else if (h === '#catalogo' || h === '#tienda' || h === '#productos' || path === '/catalogo' || path === '/tienda') {
         setView('catalog');
-      } else if (h === '#mis-citas' || h === '#citas') {
+      } else if (h === '#mis-citas' || h === '#citas' || path === '/citas' || path === '/mis-citas') {
         setView('my-bookings');
       } else if (h === '#inicio' || h === '' || h === '#') {
         setView('public');
       }
     };
 
-    handleHash();
-    window.addEventListener('hashchange', handleHash);
-    return () => window.removeEventListener('hashchange', handleHash);
+    handleNavigation();
+    window.addEventListener('hashchange', handleNavigation);
+    window.addEventListener('popstate', handleNavigation);
+    return () => {
+      window.removeEventListener('hashchange', handleNavigation);
+      window.removeEventListener('popstate', handleNavigation);
+    };
   }, [auth.loading, auth.user]);
 
   // If loading finishes and user is on #admin but not logged in, prompt login
   useEffect(() => {
     if (auth.loading) return;
-    if (window.location.hash.toLowerCase() === '#admin' && !auth.user) {
+    const isSpecialAdminRoute = window.location.hash.toLowerCase() === '#admin' || window.location.pathname.toLowerCase() === '/admin';
+    if (isSpecialAdminRoute && !auth.user) {
       setLoginPurpose('general');
       setShowLoginModal(true);
     }

@@ -3,9 +3,10 @@ import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import type { SavedBooking, Barber } from '@/types';
 import { safeCap, googleCalendarUrl, downloadIcs } from '@/lib/calendar';
-import { sendBookingEmail } from '@/lib/email';
+import { notifyBookingConfirmed } from '@/lib/notifications';
+import { requestPushPermission } from '@/lib/onesignal';
 import { SALON_ADDRESS } from '@/data/services';
-import { Mail } from 'lucide-react';
+import { Mail, Bell } from 'lucide-react';
 
 interface SuccessStepProps {
   booking: SavedBooking;
@@ -40,11 +41,20 @@ export function SuccessStep({ booking, onHome }: SuccessStepProps) {
       .then(({ data }) => setBarber(data as Barber | null));
   }, [booking?.barber]);
 
+  const [pushEnabled, setPushEnabled] = useState(false);
+
   useEffect(() => {
-    if (booking?.id && booking?.email) {
-      sendBookingEmail(booking);
+    if (booking?.id) {
+      notifyBookingConfirmed(booking, barber);
     }
-  }, [booking?.id, booking?.email]);
+  }, [booking?.id, barber]);
+
+  const handleEnablePush = async () => {
+    const granted = await requestPushPermission();
+    if (granted) {
+      setPushEnabled(true);
+    }
+  };
 
   const gcalUrl = googleCalendarUrl({
     title: `Cita: ${booking?.service ?? 'Peluquería'}`,
@@ -196,6 +206,17 @@ export function SuccessStep({ booking, onHome }: SuccessStepProps) {
                 />
                 <span>Añadir a Apple Calendar</span>
               </button>
+
+              {!pushEnabled && (
+                <button
+                  type="button"
+                  onClick={handleEnablePush}
+                  className="flex w-full items-center justify-center gap-2 rounded-full bg-gold/15 px-5 py-3 text-sm font-bold text-gold transition-all hover:bg-gold/25 active:scale-[0.98] border border-gold/30 shadow-sm shadow-gold/10"
+                >
+                  <Bell className="h-4 w-4 text-gold" />
+                  <span>Activar avisos y recordatorios en el móvil</span>
+                </button>
+              )}
             </div>
 
             <button

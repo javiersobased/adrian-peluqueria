@@ -19,6 +19,7 @@ import { notify } from '@/lib/notify';
 import { getWhatsAppUrl, getCallUrl } from '@/lib/phoneActions';
 import { WhatsAppIcon } from '@/components/icons';
 import { WEEKDAY_SHORT, MONTH_SHORT, toISO } from '@/lib/schedule';
+import { notifyBookingRescheduled, notifyBookingCancelled } from '@/lib/notifications';
 import type { SavedBooking, Barber } from '@/types';
 
 export interface ReorganizeBookingModalProps {
@@ -143,6 +144,8 @@ Por ${selectedReason.toLowerCase()}, nos gustaría proponerte mover tu turno par
     }
 
     setSaving(true);
+    const oldDate = booking.booking_date;
+    const oldTime = booking.booking_time;
     try {
       const { error } = await supabase
         .from('bookings')
@@ -160,6 +163,15 @@ Por ${selectedReason.toLowerCase()}, nos gustaría proponerte mover tu turno par
         }
         throw error;
       }
+
+      const updatedBooking: SavedBooking = {
+        ...booking,
+        booking_date: targetDate,
+        booking_time: targetTime,
+        barber: targetBarber,
+        status: 'confirmed',
+      };
+      notifyBookingRescheduled(updatedBooking, oldDate, oldTime, selectedReason, targetBarberObj);
 
       notify.success(
         'Cita reorganizada',
@@ -203,6 +215,7 @@ Por ${selectedReason.toLowerCase()}, nos gustaría proponerte mover tu turno par
           .eq('id', booking.id);
         if (error) throw error;
       }
+      notifyBookingCancelled(booking, targetBarberObj);
       notify.success('Cita cancelada', 'La cita se ha marcado como cancelada.');
       onUpdated();
       onClose();

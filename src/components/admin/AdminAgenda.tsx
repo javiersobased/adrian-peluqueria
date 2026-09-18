@@ -22,6 +22,7 @@ import { notify } from '@/lib/notify';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import { CustomerDetailModal } from '@/components/admin/CustomerDetailModal';
 import { ReorganizeBookingModal } from '@/components/admin/ReorganizeBookingModal';
+import { notifyBookingCancelled } from '@/lib/notifications';
 import { getWhatsAppUrl, getCallUrl } from '@/lib/phoneActions';
 import { WhatsAppIcon } from '@/components/icons';
 
@@ -113,11 +114,16 @@ export function AdminAgenda({ bookings, loading, onRefresh }: AdminAgendaProps) 
   const handleCancel = async (id: string) => {
     if (!confirm('¿Cancelar esta cita?')) return;
     try {
+      const target = bookings.find((b) => b.id === id) || (selectedBooking?.id === id ? selectedBooking : null);
       const { error } = await supabase.from('bookings').update({ status: 'cancelled' }).eq('id', id);
       if (error) throw error;
       notify.success('Cita cancelada', 'La cita fue marcada como cancelada');
       if (selectedBooking?.id === id) {
         setSelectedBooking((prev) => (prev ? { ...prev, status: 'cancelled' } : null));
+      }
+      if (target) {
+        const targetBarber = barbers.find((b) => b.id === target.barber);
+        notifyBookingCancelled(target, targetBarber).catch(console.error);
       }
       onRefresh();
     } catch (err: any) {

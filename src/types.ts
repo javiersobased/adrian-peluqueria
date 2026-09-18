@@ -106,6 +106,7 @@ export interface Customer {
   comments: string | null;
   created_at: string;
   updated_at: string;
+  marketing_accepted?: boolean | null;
 }
 
 export interface UserRole {

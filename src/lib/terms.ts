@@ -59,6 +59,7 @@ export async function acceptUserTerms(
         user_id: user.id,
         email: user.email || null,
         full_name: user.user_metadata?.full_name || '',
+        marketing_accepted: options.marketingAccepted,
         updated_at: timestamp,
       });
     } catch {

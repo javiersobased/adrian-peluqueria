@@ -7,6 +7,7 @@ import { useEffect, useState } from 'react';
 import { notify } from '@/lib/notify';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import { ReorganizeBookingModal } from '@/components/admin/ReorganizeBookingModal';
+import { notifyBookingCancelled } from '@/lib/notifications';
 
 interface AdminTodayProps {
   bookings: SavedBooking[];
@@ -58,9 +59,13 @@ export function AdminToday({ bookings, loading, onRefresh }: AdminTodayProps) {
   const handleCancel = async (id: string) => {
     if (!confirm('¿Cancelar esta cita?')) return;
     try {
+      const target = allTodayBookings.find((b) => b.id === id);
       const { error } = await supabase.from('bookings').update({ status: 'cancelled' }).eq('id', id);
       if (error) throw error;
       notify.success('Cita cancelada', 'La cita se ha cancelado correctamente');
+      if (target) {
+        notifyBookingCancelled(target, getBarber(target.barber)).catch(console.error);
+      }
       onRefresh();
     } catch (err: any) {
       console.error('Error al cancelar cita:', err);

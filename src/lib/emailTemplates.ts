@@ -131,13 +131,15 @@ export function getBookingRescheduledEmail(
   booking: SavedBooking,
   oldDate?: string,
   oldTime?: string,
-  reason?: string
+  reason?: string,
+  barberName?: string
 ) {
   const subject = `Cambio de horario en tu cita · Peluquería Adrián Millán`;
+  const resolvedBarber = barberName || (booking.barber === 'adrian' ? 'Adrián Millán' : booking.barber);
 
   const html = wrapTemplate(`
     <h2 class="hero-title" style="color: #d4af37;">Horario de tu cita actualizado 🔄</h2>
-    <p class="hero-text">Hola <strong>${booking.full_name}</strong>, te informamos de que el horario de tu cita ha sido actualizado:</p>
+    <p class="hero-text">Hola <strong>${booking.full_name}</strong>, te informamos de que el horario o profesional de tu cita ha sido actualizado:</p>
 
     ${renderDetailsTable([
       ...(oldDate || oldTime ? [{
@@ -145,10 +147,10 @@ export function getBookingRescheduledEmail(
         value: `${oldDate ? formatDateHuman(oldDate) : ''} a las ${oldTime || ''}h`,
         strike: true,
       }] : []),
-      { label: 'Nueva Fecha', value: formatDateHuman(booking.booking_date), highlight: true },
-      { label: 'Nueva Hora', value: `${booking.booking_time} h`, highlight: true },
+      { label: 'Fecha', value: formatDateHuman(booking.booking_date), highlight: true },
+      { label: 'Hora', value: `${booking.booking_time} h`, highlight: true },
       { label: 'Servicio', value: `${booking.service} (${booking.service_price} €)` },
-      { label: 'Barbero', value: booking.barber === 'adrian' ? 'Adrián Millán' : booking.barber },
+      { label: 'Barbero', value: resolvedBarber, highlight: true },
       ...(reason ? [{ label: 'Motivo', value: reason, italic: true }] : []),
     ])}
 
@@ -163,8 +165,13 @@ export function getBookingRescheduledEmail(
 /**
  * 3. Email de Cancelación de Cita al Cliente
  */
-export function getBookingCancelledEmail(booking: SavedBooking) {
+export function getBookingCancelledEmail(
+  booking: SavedBooking,
+  barberName?: string,
+  reason?: string
+) {
   const subject = `Tu cita del ${formatDateHuman(booking.booking_date)} ha sido cancelada · Peluquería Adrián Millán`;
+  const resolvedBarber = barberName || (booking.barber === 'adrian' ? 'Adrián Millán' : booking.barber);
 
   const html = wrapTemplate(`
     <h2 class="hero-title" style="color: #f87171;">Tu cita ha sido cancelada</h2>
@@ -172,8 +179,9 @@ export function getBookingCancelledEmail(booking: SavedBooking) {
 
     ${renderDetailsTable([
       { label: 'Servicio programado', value: booking.service },
-      { label: 'Barbero', value: booking.barber === 'adrian' ? 'Adrián Millán' : booking.barber },
+      { label: 'Barbero', value: resolvedBarber },
       { label: 'Estado', value: 'Cancelada', highlight: true },
+      ...(reason ? [{ label: 'Motivo', value: reason, italic: true }] : []),
     ])}
 
     <p class="hero-text">Si deseas volver a reservar cuando te venga bien, puedes hacerlo en 1 minuto desde nuestra web oficial:</p>

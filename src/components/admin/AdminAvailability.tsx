@@ -2,9 +2,32 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { supabase } from '@/lib/supabase';
 import { fetchAllBarbers } from '@/data/services';
 import type { BarberBlock, Barber, BarberVacation, SavedBooking } from '@/types';
-import { Trash2, CalendarOff, Clock, Plane, AlertTriangle, ArrowRight, UserCheck, X, Scissors, Phone, User } from 'lucide-react';
+import {
+  Trash2,
+  CalendarOff,
+  Clock,
+  Plane,
+  AlertTriangle,
+  ArrowRight,
+  UserCheck,
+  X,
+  Scissors,
+  Phone,
+  User,
+  CheckCircle2,
+  XCircle,
+  Ban,
+  Sparkles,
+} from 'lucide-react';
 import { BLOCK_START_SLOTS, BLOCK_END_SLOTS, toISO, isBlockExpired, isVacationExpired, timeToMinutes, WEEKDAY_SHORT, MONTH_SHORT } from '@/lib/schedule';
 import { notify } from '@/lib/notify';
+import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
+import {
+  planCascadingReassignments,
+  executeCascadingDecisions,
+  cancelAllAffectedBookings,
+  type ReassignmentDecision,
+} from '@/lib/reassignment';
 
 interface AdminAvailabilityProps {
   blocks?: BarberBlock[];
@@ -17,9 +40,7 @@ interface ConflictState {
   affected: SavedBooking[];
   sourceBarberName: string;
   sourceBarberId: string;
-  isSourceAdrian: boolean;
-  targetBarberId: string;
-  otherBarbers: Barber[];
+  decisions: ReassignmentDecision[];
   executeBlock: () => Promise<void>;
 }
 
@@ -36,7 +57,8 @@ export function AdminAvailability({ blocks: initialBlocks, onRefresh }: AdminAva
   const [blocks, setBlocks] = useState<BarberBlock[]>(initialBlocks ?? []);
   const [vacations, setVacations] = useState<BarberVacation[]>([]);
   const [conflictState, setConflictState] = useState<ConflictState | null>(null);
-  const [selectedTargetBarber, setSelectedTargetBarber] = useState<string>('adrian');
+  const [calculatingCascade, setCalculatingCascade] = useState(false);
+  const [executingCascade, setExecutingCascade] = useState(false);
   const [nowState, setNowState] = useState(() => {
     const d = new Date();
     return {
@@ -207,24 +229,34 @@ export function AdminAvailability({ blocks: initialBlocks, onRefresh }: AdminAva
         });
       }
 
-      // 2. Si hay citas afectadas, requerir confirmación y reasignación preventiva
+      // 2. Si hay citas afectadas, requerir confirmación y calcular la cascada inteligente
       if (affected.length > 0) {
         const currentBarberObj = barbers.find((b) => b.id === barber);
-        const isCurrentAdrian = barber === 'adrian' || (currentBarberObj?.name.toLowerCase() || '').includes('adrian');
-        const others = barbers.filter((b) => b.id !== barber && b.active !== false);
-        const defaultTarget = isCurrentAdrian ? (others[0]?.id || '') : 'adrian';
-
-        setSelectedTargetBarber(defaultTarget);
+        setCalculatingCascade(true);
         setConflictState({
           affected,
           sourceBarberName: currentBarberObj?.name || barber,
           sourceBarberId: barber,
-          isSourceAdrian: isCurrentAdrian,
-          targetBarberId: defaultTarget,
-          otherBarbers: others,
+          decisions: [],
           executeBlock: executeInsertBlock,
         });
-        setSaving(false);
+
+        try {
+          const decisions = await planCascadingReassignments(affected, barber);
+          setConflictState({
+            affected,
+            sourceBarberName: currentBarberObj?.name || barber,
+            sourceBarberId: barber,
+            decisions,
+            executeBlock: executeInsertBlock,
+          });
+        } catch (planErr: any) {
+          console.error('Error calculando cascada de bloqueo:', planErr);
+          notify.error('Error al analizar disponibilidad', planErr?.message || 'No se pudo planificar la reasignación');
+        } finally {
+          setCalculatingCascade(false);
+          setSaving(false);
+        }
         return;
       }
 
@@ -238,44 +270,69 @@ export function AdminAvailability({ blocks: initialBlocks, onRefresh }: AdminAva
     }
   };
 
-  const handleConfirmReassignment = async () => {
+  const handleConfirmCascadeAndBlock = async () => {
     if (!conflictState) return;
-    const targetId = selectedTargetBarber;
-    if (!targetId) {
-      notify.error('Selecciona un barbero', 'Debes indicar a qué barbero reasignar las citas.');
-      return;
-    }
-
-    setSaving(true);
+    setExecutingCascade(true);
     try {
-      const bookingIds = conflictState.affected.map((b) => b.id);
-      const { error: reassignErr } = await supabase
-        .from('bookings')
-        .update({ barber: targetId })
-        .in('id', bookingIds);
-
-      if (reassignErr) {
-        const msg = reassignErr.message || '';
-        if (msg.includes('idx_bookings_unique_active_slot') || msg.includes('unique')) {
-          throw new Error('El barbero destino ya tiene una cita reservada a la misma fecha y hora que una de las citas a reasignar. Por favor, selecciona otro barbero disponible o gestiona esa cita individualmente.');
-        }
-        throw reassignErr;
-      }
+      const sourceBarberObj = barbers.find((b) => b.id === conflictState.sourceBarberId);
+      const { reassignedCount, cancelledCount } = await executeCascadingDecisions(
+        conflictState.decisions,
+        sourceBarberObj,
+        barbers
+      );
 
       // Aplicar el bloqueo
       await conflictState.executeBlock();
 
-      const targetBarberName = barbers.find((b) => b.id === targetId)?.name || targetId;
+      const parts = [];
+      if (reassignedCount > 0) parts.push(`${reassignedCount} reasignada${reassignedCount > 1 ? 's' : ''}`);
+      if (cancelledCount > 0) parts.push(`${cancelledCount} cancelada${cancelledCount > 1 ? 's' : ''}`);
+
       notify.success(
-        'Bloqueo y reasignación completados',
-        `${bookingIds.length} ${bookingIds.length === 1 ? 'cita reasignada' : 'citas reasignadas'} a ${targetBarberName}`
+        'Bloqueo guardado con éxito',
+        parts.length > 0 ? `Citas procesadas: ${parts.join(' y ')}` : 'Sin citas afectadas'
       );
       setConflictState(null);
     } catch (err: any) {
-      console.error('Error al reasignar citas y bloquear:', err);
-      notify.error('Error en reasignación', err?.message || 'No se pudieron reasignar las citas.');
+      console.error('Error al ejecutar reasignación y bloquear:', err);
+      notify.error('Error en reasignación', err?.message || 'No se pudieron procesar las citas');
     } finally {
-      setSaving(false);
+      setExecutingCascade(false);
+    }
+  };
+
+  const handleCancelAllAndBlock = async () => {
+    if (!conflictState) return;
+    const count = conflictState.affected.length;
+    if (
+      !confirm(
+        `¿Confirmas la cancelación de las ${count} ${count === 1 ? 'cita afectada' : 'citas afectadas'} para aplicar el bloqueo?\n\nLos clientes recibirán un email de cancelación.`
+      )
+    ) {
+      return;
+    }
+
+    setExecutingCascade(true);
+    try {
+      const sourceBarberObj = barbers.find((b) => b.id === conflictState.sourceBarberId);
+      await cancelAllAffectedBookings(
+        conflictState.affected,
+        sourceBarberObj,
+        `Indisponibilidad del profesional ${conflictState.sourceBarberName}`
+      );
+
+      await conflictState.executeBlock();
+
+      notify.success(
+        'Bloqueo aplicado',
+        `Se cancelaron ${count} citas y se notificó a los clientes.`
+      );
+      setConflictState(null);
+    } catch (err: any) {
+      console.error('Error al cancelar citas y bloquear:', err);
+      notify.error('Error al cancelar citas', err?.message || 'No se pudo aplicar el bloqueo');
+    } finally {
+      setExecutingCascade(false);
     }
   };
 
@@ -483,154 +540,200 @@ export function AdminAvailability({ blocks: initialBlocks, onRefresh }: AdminAva
         </div>
       </div>
 
-      {/* Modal de advertencia de citas afectadas y reasignación */}
+      {/* Modal de advertencia de citas afectadas y reasignación en cascada */}
       {conflictState && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div
             className="absolute inset-0 bg-black/80 backdrop-blur-md animate-fade-in"
-            onClick={() => { if (!saving) setConflictState(null); }}
+            onClick={() => { if (!executingCascade) setConflictState(null); }}
           />
-          <div className="relative flex max-h-[90vh] w-full max-w-lg flex-col rounded-3xl border border-amber-500/30 bg-zinc-900/95 p-5 sm:p-6 shadow-2xl backdrop-blur-xl animate-scale-in">
+          <div className="relative flex max-h-[90vh] w-full max-w-lg flex-col rounded-3xl border border-gold/30 bg-zinc-900/95 p-5 sm:p-6 shadow-2xl backdrop-blur-xl animate-scale-in">
             {/* Header */}
             <div className="flex items-start justify-between gap-3 border-b border-white/10 pb-4">
               <div className="flex items-center gap-2.5">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-500/20 text-amber-400 border border-amber-500/30">
-                  <AlertTriangle className="h-5 w-5" />
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gold/20 text-gold border border-gold/30">
+                  <Sparkles className="h-5 w-5" />
                 </div>
                 <div>
                   <h3 className="font-display text-base font-bold text-white">
-                    Citas afectadas por el bloqueo ({conflictState.affected.length})
+                    Reasignación en Cascada ({conflictState.affected.length} {conflictState.affected.length === 1 ? 'cita' : 'citas'})
                   </h3>
                   <p className="text-xs text-zinc-400">
-                    {conflictState.sourceBarberName} tiene reservas en este tramo
+                    Bloqueo de {conflictState.sourceBarberName} con reservas existentes
                   </p>
                 </div>
               </div>
               <button
                 type="button"
-                onClick={() => { if (!saving) setConflictState(null); }}
-                className="rounded-full p-1 text-zinc-400 hover:text-white transition-colors"
+                disabled={executingCascade}
+                onClick={() => setConflictState(null)}
+                className="rounded-full p-1 text-zinc-400 hover:text-white transition-colors disabled:opacity-50"
               >
                 <X className="h-5 w-5" />
               </button>
             </div>
 
-            {/* Content info & reassignment selector */}
+            {/* Body */}
             <div className="my-4 space-y-3.5 overflow-y-auto pr-1 text-xs">
-              {conflictState.isSourceAdrian ? (
-                <div className="rounded-2xl border border-amber-500/30 bg-amber-500/10 p-3.5 space-y-2">
-                  <p className="font-semibold text-amber-300">
-                    Adrián Millán no estará disponible en este período.
+              {calculatingCascade ? (
+                <div className="flex flex-col items-center justify-center py-10 space-y-3 text-center">
+                  <LoadingSpinner size="md" label="Analizando disponibilidad del equipo..." />
+                  <p className="text-xs text-zinc-400">
+                    Buscando barberos libres para cada horario y fecha...
                   </p>
-                  <p className="text-zinc-300 text-[0.75rem] leading-relaxed">
-                    Para no dejar estas citas desatendidas, selecciona qué otro barbero del equipo las asumirá:
-                  </p>
-                  {conflictState.otherBarbers.length === 0 ? (
-                    <p className="text-red-400 text-xs font-semibold">
-                      No hay otros barberos activos disponibles en el sistema. Cancela o reprograma las citas individualmente.
-                    </p>
-                  ) : (
-                    <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-2">
-                      {conflictState.otherBarbers.map((b) => (
-                        <button
-                          key={b.id}
-                          type="button"
-                          onClick={() => setSelectedTargetBarber(b.id)}
-                          className={`flex items-center gap-2.5 rounded-xl p-2.5 text-left transition-all ${
-                            selectedTargetBarber === b.id
-                              ? 'border border-gold bg-gold/15 text-white font-bold'
-                              : 'border border-white/10 bg-white/5 text-zinc-300 hover:bg-white/10'
-                          }`}
-                        >
-                          {b.photo_url ? (
-                            <img src={b.photo_url} alt="" className="h-6 w-6 rounded-full object-cover shrink-0" />
-                          ) : (
-                            <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full gold-gradient text-[0.6rem] font-bold text-black">
-                              {b.initials}
-                            </div>
-                          )}
-                          <span className="truncate text-xs">{b.name}</span>
-                        </button>
-                      ))}
-                    </div>
-                  )}
                 </div>
               ) : (
-                <div className="rounded-2xl border border-gold/30 bg-gold/10 p-3.5 space-y-1.5">
-                  <div className="flex items-center gap-2 text-gold font-bold">
-                    <UserCheck className="h-4 w-4" />
-                    <span>Reasignación automática a Adrián Millán</span>
-                  </div>
-                  <p className="text-zinc-300 text-[0.75rem] leading-relaxed">
-                    Las citas de <strong>{conflictState.sourceBarberName}</strong> se reasignarán automáticamente a <strong>Adrián Millán</strong> para que los clientes sean atendidos sin contratiempos.
-                  </p>
-                </div>
-              )}
-
-              {/* Lista de citas afectadas */}
-              <div className="space-y-2">
-                <p className="text-[0.65rem] uppercase tracking-wider font-semibold text-zinc-500">
-                  Detalle de citas a reasignar ({conflictState.affected.length})
-                </p>
-                <div className="max-h-[35vh] space-y-2 overflow-y-auto pr-1">
-                  {conflictState.affected.map((b) => (
-                    <div
-                      key={b.id}
-                      className="flex items-start justify-between gap-3 rounded-xl border border-white/5 bg-white/[0.03] p-3 text-xs"
-                    >
-                      <div className="space-y-1 min-w-0">
-                        <div className="flex items-center gap-2">
-                          <span className="rounded-md bg-gold/15 px-1.5 py-0.5 font-mono text-[0.7rem] font-bold text-gold border border-gold/20">
-                            {b.booking_date} · {b.booking_time}h
-                          </span>
-                          <span className="truncate font-semibold text-white">{b.full_name}</span>
-                        </div>
-                        <p className="text-[0.7rem] text-zinc-400 flex items-center gap-1.5 truncate">
-                          <Scissors className="h-3 w-3 text-gold/80 shrink-0" />
-                          <span className="truncate">{b.service}</span>
-                          <span className="text-gold font-mono shrink-0">({b.service_price}€)</span>
-                        </p>
-                        {b.phone && (
-                          <p className="text-[0.65rem] text-zinc-500 flex items-center gap-1">
-                            <Phone className="h-2.5 w-2.5 shrink-0" />
-                            <span>{b.phone}</span>
-                          </p>
-                        )}
-                      </div>
+                <>
+                  {/* Resumen explicativo */}
+                  <div className="rounded-2xl border border-white/10 bg-white/5 p-3.5 space-y-2">
+                    <p className="text-zinc-300 text-[0.75rem] leading-relaxed">
+                      El sistema ha evaluado a los miembros del equipo en orden para atender estas citas: si un barbero ya tiene cita a esa hora o está fuera de turno, pasa al siguiente hasta encontrar uno libre. Si ninguno está libre, la cita se cancela automáticamente.
+                    </p>
+                    <div className="flex flex-wrap gap-2 pt-1">
+                      {(() => {
+                        const reassigned = conflictState.decisions.filter((d) => d.action === 'reassign');
+                        const cancelled = conflictState.decisions.filter((d) => d.action === 'cancel');
+                        return (
+                          <>
+                            {reassigned.length > 0 && (
+                              <span className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-1 text-[0.7rem] font-semibold text-emerald-300">
+                                <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400" />
+                                {reassigned.length} {reassigned.length === 1 ? 'cita reasignada a compañero libre' : 'citas reasignadas a compañeros libres'}
+                              </span>
+                            )}
+                            {cancelled.length > 0 && (
+                              <span className="inline-flex items-center gap-1.5 rounded-lg border border-red-500/30 bg-red-500/10 px-2.5 py-1 text-[0.7rem] font-semibold text-red-300">
+                                <XCircle className="h-3.5 w-3.5 text-red-400" />
+                                {cancelled.length} {cancelled.length === 1 ? 'cita se cancelará (sin huecos libres)' : 'citas se cancelarán (sin huecos libres)'}
+                              </span>
+                            )}
+                          </>
+                        );
+                      })()}
                     </div>
-                  ))}
-                </div>
-              </div>
+                  </div>
+
+                  {/* Lista de citas y su destino en la cascada */}
+                  <div className="space-y-2">
+                    <p className="text-[0.65rem] uppercase tracking-wider font-semibold text-zinc-500">
+                      Resolución por cita ({conflictState.decisions.length})
+                    </p>
+                    <div className="max-h-[36vh] space-y-2.5 overflow-y-auto pr-1">
+                      {conflictState.decisions.map((dec) => {
+                        const b = dec.booking;
+                        return (
+                          <div
+                            key={b.id}
+                            className={`rounded-2xl border p-3 text-xs transition-all ${
+                              dec.action === 'reassign'
+                                ? 'border-emerald-500/30 bg-emerald-950/15'
+                                : 'border-red-500/30 bg-red-950/15'
+                            }`}
+                          >
+                            <div className="flex items-start justify-between gap-2">
+                              <div className="min-w-0 space-y-1">
+                                <div className="flex items-center gap-2">
+                                  <span className="rounded-md bg-gold/15 px-1.5 py-0.5 font-mono text-[0.7rem] font-bold text-gold border border-gold/20">
+                                    {b.booking_date} · {b.booking_time}h
+                                  </span>
+                                  <span className="truncate font-semibold text-white">{b.full_name}</span>
+                                </div>
+                                <p className="text-[0.7rem] text-zinc-400 flex items-center gap-1.5 truncate">
+                                  <Scissors className="h-3 w-3 text-gold/80 shrink-0" />
+                                  <span className="truncate">{b.service}</span>
+                                  <span className="text-gold font-mono shrink-0">({b.service_price}€)</span>
+                                </p>
+                                {b.phone && (
+                                  <p className="text-[0.65rem] text-zinc-500 flex items-center gap-1">
+                                    <Phone className="h-2.5 w-2.5 shrink-0" />
+                                    <span>{b.phone}</span>
+                                  </p>
+                                )}
+                              </div>
+                            </div>
+
+                            {/* Detalle de la resolución */}
+                            {dec.action === 'reassign' ? (
+                              <div className="mt-2.5 flex items-start gap-2 rounded-xl bg-emerald-500/10 border border-emerald-500/20 p-2 text-emerald-200">
+                                <UserCheck className="h-3.5 w-3.5 shrink-0 text-emerald-400 mt-0.5" />
+                                <div className="space-y-0.5 text-[0.7rem] min-w-0">
+                                  <p className="font-bold text-emerald-300">
+                                    Reasignado a: {dec.targetBarberName}
+                                  </p>
+                                  <p className="text-emerald-300/80 text-[0.68rem]">{dec.reason}</p>
+                                </div>
+                              </div>
+                            ) : (
+                              <div className="mt-2.5 space-y-1.5 rounded-xl bg-red-500/10 border border-red-500/20 p-2 text-red-200">
+                                <div className="flex items-center gap-1.5 text-[0.7rem] font-bold text-red-300">
+                                  <Ban className="h-3.5 w-3.5 text-red-400 shrink-0" />
+                                  <span>Cancelación automática</span>
+                                </div>
+                                <p className="text-[0.68rem] text-red-300/80">{dec.reason}</p>
+                                {dec.attempts.length > 0 && (
+                                  <div className="flex flex-wrap gap-1 pt-0.5">
+                                    {dec.attempts.map((att) => (
+                                      <span
+                                        key={att.barberId}
+                                        className="inline-block rounded bg-black/40 px-1.5 py-0.5 text-[0.62rem] text-zinc-400"
+                                      >
+                                        {att.barberName}: {att.reason}
+                                      </span>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </>
+              )}
             </div>
 
             {/* Actions */}
-            <div className="flex flex-col-reverse sm:flex-row items-center justify-end gap-2 border-t border-white/10 pt-4">
+            <div className="flex flex-col-reverse sm:flex-row items-center justify-between gap-2 border-t border-white/10 pt-4">
               <button
                 type="button"
-                disabled={saving}
+                disabled={executingCascade}
                 onClick={() => setConflictState(null)}
                 className="w-full sm:w-auto rounded-xl border border-white/10 px-4 py-2.5 text-xs font-semibold text-zinc-300 hover:bg-white/5 transition-colors disabled:opacity-50"
               >
-                Cancelar
+                Cerrar
               </button>
-              <button
-                type="button"
-                disabled={saving || (conflictState.isSourceAdrian && conflictState.otherBarbers.length === 0)}
-                onClick={handleConfirmReassignment}
-                className="w-full sm:w-auto flex items-center justify-center gap-2 rounded-xl gold-gradient px-5 py-2.5 text-xs font-bold uppercase tracking-wider text-black hover:brightness-110 active:scale-95 transition-all shadow-md disabled:opacity-50"
-              >
-                {saving ? (
-                  <>
-                    <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-black/30 border-t-black" />
-                    <span>Reasignando y bloqueando...</span>
-                  </>
-                ) : (
-                  <>
-                    <ArrowRight className="h-3.5 w-3.5" />
-                    <span>Reasignar citas y bloquear</span>
-                  </>
-                )}
-              </button>
+
+              <div className="w-full sm:w-auto flex flex-col sm:flex-row items-center gap-2">
+                <button
+                  type="button"
+                  disabled={executingCascade || calculatingCascade}
+                  onClick={handleCancelAllAndBlock}
+                  className="w-full sm:w-auto flex items-center justify-center gap-1.5 rounded-xl border border-red-500/30 bg-red-950/30 hover:bg-red-900/50 text-red-200 px-3.5 py-2.5 text-xs font-semibold transition-all active:scale-95 disabled:opacity-50"
+                >
+                  <Ban className="h-3.5 w-3.5 text-red-400" />
+                  <span>Cancelar todas y bloquear</span>
+                </button>
+
+                <button
+                  type="button"
+                  disabled={executingCascade || calculatingCascade}
+                  onClick={handleConfirmCascadeAndBlock}
+                  className="w-full sm:w-auto flex items-center justify-center gap-2 rounded-xl gold-gradient px-5 py-2.5 text-xs font-bold uppercase tracking-wider text-black hover:brightness-110 active:scale-95 transition-all shadow-md disabled:opacity-50"
+                >
+                  {executingCascade ? (
+                    <>
+                      <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-black/30 border-t-black" />
+                      <span>Procesando...</span>
+                    </>
+                  ) : (
+                    <>
+                      <ArrowRight className="h-3.5 w-3.5" />
+                      <span>Aplicar cascada y bloquear</span>
+                    </>
+                  )}
+                </button>
+              </div>
             </div>
           </div>
         </div>

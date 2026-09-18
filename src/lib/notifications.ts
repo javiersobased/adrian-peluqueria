@@ -191,7 +191,11 @@ export async function notifyBookingConfirmed(booking: SavedBooking, barber?: Bar
  * REGLA ESTRICTA SOLICITADA POR EL USUARIO:
  * "solamente quiero que le notifique si la reserva de la cita, el cambio o la cancelacion es para el mismo día y si la cita es o era en las siguientes 3 horas"
  */
-export async function notifyBookingCancelled(booking: SavedBooking, barber?: Barber | null) {
+export async function notifyBookingCancelled(
+  booking: SavedBooking,
+  barber?: Barber | null,
+  reason?: string
+) {
   try {
     const hora = booking.booking_time.slice(0, 5);
     const clientName = booking.full_name.trim();
@@ -200,7 +204,7 @@ export async function notifyBookingCancelled(booking: SavedBooking, barber?: Bar
     // 1. Al Cliente (Siempre se le notifica la cancelación de su cita por email)
     const targetEmail = await resolveTargetEmail(booking);
     const bookingWithEmail: SavedBooking = targetEmail ? { ...booking, email: targetEmail } : booking;
-    const clientEmail = targetEmail ? getBookingCancelledEmail(bookingWithEmail) : null;
+    const clientEmail = targetEmail ? getBookingCancelledEmail(bookingWithEmail, barberName, reason) : null;
 
     await dispatchNotification({
       push: booking.user_id ? {
@@ -266,7 +270,7 @@ export async function notifyBookingRescheduled(
     // 1. Al Cliente (Siempre se le notifica el cambio de horario por email)
     const targetEmail = await resolveTargetEmail(booking);
     const bookingWithEmail: SavedBooking = targetEmail ? { ...booking, email: targetEmail } : booking;
-    const clientEmail = targetEmail ? getBookingRescheduledEmail(bookingWithEmail, oldDate, oldTime, reason) : null;
+    const clientEmail = targetEmail ? getBookingRescheduledEmail(bookingWithEmail, oldDate, oldTime, reason, barberName) : null;
 
     await dispatchNotification({
       push: booking.user_id ? {

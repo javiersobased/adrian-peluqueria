@@ -10,10 +10,9 @@ import { AdminServices } from '@/components/admin/AdminServices';
 import { AdminStaff } from '@/components/admin/AdminStaff';
 import { AdminStaffSchedule } from '@/components/admin/AdminStaffSchedule';
 import { AdminCustomers } from '@/components/admin/AdminCustomers';
-import { Catalog } from '@/components/Catalog';
 import { AdminProfile } from '@/components/admin/AdminProfile';
 import {
-  CalendarDays, Clock, PlusCircle, SlidersHorizontal, Scissors, Users, ShoppingBag,
+  CalendarDays, Clock, PlusCircle, SlidersHorizontal, Scissors, Users,
   Search, X, LogOut, Menu, ArrowLeft, RotateCw, UserCircle2, type LucideIcon,
 } from 'lucide-react';
 import { InstallAppButton } from '@/components/InstallAppButton';
@@ -29,7 +28,7 @@ interface AdminPanelProps {
   onGoPublic: () => void;
 }
 
-type AdminTab = 'today' | 'agenda' | 'manual' | 'availability' | 'services' | 'staff' | 'schedule' | 'customers' | 'store' | 'profile';
+type AdminTab = 'today' | 'agenda' | 'manual' | 'availability' | 'services' | 'staff' | 'schedule' | 'customers' | 'profile';
 
 interface NavItem {
   id: AdminTab;
@@ -50,7 +49,7 @@ export function AdminPanel({ userRole, onSignOut, onGoPublic }: AdminPanelProps)
   const [tab, setTab] = useState<AdminTab>(() => {
     try {
       const saved = sessionStorage.getItem('admin_active_tab') as AdminTab;
-      if (saved) return saved;
+      if (saved && saved !== ('store' as any)) return saved;
     } catch {}
     return 'today';
   });
@@ -221,7 +220,6 @@ export function AdminPanel({ userRole, onSignOut, onGoPublic }: AdminPanelProps)
     { id: 'schedule', label: 'Horarios Semanales', icon: Clock, category: 'Control', adminOnly: true },
     { id: 'customers', label: 'Clientes', icon: Users, category: 'Gestión', adminOnly: true },
     { id: 'services', label: 'Servicios', icon: Scissors, category: 'Gestión', adminOnly: true },
-    { id: 'store', label: 'Tienda', icon: ShoppingBag, category: 'Gestión', adminOnly: true },
     { id: 'staff', label: 'Personal', icon: Users, category: 'Gestión', adminOnly: true },
   ];
 
@@ -371,11 +369,6 @@ export function AdminPanel({ userRole, onSignOut, onGoPublic }: AdminPanelProps)
           {tab === 'staff' && isAdmin && <AdminStaff />}
           {tab === 'schedule' && isAdmin && <AdminStaffSchedule />}
           {tab === 'customers' && isAdmin && <AdminCustomers customers={customers} loading={loading} onRefresh={refresh} />}
-          {tab === 'store' && isAdmin && (
-            <div className="w-full">
-              <Catalog onBack={() => setTab('today')} userRole={userRole} />
-            </div>
-          )}
           </div>
         </div>
       </div>

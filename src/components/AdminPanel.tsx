@@ -360,8 +360,8 @@ export function AdminPanel({ userRole, onSignOut, onGoPublic }: AdminPanelProps)
           </div>
         </header>
 
-        <div className="w-full min-w-0 px-2.5 py-4 sm:px-4 md:px-6 md:py-4 md:flex-1 md:overflow-y-auto">
-          <div className="admin-embed w-full min-w-0 overflow-x-hidden rounded-2xl p-3 sm:rounded-3xl sm:p-5 md:p-5">
+        <div className="w-full min-w-0 px-2.5 py-3 sm:px-4 md:px-6 md:py-3.5 md:flex-1 md:overflow-y-auto flex flex-col">
+          <div className="admin-embed w-full min-w-0 flex-1 flex flex-col rounded-2xl p-3 sm:rounded-3xl sm:p-4 md:p-5 min-h-full">
           {tab === 'today' && <AdminToday bookings={bookings} loading={loading} onRefresh={refresh} />}
           {tab === 'agenda' && <AdminAgenda bookings={bookings} loading={loading} onRefresh={refresh} />}
           {tab === 'manual' && <AdminManualBooking onCreated={refresh} />}

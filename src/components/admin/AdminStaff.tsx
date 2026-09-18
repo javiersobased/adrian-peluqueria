@@ -32,6 +32,7 @@ import {
   cancelAllAffectedBookings,
   type ReassignmentDecision,
 } from '@/lib/reassignment';
+import { ModalPortal } from '@/components/ui/ModalPortal';
 
 const MASTER_ADMINS = [
   { name: 'Adrián Millán (Dueño - Hotmail)', email: 'adrian.millan.peguero@hotmail.com' },
@@ -312,16 +313,17 @@ export function AdminStaff() {
 
       {/* Modal de confirmación y reasignación en cascada inteligente antes de eliminar barbero */}
       {deletionConflict && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div
-            className="absolute inset-0 bg-black/80 backdrop-blur-md animate-fade-in"
-            onClick={() => { if (!executingCascade) setDeletionConflict(null); }}
-          />
-          <div className="relative flex max-h-[90vh] w-full max-w-lg flex-col rounded-3xl border border-gold/30 bg-zinc-900/95 p-5 sm:p-6 shadow-2xl backdrop-blur-xl animate-scale-in">
-            {/* Header */}
-            <div className="flex items-start justify-between gap-3 border-b border-white/10 pb-4">
-              <div className="flex items-center gap-2.5">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gold/20 text-gold border border-gold/30">
+        <ModalPortal>
+          <div className="fixed inset-0 z-[9999] flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+            <div
+              className="fixed inset-0 bg-black/80 backdrop-blur-md animate-fade-in"
+              onClick={() => { if (!executingCascade) setDeletionConflict(null); }}
+            />
+            <div className="relative z-10 my-auto flex max-h-[88vh] w-full max-w-lg flex-col overflow-hidden rounded-3xl border border-gold/30 bg-zinc-900/95 p-4 sm:p-6 shadow-2xl backdrop-blur-xl animate-scale-in">
+              {/* Header */}
+              <div className="flex items-start justify-between gap-3 border-b border-white/10 pb-3 sm:pb-4 shrink-0">
+                <div className="flex items-center gap-2.5">
+                  <div className="flex h-9 w-9 sm:h-10 sm:w-10 shrink-0 items-center justify-center rounded-xl bg-gold/20 text-gold border border-gold/30">
                   <Sparkles className="h-5 w-5" />
                 </div>
                 <div>
@@ -344,7 +346,7 @@ export function AdminStaff() {
             </div>
 
             {/* Body */}
-            <div className="my-4 space-y-3.5 overflow-y-auto pr-1 text-xs">
+            <div className="my-3 sm:my-4 space-y-3.5 overflow-y-auto flex-1 pr-1 text-xs">
               {calculatingCascade ? (
                 <div className="flex flex-col items-center justify-center py-10 space-y-3 text-center">
                   <LoadingSpinner size="md" label="Analizando disponibilidad del equipo..." />
@@ -464,7 +466,7 @@ export function AdminStaff() {
             </div>
 
             {/* Actions */}
-            <div className="flex flex-col-reverse sm:flex-row items-center justify-between gap-2 border-t border-white/10 pt-4">
+            <div className="flex flex-col-reverse sm:flex-row items-center justify-between gap-2 border-t border-white/10 pt-3 sm:pt-4 shrink-0">
               <button
                 type="button"
                 disabled={executingCascade}
@@ -507,6 +509,7 @@ export function AdminStaff() {
             </div>
           </div>
         </div>
+        </ModalPortal>
       )}
     </div>
   );

@@ -22,6 +22,7 @@ import { notify } from '@/lib/notify';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import { CustomerDetailModal } from '@/components/admin/CustomerDetailModal';
 import { ReorganizeBookingModal } from '@/components/admin/ReorganizeBookingModal';
+import { ModalPortal } from '@/components/ui/ModalPortal';
 import { notifyBookingCancelled } from '@/lib/notifications';
 import { getWhatsAppUrl, getCallUrl } from '@/lib/phoneActions';
 import { WhatsAppIcon } from '@/components/icons';
@@ -488,47 +489,48 @@ export function AdminAgenda({ bookings, loading, onRefresh }: AdminAgendaProps) 
 
       {/* Appointment Detail Modal */}
       {selectedBooking && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-md animate-fade-in">
-          <div className="absolute inset-0" onClick={() => setSelectedBooking(null)} />
-          <div 
-            className="relative z-10 flex max-h-[90vh] w-full max-w-lg flex-col overflow-hidden rounded-3xl border border-gold/20 bg-zinc-950/95 p-6 shadow-2xl shadow-gold/5 backdrop-blur-xl"
-            onClick={(e) => e.stopPropagation()}
-          >
-            {/* Header */}
-            <div className="flex items-start justify-between gap-4 border-b border-white/10 pb-4">
-              <div className="space-y-1">
-                <div className="flex items-center gap-2">
-                  <span className="inline-flex items-center gap-1 rounded-full bg-gold/10 px-2.5 py-0.5 font-display text-xs font-bold text-gold border border-gold/20">
-                    <Clock className="h-3 w-3" /> {selectedBooking.booking_time} h
-                  </span>
-                  {selectedBooking.status === 'cancelled' ? (
-                    <span className="inline-flex items-center gap-1 rounded-full bg-red-500/10 px-2 py-0.5 text-[0.65rem] font-semibold text-red-400 border border-red-500/20">
-                      <XCircle className="h-3 w-3" /> Cancelada
+        <ModalPortal>
+          <div className="fixed inset-0 z-[9999] flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+            <div className="fixed inset-0 bg-black/80 backdrop-blur-md animate-fade-in" onClick={() => setSelectedBooking(null)} />
+            <div 
+              className="relative z-10 my-auto flex max-h-[88vh] w-full max-w-lg flex-col overflow-hidden rounded-3xl border border-gold/20 bg-zinc-950/95 p-4 sm:p-6 shadow-2xl shadow-gold/5 backdrop-blur-xl animate-scale-in"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Header */}
+              <div className="flex items-start justify-between gap-4 border-b border-white/10 pb-3 sm:pb-4 shrink-0">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <span className="inline-flex items-center gap-1 rounded-full bg-gold/10 px-2.5 py-0.5 font-display text-xs font-bold text-gold border border-gold/20">
+                      <Clock className="h-3 w-3" /> {selectedBooking.booking_time} h
                     </span>
-                  ) : (
-                    <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-[0.65rem] font-semibold text-emerald-400 border border-emerald-500/20">
-                      <CheckCircle2 className="h-3 w-3" /> Confirmada
-                    </span>
-                  )}
+                    {selectedBooking.status === 'cancelled' ? (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-red-500/10 px-2 py-0.5 text-[0.65rem] font-semibold text-red-400 border border-red-500/20">
+                        <XCircle className="h-3 w-3" /> Cancelada
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-[0.65rem] font-semibold text-emerald-400 border border-emerald-500/20">
+                        <CheckCircle2 className="h-3 w-3" /> Confirmada
+                      </span>
+                    )}
+                  </div>
+                  <h3 className="font-display text-lg font-bold text-white">
+                    {formatDateFull(selectedBooking.booking_date)}
+                  </h3>
                 </div>
-                <h3 className="font-display text-lg font-bold text-white">
-                  {formatDateFull(selectedBooking.booking_date)}
-                </h3>
+                <button
+                  onClick={() => setSelectedBooking(null)}
+                  aria-label="Cerrar detalle"
+                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white/5 text-zinc-400 transition-colors hover:bg-white/10 hover:text-white"
+                >
+                  <X className="h-4 w-4" />
+                </button>
               </div>
-              <button
-                onClick={() => setSelectedBooking(null)}
-                aria-label="Cerrar detalle"
-                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white/5 text-zinc-400 transition-colors hover:bg-white/10 hover:text-white"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
 
-            {/* Details Content */}
-            <div className="my-5 space-y-4 text-sm">
-              {/* Client card */}
-              <div className="rounded-2xl glass-card p-4 border border-white/5 bg-zinc-900/40 space-y-2">
-                <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500">Cliente</p>
+              {/* Details Content */}
+              <div className="my-3 sm:my-4 space-y-4 text-sm flex-1 overflow-y-auto pr-1">
+                {/* Client card */}
+                <div className="rounded-2xl glass-card p-4 border border-white/5 bg-zinc-900/40 space-y-2">
+                  <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500">Cliente</p>
                 <div className="flex items-center gap-3">
                   <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl gold-gradient font-display text-sm font-bold text-black">
                     {selectedBooking.full_name ? selectedBooking.full_name.charAt(0).toUpperCase() : '?'}
@@ -666,6 +668,7 @@ export function AdminAgenda({ bookings, loading, onRefresh }: AdminAgendaProps) 
             </div>
           </div>
         </div>
+        </ModalPortal>
       )}
 
       {/* Customer Detail / History Modal from Agenda */}

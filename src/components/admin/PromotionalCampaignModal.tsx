@@ -4,6 +4,7 @@ import { supabase } from '@/lib/supabase';
 import { sendPromotionalCampaign } from '@/lib/notifications';
 import { notify } from '@/lib/notify';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
+import { ModalPortal } from '@/components/ui/ModalPortal';
 
 interface PromotionalCampaignModalProps {
   isOpen: boolean;
@@ -91,10 +92,12 @@ export function PromotionalCampaignModal({ isOpen, onClose }: PromotionalCampaig
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 overflow-y-auto">
-      <div className="relative w-full max-w-lg rounded-2xl glass-card border border-gold/30 p-5 sm:p-6 shadow-2xl bg-zinc-950/95 text-white">
-        {/* Header */}
-        <div className="flex items-start justify-between gap-4 border-b border-white/10 pb-4">
+    <ModalPortal>
+      <div className="fixed inset-0 z-[9999] flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm animate-fade-in" onClick={onClose} />
+        <div className="relative z-10 my-auto flex max-h-[88vh] w-full max-w-lg flex-col overflow-hidden rounded-2xl glass-card border border-gold/30 p-4 sm:p-6 shadow-2xl bg-zinc-950/95 text-white animate-scale-in">
+          {/* Header */}
+          <div className="flex items-start justify-between gap-4 border-b border-white/10 pb-3 sm:pb-4 shrink-0">
           <div className="flex items-center gap-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gold/10 text-gold border border-gold/20">
               <Megaphone className="h-5 w-5" />
@@ -220,5 +223,6 @@ export function PromotionalCampaignModal({ isOpen, onClose }: PromotionalCampaig
         </form>
       </div>
     </div>
+    </ModalPortal>
   );
 }

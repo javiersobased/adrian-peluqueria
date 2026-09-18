@@ -20,6 +20,7 @@ import { getWhatsAppUrl, getCallUrl } from '@/lib/phoneActions';
 import { WhatsAppIcon } from '@/components/icons';
 import { WEEKDAY_SHORT, MONTH_SHORT, toISO } from '@/lib/schedule';
 import { notifyBookingRescheduled, notifyBookingCancelled } from '@/lib/notifications';
+import { ModalPortal } from '@/components/ui/ModalPortal';
 import type { SavedBooking, Barber } from '@/types';
 
 export interface ReorganizeBookingModalProps {
@@ -227,14 +228,15 @@ Por ${selectedReason.toLowerCase()}, nos gustaría proponerte mover tu turno par
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-md animate-fade-in">
-      <div className="absolute inset-0" onClick={onClose} />
-      <div
-        className="relative z-10 flex max-h-[92vh] w-full max-w-xl flex-col overflow-hidden rounded-3xl border border-gold/30 bg-zinc-950/95 p-5 sm:p-6 shadow-2xl backdrop-blur-xl animate-scale-in"
-        onClick={(e) => e.stopPropagation()}
-      >
-        {/* Header */}
-        <div className="flex items-start justify-between gap-3 border-b border-white/10 pb-4 shrink-0">
+    <ModalPortal>
+      <div className="fixed inset-0 z-[9999] flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-md animate-fade-in" onClick={onClose} />
+        <div
+          className="relative z-10 my-auto flex max-h-[88vh] w-full max-w-xl flex-col overflow-hidden rounded-3xl border border-gold/30 bg-zinc-950/95 p-4 sm:p-6 shadow-2xl backdrop-blur-xl animate-scale-in"
+          onClick={(e) => e.stopPropagation()}
+        >
+          {/* Header */}
+          <div className="flex items-start justify-between gap-3 border-b border-white/10 pb-3 sm:pb-4 shrink-0">
           <div className="flex items-center gap-2.5">
             <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl gold-gradient font-display text-black shadow-md shadow-gold/20">
               <CalendarClock className="h-5 w-5" />
@@ -550,5 +552,6 @@ Por ${selectedReason.toLowerCase()}, nos gustaría proponerte mover tu turno par
         </div>
       </div>
     </div>
+    </ModalPortal>
   );
 }

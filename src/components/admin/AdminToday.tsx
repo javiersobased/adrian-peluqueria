@@ -100,9 +100,9 @@ export function AdminToday({ bookings, loading, onRefresh }: AdminTodayProps) {
   const dateLabel = `${WEEKDAY_SHORT[now.getDay()]} ${now.getDate()} ${MONTH_SHORT[now.getMonth()]}`;
 
   return (
-    <div className="mx-auto max-w-6xl w-full min-w-0 space-y-4">
+    <div className="mx-auto max-w-6xl w-full min-w-0 space-y-3 sm:space-y-4">
       {/* Stats cards */}
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
+      <div className="grid grid-cols-2 gap-2.5 sm:gap-3 md:grid-cols-3">
         <StatCard
           label="Citas hoy"
           value={upcomingBookings.length}
@@ -124,8 +124,8 @@ export function AdminToday({ bookings, loading, onRefresh }: AdminTodayProps) {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <CalendarDays className="h-5 w-5 text-gold" />
-          <h3 className="font-display text-xl font-bold text-white">Citas de hoy · {dateLabel}</h3>
+          <CalendarDays className="h-4 w-4 sm:h-5 sm:w-5 text-gold" />
+          <h3 className="font-display text-lg sm:text-xl font-bold text-white">Citas de hoy · {dateLabel}</h3>
         </div>
         <span className="text-xs font-mono text-zinc-500 bg-zinc-900/80 px-2.5 py-1 rounded-full border border-white/5">
           {currentTimeStr} h
@@ -158,7 +158,7 @@ export function AdminToday({ bookings, loading, onRefresh }: AdminTodayProps) {
             return (
               <div
                 key={b.id}
-                className={`flex items-start gap-2.5 sm:gap-3 rounded-2xl glass-card p-3 sm:p-3.5 transition-all hover:border-gold/30 ${
+                className={`flex items-start gap-2.5 sm:gap-3 rounded-2xl glass-card p-2.5 sm:p-3 transition-all hover:border-gold/30 ${
                   isNext ? 'border-gold/30 bg-gold/[0.03] ring-1 ring-gold/20' : ''
                 }`}
               >
@@ -343,10 +343,10 @@ function StatCard({
   className?: string;
 }) {
   return (
-    <div className={`rounded-2xl glass-card p-4 relative overflow-hidden ${className ?? ''}`}>
+    <div className={`rounded-2xl glass-card p-3 sm:p-3.5 relative overflow-hidden ${className ?? ''}`}>
       <p className="text-[0.6rem] font-semibold uppercase tracking-wider text-zinc-500">{label}</p>
-      <div className="mt-1.5 flex items-baseline gap-2">
-        <p className="font-display text-2xl font-bold text-white tracking-tight">{value}</p>
+      <div className="mt-1 flex items-baseline gap-2">
+        <p className="font-display text-xl sm:text-2xl font-bold text-white tracking-tight">{value}</p>
         {badge && (
           <span
             title={badgeTitle}

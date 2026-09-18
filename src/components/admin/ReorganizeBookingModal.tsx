@@ -88,9 +88,34 @@ export function ReorganizeBookingModal({
     }
   };
 
-  // Check occupied slots for the selected date and barber
+  const [liveOccupiedSlots, setLiveOccupiedSlots] = useState<Set<string>>(new Set());
+
+  // Consultar en tiempo real las citas existentes para el barbero y fecha seleccionados
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      try {
+        const { data } = await supabase
+          .from('bookings')
+          .select('booking_time')
+          .eq('barber', targetBarber)
+          .eq('booking_date', targetDate)
+          .neq('status', 'cancelled')
+          .neq('id', booking.id);
+
+        if (!active) return;
+        const set = new Set<string>((data || []).map((b) => b.booking_time));
+        setLiveOccupiedSlots(set);
+      } catch (err) {
+        console.error('Error al consultar huecos ocupados para reorganizar:', err);
+      }
+    })();
+    return () => { active = false; };
+  }, [targetBarber, targetDate, booking.id]);
+
+  // Check occupied slots for the selected date and barber (combina memoria local y consulta en vivo)
   const occupiedSlots = useMemo(() => {
-    const set = new Set<string>();
+    const set = new Set<string>(liveOccupiedSlots);
     allBookings.forEach((b) => {
       if (
         b.id !== booking.id &&
@@ -102,7 +127,7 @@ export function ReorganizeBookingModal({
       }
     });
     return set;
-  }, [allBookings, booking.id, targetBarber, targetDate]);
+  }, [allBookings, liveOccupiedSlots, booking.id, targetBarber, targetDate]);
 
   // Client's first name for polite messaging
   const clientFirstName = booking.full_name.trim().split(' ')[0] || 'Hola';

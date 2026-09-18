@@ -40,7 +40,7 @@ export async function fetchBarbers(): Promise<Barber[]> {
 export async function fetchAllBarbers(): Promise<Barber[]> {
   const { data, error } = await supabase
     .from('barbers')
-    .select('id, name, role, initials, photo_url, active, sort_order')
+    .select('*')
     .order('sort_order', { ascending: true });
   if (error) return [];
   const list = (data as Barber[]) ?? [];

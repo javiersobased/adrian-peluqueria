@@ -9,6 +9,7 @@ export interface PendingBookingPayload {
   full_name: string;
   phone: string;
   comments: string | null;
+  marketing_accepted?: boolean;
 }
 
 export function savePendingBooking(payload: PendingBookingPayload) {

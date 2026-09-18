@@ -12,7 +12,7 @@ import {
   formatDigitsForDisplay,
   detectCountryFromInput,
 } from '@/lib/countries';
-import { Search, ChevronDown, X, Sparkles, AlertCircle, Clock } from 'lucide-react';
+import { Search, ChevronDown, X, Sparkles, AlertCircle, Clock, Mail } from 'lucide-react';
 
 const DRAFT_KEY = 'amm_client_details_draft';
 
@@ -65,6 +65,17 @@ export function DetailsStep({ onBack, onSubmit, submitting, error }: DetailsStep
     } catch {}
     return '';
   });
+  const [marketingAccepted, setMarketingAccepted] = useState(() => {
+    try {
+      const saved = sessionStorage.getItem(DRAFT_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (typeof parsed.marketingAccepted === 'boolean') return parsed.marketingAccepted;
+      }
+      return localStorage.getItem('marketing_accepted') === 'true';
+    } catch {}
+    return false;
+  });
   const [honeypot, setHoneypot] = useState('');
   const isSubmittingRef = useRef(false);
 
@@ -78,11 +89,12 @@ export function DetailsStep({ onBack, onSubmit, submitting, error }: DetailsStep
           lastName,
           nationalNumber,
           comments,
+          marketingAccepted,
           countryCode: selectedCountry.code,
         })
       );
     } catch {}
-  }, [firstName, lastName, nationalNumber, comments, selectedCountry]);
+  }, [firstName, lastName, nationalNumber, comments, marketingAccepted, selectedCountry]);
 
   const [touched, setTouched] = useState<{
     firstName?: boolean;
@@ -153,7 +165,7 @@ export function DetailsStep({ onBack, onSubmit, submitting, error }: DetailsStep
             foundPhone = lastBooking?.phone || custRecord?.phone || null;
 
             if (custRecord?.comments) {
-              setComments((prev) => prev || custRecord.comments || '');
+              setComments((prev: string) => prev || custRecord.comments || '');
             }
           } catch {
             // ignore
@@ -168,20 +180,20 @@ export function DetailsStep({ onBack, onSubmit, submitting, error }: DetailsStep
       if (pending) {
         if (pending.full_name) {
           const parts = pending.full_name.trim().split(/\s+/);
-          setFirstName((prev) => prev || parts[0] || '');
-          setLastName((prev) => prev || parts.slice(1).join(' ') || '');
+          setFirstName((prev: string) => prev || parts[0] || '');
+          setLastName((prev: string) => prev || parts.slice(1).join(' ') || '');
         }
         if (pending.phone) {
           foundPhone = pending.phone;
         }
         if (pending.comments) {
-          setComments((prev) => prev || pending.comments || '');
+          setComments((prev: string) => prev || pending.comments || '');
         }
       }
 
       // 3. Si encontramos un teléfono de su propia cita previa o perfil autenticado, autorellenarlo
       if (foundPhone) {
-        setNationalNumber((prev) => {
+        setNationalNumber((prev: string) => {
           if (prev) return prev;
           const detected = detectCountryFromInput(foundPhone!);
           if (detected) {
@@ -266,6 +278,7 @@ export function DetailsStep({ onBack, onSubmit, submitting, error }: DetailsStep
       fullName: combinedFullName,
       phone: phoneValidation.formattedE164,
       comments: comments.trim(),
+      marketingAccepted,
     });
   };
 
@@ -428,6 +441,26 @@ export function DetailsStep({ onBack, onSubmit, submitting, error }: DetailsStep
               placeholder="¿Alguna preferencia o indicación para tu cita?"
               className="w-full resize-none rounded-xl glass-card px-3 py-2 text-xs sm:text-sm text-white placeholder:text-zinc-600 transition-colors focus:border-gold/30 focus:outline-none"
             />
+          </div>
+
+          {/* Casilla de consentimiento para correos comerciales y aviso de confirmación */}
+          <div className="space-y-2 pt-1">
+            <label className="flex items-start gap-3 rounded-2xl border border-white/10 bg-white/[0.03] p-3 cursor-pointer select-none transition-all hover:bg-white/[0.06] hover:border-gold/30">
+              <input
+                type="checkbox"
+                checked={marketingAccepted}
+                onChange={(e) => setMarketingAccepted(e.target.checked)}
+                className="mt-0.5 h-4 w-4 rounded border-zinc-700 bg-zinc-800 text-gold accent-amber-500 focus:ring-gold/30 shrink-0"
+              />
+              <span className="text-xs text-zinc-300 leading-snug">
+                Deseo recibir correos comerciales con novedades, ofertas y promociones exclusivas de Adrián Millán.
+              </span>
+            </label>
+
+            <div className="flex items-center gap-2 px-1 text-[0.7rem] text-zinc-400">
+              <Mail className="h-3.5 w-3.5 text-gold shrink-0" />
+              <span>El correo de confirmación de tu cita siempre se enviará automáticamente.</span>
+            </div>
           </div>
 
           {error && (

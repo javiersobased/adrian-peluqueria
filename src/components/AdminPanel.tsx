@@ -19,7 +19,7 @@ import {
 import { InstallAppButton } from '@/components/InstallAppButton';
 import { setActivePwaContext } from '@/lib/pwaContext';
 import { notify } from '@/lib/notify';
-import { toISO, isBlockExpired, isCancelledBookingExpired } from '@/lib/schedule';
+import { toISO, isBlockExpired } from '@/lib/schedule';
 
 const CATEGORIES = ['Principal', 'Control', 'Gestión'];
 
@@ -111,18 +111,7 @@ export function AdminPanel({ userRole, onSignOut, onGoPublic }: AdminPanelProps)
       return !TEST_EMAILS.includes(b.email.toLowerCase().trim());
     });
 
-    // Purgar de la base de datos citas canceladas cuya fecha y hora original ya haya pasado
-    const d = new Date();
-    const curIso = toISO(d);
-    const curTime = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
-    const expiredCancelledIds = filtered
-      .filter((b) => isCancelledBookingExpired(b, curIso, curTime))
-      .map((b) => b.id);
-    if (expiredCancelledIds.length > 0) {
-      supabase.from('bookings').delete().in('id', expiredCancelledIds).then(() => {});
-    }
-
-    setBookings(filtered.filter((b) => !isCancelledBookingExpired(b, curIso, curTime)));
+    setBookings(filtered);
   }, [selectedBarber, isAdmin]);
 
   const fetchBlocks = useCallback(async () => {
@@ -202,22 +191,12 @@ export function AdminPanel({ userRole, onSignOut, onGoPublic }: AdminPanelProps)
     return () => { supabase.removeChannel(channel); };
   }, [fetchBookings, fetchBlocks]);
 
-  // Auto-purga periódica cada 15s de citas canceladas expiradas y bloqueos pasados
+  // Auto-purga periódica cada 15s de bloqueos pasados
   useEffect(() => {
     const interval = setInterval(() => {
       const d = new Date();
       const curIso = toISO(d);
       const curTime = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
-
-      // Purgar citas canceladas expiradas de la base de datos y de la vista
-      setBookings((prev) => {
-        const expiredIds = prev.filter((b) => isCancelledBookingExpired(b, curIso, curTime)).map((b) => b.id);
-        if (expiredIds.length > 0) {
-          supabase.from('bookings').delete().in('id', expiredIds).then(() => {});
-          return prev.filter((b) => !expiredIds.includes(b.id));
-        }
-        return prev;
-      });
 
       // Purgar bloqueos pasados de la base de datos y de la vista
       setBlocks((prev) => {
@@ -249,7 +228,7 @@ export function AdminPanel({ userRole, onSignOut, onGoPublic }: AdminPanelProps)
   const navItems = allNavItems.filter((n) => (isAdmin ? !n.barberOnly : !n.adminOnly));
   const filteredNav = navItems.filter((n) => n.label.toLowerCase().includes(search.toLowerCase()));
   const activeBarber = barbers.find((b) => b.id === selectedBarber) ?? null;
-  const todayCount = bookings.filter((b) => b.booking_date === new Date().toISOString().slice(0, 10)).length;
+  const todayCount = bookings.filter((b) => b.booking_date === toISO(new Date()) && b.status !== 'cancelled').length;
 
   const handleNav = (id: AdminTab) => {
     setTab(id);
@@ -381,8 +360,8 @@ export function AdminPanel({ userRole, onSignOut, onGoPublic }: AdminPanelProps)
           </div>
         </header>
 
-        <div className="w-full min-w-0 px-2.5 py-4 sm:px-4 md:px-6 md:py-4 md:flex-1 md:overflow-y-auto">
-          <div className="admin-embed w-full min-w-0 overflow-x-hidden rounded-2xl p-3 sm:rounded-3xl sm:p-5 md:p-5">
+        <div className="w-full min-w-0 px-2.5 py-3 sm:px-4 md:px-6 md:py-3.5 md:flex-1 md:overflow-y-auto flex flex-col">
+          <div className="admin-embed w-full min-w-0 flex-1 flex flex-col rounded-2xl p-3 sm:rounded-3xl sm:p-4 md:p-5 min-h-full">
           {tab === 'today' && <AdminToday bookings={bookings} loading={loading} onRefresh={refresh} />}
           {tab === 'agenda' && <AdminAgenda bookings={bookings} loading={loading} onRefresh={refresh} />}
           {tab === 'manual' && <AdminManualBooking onCreated={refresh} />}

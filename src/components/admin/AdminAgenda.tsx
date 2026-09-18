@@ -22,6 +22,8 @@ import { notify } from '@/lib/notify';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import { CustomerDetailModal } from '@/components/admin/CustomerDetailModal';
 import { ReorganizeBookingModal } from '@/components/admin/ReorganizeBookingModal';
+import { ModalPortal } from '@/components/ui/ModalPortal';
+import { notifyBookingCancelled } from '@/lib/notifications';
 import { getWhatsAppUrl, getCallUrl } from '@/lib/phoneActions';
 import { WhatsAppIcon } from '@/components/icons';
 
@@ -55,7 +57,7 @@ export function AdminAgenda({ bookings, loading, onRefresh }: AdminAgendaProps) 
     };
   });
 
-  // Re-evaluar cada 15 segundos para auto-eliminar citas canceladas expiradas
+  // Re-evaluar cada 15 segundos para mantener actualizado el reloj y las fechas
   useEffect(() => {
     const interval = setInterval(() => {
       const d = new Date();
@@ -67,20 +69,17 @@ export function AdminAgenda({ bookings, loading, onRefresh }: AdminAgendaProps) 
     return () => clearInterval(interval);
   }, []);
 
-  // Eliminar de la base de datos citas canceladas cuya fecha y hora original ya haya pasado
-  useEffect(() => {
-    const expiredCancelledIds = bookings
-      .filter((b) => isCancelledBookingExpired(b, nowState.iso, nowState.time))
-      .map((b) => b.id);
-    if (expiredCancelledIds.length > 0) {
-      supabase.from('bookings').delete().in('id', expiredCancelledIds).then(() => {
-        onRefresh();
-      });
-    }
-  }, [nowState, bookings, onRefresh]);
-
+  // Solo citas de hoy en adelante: los días pasados desaparecen de la agenda completa
+  // y quedan guardados en el historial de citas del cliente
   const cleanBookings = useMemo(() => {
-    return bookings.filter((b) => !isCancelledBookingExpired(b, nowState.iso, nowState.time));
+    return bookings.filter((b) => {
+      if (!b.booking_date) return false;
+      // Descartar días que ya hayan pasado de la agenda
+      if (b.booking_date < nowState.iso) return false;
+      // Descartar citas canceladas que ya hayan expirado hoy
+      if (isCancelledBookingExpired(b, nowState.iso, nowState.time)) return false;
+      return true;
+    });
   }, [bookings, nowState]);
 
   const activeCount = useMemo(() => cleanBookings.filter((b) => b.status !== 'cancelled').length, [cleanBookings]);
@@ -116,11 +115,16 @@ export function AdminAgenda({ bookings, loading, onRefresh }: AdminAgendaProps) 
   const handleCancel = async (id: string) => {
     if (!confirm('¿Cancelar esta cita?')) return;
     try {
+      const target = bookings.find((b) => b.id === id) || (selectedBooking?.id === id ? selectedBooking : null);
       const { error } = await supabase.from('bookings').update({ status: 'cancelled' }).eq('id', id);
       if (error) throw error;
       notify.success('Cita cancelada', 'La cita fue marcada como cancelada');
       if (selectedBooking?.id === id) {
         setSelectedBooking((prev) => (prev ? { ...prev, status: 'cancelled' } : null));
+      }
+      if (target) {
+        const targetBarber = barbers.find((b) => b.id === target.barber);
+        notifyBookingCancelled(target, targetBarber).catch(console.error);
       }
       onRefresh();
     } catch (err: any) {
@@ -175,7 +179,11 @@ export function AdminAgenda({ bookings, loading, onRefresh }: AdminAgendaProps) 
 
   const formatDateLabel = (iso: string) => {
     const d = new Date(iso + 'T00:00:00');
-    return `${WEEKDAY_SHORT[d.getDay()]} ${d.getDate()} ${MONTH_SHORT[d.getMonth()]}`;
+    const label = `${WEEKDAY_SHORT[d.getDay()]} ${d.getDate()} ${MONTH_SHORT[d.getMonth()]}`;
+    if (iso === nowState.iso) {
+      return `Hoy · ${label}`;
+    }
+    return label;
   };
 
   const formatDateFull = (iso: string) => {
@@ -209,12 +217,15 @@ export function AdminAgenda({ bookings, loading, onRefresh }: AdminAgendaProps) 
     );
   }
 
-  if (bookings.length === 0) {
+  if (cleanBookings.length === 0) {
     return (
       <div className="mx-auto max-w-3xl">
         <div className="rounded-3xl glass-card px-5 py-12 text-center">
           <CalendarDays className="mx-auto h-8 w-8 text-zinc-600" />
-          <p className="mt-3 text-sm text-zinc-500">No hay citas programadas.</p>
+          <p className="mt-3 text-sm text-zinc-400">No hay citas programadas en la agenda.</p>
+          <p className="mt-1 text-xs text-zinc-600">
+            Las citas de días pasados se encuentran guardadas en el historial de cada cliente.
+          </p>
         </div>
       </div>
     );
@@ -315,10 +326,10 @@ export function AdminAgenda({ bookings, loading, onRefresh }: AdminAgendaProps) 
           <CalendarDays className="mx-auto h-8 w-8 text-zinc-600" />
           <p className="mt-3 text-sm text-zinc-400">
             {viewFilter === 'cancelled'
-              ? 'No hay citas canceladas.'
+              ? 'No hay citas canceladas próximas.'
               : viewFilter === 'active'
-              ? 'No hay citas activas programadas.'
-              : 'No hay citas registradas.'}
+              ? 'No hay citas activas próximas programadas.'
+              : 'No hay citas próximas registradas.'}
           </p>
           {(viewFilter !== 'active' || barberFilter !== 'all') && (
             <button
@@ -496,54 +507,56 @@ export function AdminAgenda({ bookings, loading, onRefresh }: AdminAgendaProps) 
 
       {/* Appointment Detail Modal */}
       {selectedBooking && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-md animate-fade-in">
-          <div className="absolute inset-0" onClick={() => setSelectedBooking(null)} />
-          <div 
-            data-lenis-prevent
-            className="relative z-10 flex max-h-[90vh] w-full max-w-lg flex-col overflow-hidden rounded-3xl border border-gold/20 bg-zinc-950/95 p-6 shadow-2xl shadow-gold/5 backdrop-blur-xl"
-            onClick={(e) => e.stopPropagation()}
-          >
-            {/* Header */}
-            <div className="flex items-start justify-between gap-4 border-b border-white/10 pb-4">
-              <div className="space-y-1">
-                <div className="flex items-center gap-2">
-                  <span className="inline-flex items-center gap-1 rounded-full bg-gold/10 px-2.5 py-0.5 font-display text-xs font-bold text-gold border border-gold/20">
-                    <Clock className="h-3 w-3" /> {selectedBooking.booking_time} h
-                  </span>
-                  {selectedBooking.status === 'cancelled' ? (
-                    <span className="inline-flex items-center gap-1 rounded-full bg-red-500/10 px-2 py-0.5 text-[0.65rem] font-semibold text-red-400 border border-red-500/20">
-                      <XCircle className="h-3 w-3" /> Cancelada
+        <ModalPortal>
+          <div className="fixed inset-0 z-[9999] flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+            <div className="fixed inset-0 bg-black/80 backdrop-blur-md animate-fade-in" onClick={() => setSelectedBooking(null)} />
+            <div 
+              data-lenis-prevent
+              className="relative z-10 my-auto flex max-h-[88vh] w-full max-w-lg flex-col overflow-hidden rounded-3xl border border-gold/20 bg-zinc-950/95 p-4 sm:p-6 shadow-2xl shadow-gold/5 backdrop-blur-xl animate-scale-in"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Header */}
+              <div className="flex items-start justify-between gap-4 border-b border-white/10 pb-3 sm:pb-4 shrink-0">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <span className="inline-flex items-center gap-1 rounded-full bg-gold/10 px-2.5 py-0.5 font-display text-xs font-bold text-gold border border-gold/20">
+                      <Clock className="h-3 w-3" /> {selectedBooking.booking_time} h
                     </span>
-                  ) : (
-                    <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-[0.65rem] font-semibold text-emerald-400 border border-emerald-500/20">
-                      <CheckCircle2 className="h-3 w-3" /> Confirmada
-                    </span>
+                    {selectedBooking.status === 'cancelled' ? (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-red-500/10 px-2 py-0.5 text-[0.65rem] font-semibold text-red-400 border border-red-500/20">
+                        <XCircle className="h-3 w-3" /> Cancelada
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-[0.65rem] font-semibold text-emerald-400 border border-emerald-500/20">
+                        <CheckCircle2 className="h-3 w-3" /> Confirmada
+                      </span>
+                    )}
+                  </div>
+                  <h3 className="font-display text-lg font-bold text-white">
+                    {formatDateFull(selectedBooking.booking_date)}
+                  </h3>
+                  {selectedBooking.created_at && formatCreatedAt(selectedBooking.created_at) && (
+                    <p className="text-xs text-zinc-400 flex items-center gap-1.5 pt-0.5">
+                      <CalendarClock className="h-3.5 w-3.5 text-gold/80 shrink-0" />
+                      <span>Reservada el <strong className="text-zinc-200">{formatCreatedAt(selectedBooking.created_at)} h</strong></span>
+                    </p>
                   )}
                 </div>
-                <h3 className="font-display text-lg font-bold text-white">
-                  {formatDateFull(selectedBooking.booking_date)}
-                </h3>
-                {selectedBooking.created_at && formatCreatedAt(selectedBooking.created_at) && (
-                  <p className="text-xs text-zinc-400 flex items-center gap-1.5 pt-0.5">
-                    <CalendarClock className="h-3.5 w-3.5 text-gold/80 shrink-0" />
-                    <span>Reservada el <strong className="text-zinc-200">{formatCreatedAt(selectedBooking.created_at)} h</strong></span>
-                  </p>
-                )}
+                <button
+                  onClick={() => setSelectedBooking(null)}
+                  aria-label="Cerrar detalle"
+                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white/5 text-zinc-400 transition-colors hover:bg-white/10 hover:text-white"
+                >
+                  <X className="h-4 w-4" />
+                </button>
               </div>
-              <button
-                onClick={() => setSelectedBooking(null)}
-                aria-label="Cerrar detalle"
-                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white/5 text-zinc-400 transition-colors hover:bg-white/10 hover:text-white"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
 
-            {/* Details Content */}
-            <div data-lenis-prevent className="my-5 space-y-4 text-sm overflow-y-auto pr-1">
-              {/* Client card */}
-              <div className="rounded-2xl glass-card p-4 border border-white/5 bg-zinc-900/40 space-y-2">
-                <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500">Cliente</p>
+              {/* Details Content */}
+              <div data-lenis-prevent className="my-3 sm:my-4 space-y-4 text-sm flex-1 overflow-y-auto pr-1">
+                {/* Client card */}
+                <div className="rounded-2xl glass-card p-4 border border-white/5 bg-zinc-900/40 space-y-2">
+                  <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500">Cliente</p>
+>>>>>>> 4a1308358e1e7851e3ef24b03972b969bd2a8878
                 <div className="flex items-center gap-3">
                   <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl gold-gradient font-display text-sm font-bold text-black">
                     {selectedBooking.full_name ? selectedBooking.full_name.charAt(0).toUpperCase() : '?'}
@@ -681,6 +694,7 @@ export function AdminAgenda({ bookings, loading, onRefresh }: AdminAgendaProps) 
             </div>
           </div>
         </div>
+        </ModalPortal>
       )}
 
       {/* Customer Detail / History Modal from Agenda */}

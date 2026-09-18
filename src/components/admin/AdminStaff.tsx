@@ -2,10 +2,37 @@ import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
 import { fetchAllBarbers } from '@/data/services';
 import type { Barber, SavedBooking } from '@/types';
-import { Plus, Trash2, Pencil, Check, X, Upload, UserRound, Mail, Shield, ShieldCheck, AlertTriangle, ArrowRight, UserCheck, Scissors, Phone } from 'lucide-react';
+import {
+  Plus,
+  Trash2,
+  Pencil,
+  Check,
+  X,
+  Upload,
+  UserRound,
+  Mail,
+  Shield,
+  ShieldCheck,
+  AlertTriangle,
+  ArrowRight,
+  UserCheck,
+  Scissors,
+  Phone,
+  CheckCircle2,
+  XCircle,
+  Ban,
+  Sparkles,
+} from 'lucide-react';
 import { notify } from '@/lib/notify';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import { toISO } from '@/lib/schedule';
+import {
+  planCascadingReassignments,
+  executeCascadingDecisions,
+  cancelAllAffectedBookings,
+  type ReassignmentDecision,
+} from '@/lib/reassignment';
+import { ModalPortal } from '@/components/ui/ModalPortal';
 
 const MASTER_ADMINS = [
   { name: 'Adrián Millán (Dueño - Hotmail)', email: 'adrian.millan.peguero@hotmail.com' },
@@ -22,8 +49,7 @@ export const isAdrian = (b?: Barber | null): boolean => {
 interface DeletionConflictState {
   barber: Barber;
   bookings: SavedBooking[];
-  isAdrian: boolean;
-  otherBarbers: Barber[];
+  decisions: ReassignmentDecision[];
 }
 
 export function AdminStaff() {
@@ -32,8 +58,8 @@ export function AdminStaff() {
   const [creating, setCreating] = useState(false);
   const [editing, setEditing] = useState<Barber | null>(null);
   const [deletionConflict, setDeletionConflict] = useState<DeletionConflictState | null>(null);
-  const [selectedReassignBarber, setSelectedReassignBarber] = useState<string>('adrian');
-  const [deleting, setDeleting] = useState(false);
+  const [calculatingCascade, setCalculatingCascade] = useState(false);
+  const [executingCascade, setExecutingCascade] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -63,7 +89,10 @@ export function AdminStaff() {
   };
 
   const handleDelete = async (b: Barber) => {
-    const isCurrentAdrian = isAdrian(b);
+    if (isAdrian(b)) {
+      notify.error('Acción denegada', 'El perfil principal de Adrián no puede ser eliminado');
+      return;
+    }
 
     // 1. Consultar si este barbero tiene citas activas futuras pendientes
     const today = toISO(new Date());
@@ -81,29 +110,28 @@ export function AdminStaff() {
 
     const pending = (futureBookings as SavedBooking[]) || [];
 
-    // 2. Si tiene citas futuras, exigir advertencia y reasignación
+    // 2. Si tiene citas futuras, calcular la cascada inteligente de reasignación
     if (pending.length > 0) {
-      const others = barbers.filter((barber) => barber.id !== b.id && barber.active !== false);
-      const defaultTarget = isCurrentAdrian ? (others[0]?.id || '') : 'adrian';
-
-      if (isCurrentAdrian && others.length === 0) {
-        notify.error('Acción denegada', 'El perfil principal de Adrián tiene citas asignadas y no hay otros barberos para asumirlas.');
-        return;
-      }
-
-      setSelectedReassignBarber(defaultTarget);
+      setCalculatingCascade(true);
       setDeletionConflict({
         barber: b,
         bookings: pending,
-        isAdrian: isCurrentAdrian,
-        otherBarbers: others,
+        decisions: [],
       });
-      return;
-    }
 
-    // 3. Si es Adrián y no tiene citas, sigue estando protegido por defecto
-    if (isCurrentAdrian) {
-      notify.error('Acción denegada', 'El perfil principal de Adrián no puede ser eliminado');
+      try {
+        const decisions = await planCascadingReassignments(pending, b.id);
+        setDeletionConflict({
+          barber: b,
+          bookings: pending,
+          decisions,
+        });
+      } catch (err: any) {
+        console.error('Error al calcular cascada de reasignación:', err);
+        notify.error('Error al analizar citas', err?.message || 'No se pudo calcular la disponibilidad');
+      } finally {
+        setCalculatingCascade(false);
+      }
       return;
     }
 
@@ -111,45 +139,73 @@ export function AdminStaff() {
     executeDeleteBarber(b.id, b.name, b.google_email);
   };
 
-  const handleConfirmDeletionWithReassignment = async () => {
+  const handleConfirmCascadeAndDelete = async () => {
     if (!deletionConflict) return;
-    const targetId = selectedReassignBarber;
-    if (!targetId) {
-      notify.error('Selecciona un barbero', 'Debes indicar a qué barbero reasignar las citas.');
-      return;
-    }
-
-    setDeleting(true);
+    setExecutingCascade(true);
     try {
-      // 1. Reasignar citas pendientes
-      const bookingIds = deletionConflict.bookings.map((x) => x.id);
-      const { error: reassignError } = await supabase
-        .from('bookings')
-        .update({ barber: targetId })
-        .in('id', bookingIds);
+      const { reassignedCount, cancelledCount } = await executeCascadingDecisions(
+        deletionConflict.decisions,
+        deletionConflict.barber,
+        barbers
+      );
 
-      if (reassignError) {
-        throw reassignError;
-      }
-
-      // 2. Eliminar barbero
       await executeDeleteBarber(
         deletionConflict.barber.id,
         deletionConflict.barber.name,
         deletionConflict.barber.google_email
       );
 
-      const targetName = barbers.find((x) => x.id === targetId)?.name || targetId;
+      const parts = [];
+      if (reassignedCount > 0) parts.push(`${reassignedCount} reasignada${reassignedCount > 1 ? 's' : ''}`);
+      if (cancelledCount > 0) parts.push(`${cancelledCount} cancelada${cancelledCount > 1 ? 's' : ''}`);
       notify.success(
-        'Citas reasignadas con éxito',
-        `${bookingIds.length} ${bookingIds.length === 1 ? 'cita reasignada' : 'citas reasignadas'} a ${targetName}`
+        'Barbero eliminado con éxito',
+        parts.length > 0 ? `Citas procesadas: ${parts.join(' y ')}` : 'No había citas pendientes'
       );
       setDeletionConflict(null);
     } catch (err: any) {
-      console.error('Error al reasignar citas y eliminar:', err);
-      notify.error('Error en reasignación', err?.message || 'No se pudieron reasignar las citas');
+      console.error('Error al ejecutar reasignación y eliminar:', err);
+      notify.error('Error en reasignación', err?.message || 'No se pudieron procesar las citas');
     } finally {
-      setDeleting(false);
+      setExecutingCascade(false);
+    }
+  };
+
+  const handleCancelAllAndDelete = async () => {
+    if (!deletionConflict) return;
+    const count = deletionConflict.bookings.length;
+    if (
+      !confirm(
+        `¿Confirmas la cancelación de las ${count} ${count === 1 ? 'cita pendiente' : 'citas pendientes'} y la eliminación de "${deletionConflict.barber.name}"?\n\nLos clientes recibirán un email de cancelación.`
+      )
+    ) {
+      return;
+    }
+
+    setExecutingCascade(true);
+    try {
+      await cancelAllAffectedBookings(
+        deletionConflict.bookings,
+        deletionConflict.barber,
+        `Baja del profesional ${deletionConflict.barber.name}`
+      );
+
+      await executeDeleteBarber(
+        deletionConflict.barber.id,
+        deletionConflict.barber.name,
+        deletionConflict.barber.google_email
+      );
+
+      notify.success(
+        'Barbero eliminado',
+        `Se cancelaron ${count} citas y se notificó a los clientes.`
+      );
+      setDeletionConflict(null);
+    } catch (err: any) {
+      console.error('Error al cancelar citas y eliminar barbero:', err);
+      notify.error('Error al cancelar', err?.message || 'No se pudieron cancelar las citas');
+    } finally {
+      setExecutingCascade(false);
     }
   };
 
@@ -255,157 +311,205 @@ export function AdminStaff() {
         </div>
       </div>
 
-      {/* Modal de confirmación y reasignación preventiva antes de eliminar barbero */}
+      {/* Modal de confirmación y reasignación en cascada inteligente antes de eliminar barbero */}
       {deletionConflict && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div
-            className="absolute inset-0 bg-black/80 backdrop-blur-md animate-fade-in"
-            onClick={() => { if (!deleting) setDeletionConflict(null); }}
-          />
-          <div className="relative flex max-h-[90vh] w-full max-w-lg flex-col rounded-3xl border border-amber-500/30 bg-zinc-900/95 p-5 sm:p-6 shadow-2xl backdrop-blur-xl animate-scale-in">
-            {/* Header */}
-            <div className="flex items-start justify-between gap-3 border-b border-white/10 pb-4">
-              <div className="flex items-center gap-2.5">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-500/20 text-amber-400 border border-amber-500/30">
-                  <AlertTriangle className="h-5 w-5" />
+        <ModalPortal>
+          <div className="fixed inset-0 z-[9999] flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+            <div
+              className="fixed inset-0 bg-black/80 backdrop-blur-md animate-fade-in"
+              onClick={() => { if (!executingCascade) setDeletionConflict(null); }}
+            />
+            <div className="relative z-10 my-auto flex max-h-[88vh] w-full max-w-lg flex-col overflow-hidden rounded-3xl border border-gold/30 bg-zinc-900/95 p-4 sm:p-6 shadow-2xl backdrop-blur-xl animate-scale-in">
+              {/* Header */}
+              <div className="flex items-start justify-between gap-3 border-b border-white/10 pb-3 sm:pb-4 shrink-0">
+                <div className="flex items-center gap-2.5">
+                  <div className="flex h-9 w-9 sm:h-10 sm:w-10 shrink-0 items-center justify-center rounded-xl bg-gold/20 text-gold border border-gold/30">
+                  <Sparkles className="h-5 w-5" />
                 </div>
                 <div>
                   <h3 className="font-display text-base font-bold text-white">
-                    Citas pendientes asignadas ({deletionConflict.bookings.length})
+                    Reasignación en Cascada ({deletionConflict.bookings.length} {deletionConflict.bookings.length === 1 ? 'cita' : 'citas'})
                   </h3>
                   <p className="text-xs text-zinc-400">
-                    {deletionConflict.barber.name} tiene citas pendientes en el sistema
+                    Baja de {deletionConflict.barber.name} con citas pendientes
                   </p>
                 </div>
               </div>
               <button
                 type="button"
-                onClick={() => { if (!deleting) setDeletionConflict(null); }}
-                className="rounded-full p-1 text-zinc-400 hover:text-white transition-colors"
+                disabled={executingCascade}
+                onClick={() => setDeletionConflict(null)}
+                className="rounded-full p-1 text-zinc-400 hover:text-white transition-colors disabled:opacity-50"
               >
                 <X className="h-5 w-5" />
               </button>
             </div>
 
-            {/* Content info & reassignment selector */}
-            <div className="my-4 space-y-3.5 overflow-y-auto pr-1 text-xs">
-              {deletionConflict.isAdrian ? (
-                <div className="rounded-2xl border border-amber-500/30 bg-amber-500/10 p-3.5 space-y-2">
-                  <p className="font-semibold text-amber-300">
-                    Reasignación de citas de Adrián Millán
+            {/* Body */}
+            <div className="my-3 sm:my-4 space-y-3.5 overflow-y-auto flex-1 pr-1 text-xs">
+              {calculatingCascade ? (
+                <div className="flex flex-col items-center justify-center py-10 space-y-3 text-center">
+                  <LoadingSpinner size="md" label="Analizando disponibilidad del equipo..." />
+                  <p className="text-xs text-zinc-400">
+                    Buscando barberos libres para cada horario y fecha...
                   </p>
-                  <p className="text-zinc-300 text-[0.75rem] leading-relaxed">
-                    Selecciona qué barbero del equipo atenderá las {deletionConflict.bookings.length} citas pendientes antes de proceder:
-                  </p>
-                  {deletionConflict.otherBarbers.length === 0 ? (
-                    <p className="text-red-400 text-xs font-semibold">
-                      No hay otros barberos disponibles para reasignar estas citas.
-                    </p>
-                  ) : (
-                    <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-2">
-                      {deletionConflict.otherBarbers.map((b) => (
-                        <button
-                          key={b.id}
-                          type="button"
-                          onClick={() => setSelectedReassignBarber(b.id)}
-                          className={`flex items-center gap-2.5 rounded-xl p-2.5 text-left transition-all ${
-                            selectedReassignBarber === b.id
-                              ? 'border border-gold bg-gold/15 text-white font-bold'
-                              : 'border border-white/10 bg-white/5 text-zinc-300 hover:bg-white/10'
-                          }`}
-                        >
-                          {b.photo_url ? (
-                            <img src={b.photo_url} alt="" className="h-6 w-6 rounded-full object-cover shrink-0" />
-                          ) : (
-                            <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full gold-gradient text-[0.6rem] font-bold text-black">
-                              {b.initials}
-                            </div>
-                          )}
-                          <span className="truncate text-xs">{b.name}</span>
-                        </button>
-                      ))}
-                    </div>
-                  )}
                 </div>
               ) : (
-                <div className="rounded-2xl border border-gold/30 bg-gold/10 p-3.5 space-y-1.5">
-                  <div className="flex items-center gap-2 text-gold font-bold">
-                    <UserCheck className="h-4 w-4" />
-                    <span>Reasignación automática a Adrián Millán</span>
-                  </div>
-                  <p className="text-zinc-300 text-[0.75rem] leading-relaxed">
-                    Antes de eliminar al barbero <strong>{deletionConflict.barber.name}</strong>, sus {deletionConflict.bookings.length} citas pendientes se reasignarán automáticamente a <strong>Adrián Millán</strong> para que ningún cliente se quede sin servicio.
-                  </p>
-                </div>
-              )}
-
-              {/* Lista de citas afectadas */}
-              <div className="space-y-2">
-                <p className="text-[0.65rem] uppercase tracking-wider font-semibold text-zinc-500">
-                  Citas que se transferirán ({deletionConflict.bookings.length})
-                </p>
-                <div className="max-h-[35vh] space-y-2 overflow-y-auto pr-1">
-                  {deletionConflict.bookings.map((b) => (
-                    <div
-                      key={b.id}
-                      className="flex items-start justify-between gap-3 rounded-xl border border-white/5 bg-white/[0.03] p-3 text-xs"
-                    >
-                      <div className="space-y-1 min-w-0">
-                        <div className="flex items-center gap-2">
-                          <span className="rounded-md bg-gold/15 px-1.5 py-0.5 font-mono text-[0.7rem] font-bold text-gold border border-gold/20">
-                            {b.booking_date} · {b.booking_time}h
-                          </span>
-                          <span className="truncate font-semibold text-white">{b.full_name}</span>
-                        </div>
-                        <p className="text-[0.7rem] text-zinc-400 flex items-center gap-1.5 truncate">
-                          <Scissors className="h-3 w-3 text-gold/80 shrink-0" />
-                          <span className="truncate">{b.service}</span>
-                          <span className="text-gold font-mono shrink-0">({b.service_price}€)</span>
-                        </p>
-                        {b.phone && (
-                          <p className="text-[0.65rem] text-zinc-500 flex items-center gap-1">
-                            <Phone className="h-2.5 w-2.5 shrink-0" />
-                            <span>{b.phone}</span>
-                          </p>
-                        )}
-                      </div>
+                <>
+                  {/* Resumen explicativo */}
+                  <div className="rounded-2xl border border-white/10 bg-white/5 p-3.5 space-y-2">
+                    <p className="text-zinc-300 text-[0.75rem] leading-relaxed">
+                      El sistema ha evaluado a los miembros del equipo en orden: si un barbero ya tiene cita a esa hora, pasa al siguiente hasta encontrar uno libre. Si ninguno está libre, la cita se cancela automáticamente.
+                    </p>
+                    <div className="flex flex-wrap gap-2 pt-1">
+                      {(() => {
+                        const reassigned = deletionConflict.decisions.filter((d) => d.action === 'reassign');
+                        const cancelled = deletionConflict.decisions.filter((d) => d.action === 'cancel');
+                        return (
+                          <>
+                            {reassigned.length > 0 && (
+                              <span className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-1 text-[0.7rem] font-semibold text-emerald-300">
+                                <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400" />
+                                {reassigned.length} {reassigned.length === 1 ? 'cita reasignada a compañero libre' : 'citas reasignadas a compañeros libres'}
+                              </span>
+                            )}
+                            {cancelled.length > 0 && (
+                              <span className="inline-flex items-center gap-1.5 rounded-lg border border-red-500/30 bg-red-500/10 px-2.5 py-1 text-[0.7rem] font-semibold text-red-300">
+                                <XCircle className="h-3.5 w-3.5 text-red-400" />
+                                {cancelled.length} {cancelled.length === 1 ? 'cita se cancelará (sin huecos libres)' : 'citas se cancelarán (sin huecos libres)'}
+                              </span>
+                            )}
+                          </>
+                        );
+                      })()}
                     </div>
-                  ))}
-                </div>
-              </div>
+                  </div>
+
+                  {/* Lista de citas y su destino en la cascada */}
+                  <div className="space-y-2">
+                    <p className="text-[0.65rem] uppercase tracking-wider font-semibold text-zinc-500">
+                      Resolución por cita ({deletionConflict.decisions.length})
+                    </p>
+                    <div className="max-h-[36vh] space-y-2.5 overflow-y-auto pr-1">
+                      {deletionConflict.decisions.map((dec) => {
+                        const b = dec.booking;
+                        return (
+                          <div
+                            key={b.id}
+                            className={`rounded-2xl border p-3 text-xs transition-all ${
+                              dec.action === 'reassign'
+                                ? 'border-emerald-500/30 bg-emerald-950/15'
+                                : 'border-red-500/30 bg-red-950/15'
+                            }`}
+                          >
+                            <div className="flex items-start justify-between gap-2">
+                              <div className="min-w-0 space-y-1">
+                                <div className="flex items-center gap-2">
+                                  <span className="rounded-md bg-gold/15 px-1.5 py-0.5 font-mono text-[0.7rem] font-bold text-gold border border-gold/20">
+                                    {b.booking_date} · {b.booking_time}h
+                                  </span>
+                                  <span className="truncate font-semibold text-white">{b.full_name}</span>
+                                </div>
+                                <p className="text-[0.7rem] text-zinc-400 flex items-center gap-1.5 truncate">
+                                  <Scissors className="h-3 w-3 text-gold/80 shrink-0" />
+                                  <span className="truncate">{b.service}</span>
+                                  <span className="text-gold font-mono shrink-0">({b.service_price}€)</span>
+                                </p>
+                                {b.phone && (
+                                  <p className="text-[0.65rem] text-zinc-500 flex items-center gap-1">
+                                    <Phone className="h-2.5 w-2.5 shrink-0" />
+                                    <span>{b.phone}</span>
+                                  </p>
+                                )}
+                              </div>
+                            </div>
+
+                            {/* Detalle de la resolución */}
+                            {dec.action === 'reassign' ? (
+                              <div className="mt-2.5 flex items-start gap-2 rounded-xl bg-emerald-500/10 border border-emerald-500/20 p-2 text-emerald-200">
+                                <UserCheck className="h-3.5 w-3.5 shrink-0 text-emerald-400 mt-0.5" />
+                                <div className="space-y-0.5 text-[0.7rem] min-w-0">
+                                  <p className="font-bold text-emerald-300">
+                                    Reasignado a: {dec.targetBarberName}
+                                  </p>
+                                  <p className="text-emerald-300/80 text-[0.68rem]">{dec.reason}</p>
+                                </div>
+                              </div>
+                            ) : (
+                              <div className="mt-2.5 space-y-1.5 rounded-xl bg-red-500/10 border border-red-500/20 p-2 text-red-200">
+                                <div className="flex items-center gap-1.5 text-[0.7rem] font-bold text-red-300">
+                                  <Ban className="h-3.5 w-3.5 text-red-400 shrink-0" />
+                                  <span>Cancelación automática</span>
+                                </div>
+                                <p className="text-[0.68rem] text-red-300/80">{dec.reason}</p>
+                                {dec.attempts.length > 0 && (
+                                  <div className="flex flex-wrap gap-1 pt-0.5">
+                                    {dec.attempts.map((att) => (
+                                      <span
+                                        key={att.barberId}
+                                        className="inline-block rounded bg-black/40 px-1.5 py-0.5 text-[0.62rem] text-zinc-400"
+                                      >
+                                        {att.barberName}: {att.reason}
+                                      </span>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </>
+              )}
             </div>
 
             {/* Actions */}
-            <div className="flex flex-col-reverse sm:flex-row items-center justify-end gap-2 border-t border-white/10 pt-4">
+            <div className="flex flex-col-reverse sm:flex-row items-center justify-between gap-2 border-t border-white/10 pt-3 sm:pt-4 shrink-0">
               <button
                 type="button"
-                disabled={deleting}
+                disabled={executingCascade}
                 onClick={() => setDeletionConflict(null)}
                 className="w-full sm:w-auto rounded-xl border border-white/10 px-4 py-2.5 text-xs font-semibold text-zinc-300 hover:bg-white/5 transition-colors disabled:opacity-50"
               >
-                Cancelar
+                Cerrar
               </button>
-              <button
-                type="button"
-                disabled={deleting || (deletionConflict.isAdrian && deletionConflict.otherBarbers.length === 0)}
-                onClick={handleConfirmDeletionWithReassignment}
-                className="w-full sm:w-auto flex items-center justify-center gap-2 rounded-xl bg-red-600 hover:bg-red-500 px-5 py-2.5 text-xs font-bold uppercase tracking-wider text-white active:scale-95 transition-all shadow-md disabled:opacity-50"
-              >
-                {deleting ? (
-                  <>
-                    <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white/30 border-t-white" />
-                    <span>Reasignando y eliminando...</span>
-                  </>
-                ) : (
-                  <>
-                    <ArrowRight className="h-3.5 w-3.5" />
-                    <span>Reasignar citas y eliminar barbero</span>
-                  </>
-                )}
-              </button>
+
+              <div className="w-full sm:w-auto flex flex-col sm:flex-row items-center gap-2">
+                <button
+                  type="button"
+                  disabled={executingCascade || calculatingCascade}
+                  onClick={handleCancelAllAndDelete}
+                  className="w-full sm:w-auto flex items-center justify-center gap-1.5 rounded-xl border border-red-500/30 bg-red-950/30 hover:bg-red-900/50 text-red-200 px-3.5 py-2.5 text-xs font-semibold transition-all active:scale-95 disabled:opacity-50"
+                >
+                  <Ban className="h-3.5 w-3.5 text-red-400" />
+                  <span>Cancelar todas y eliminar</span>
+                </button>
+
+                <button
+                  type="button"
+                  disabled={executingCascade || calculatingCascade}
+                  onClick={handleConfirmCascadeAndDelete}
+                  className="w-full sm:w-auto flex items-center justify-center gap-2 rounded-xl gold-gradient px-5 py-2.5 text-xs font-bold uppercase tracking-wider text-black hover:brightness-110 active:scale-95 transition-all shadow-md disabled:opacity-50"
+                >
+                  {executingCascade ? (
+                    <>
+                      <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-black/30 border-t-black" />
+                      <span>Procesando...</span>
+                    </>
+                  ) : (
+                    <>
+                      <ArrowRight className="h-3.5 w-3.5" />
+                      <span>Aplicar cascada y eliminar</span>
+                    </>
+                  )}
+                </button>
+              </div>
             </div>
           </div>
         </div>
+        </ModalPortal>
       )}
     </div>
   );

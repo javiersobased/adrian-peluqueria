@@ -33,6 +33,7 @@ export interface BookingForm {
   fullName: string;
   phone: string;
   comments: string;
+  marketingAccepted?: boolean;
 }
 
 export interface SavedBooking {
@@ -106,6 +107,7 @@ export interface Customer {
   comments: string | null;
   created_at: string;
   updated_at: string;
+  marketing_accepted?: boolean | null;
 }
 
 export interface UserRole {

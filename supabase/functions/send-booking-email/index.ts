@@ -22,9 +22,12 @@ interface BookingData {
 }
 
 interface RequestBody {
-  booking: BookingData;
+  booking?: BookingData | null;
   barber_email?: string | null;
   barber_name?: string | null;
+  to?: string | null;
+  subject?: string | null;
+  html?: string | null;
 }
 
 Deno.serve(async (req: Request) => {
@@ -34,7 +37,54 @@ Deno.serve(async (req: Request) => {
 
   try {
     const body = (await req.json()) as RequestBody;
-    const { booking } = body;
+    const { booking, to, subject, html } = body;
+
+    const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
+    if (!RESEND_API_KEY) {
+      console.warn("RESEND_API_KEY not configured. Skipping email dispatch.");
+      return new Response(JSON.stringify({ warning: "RESEND_API_KEY not configured" }), {
+        status: 200,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const fromAddress = Deno.env.get("RESEND_FROM_EMAIL") || "Peluquería Adrián Millán <onboarding@resend.dev>";
+
+    const sendResendEmail = async (targetTo: string, targetSubject: string, targetHtml: string) => {
+      try {
+        const res = await fetch("https://api.resend.com/emails", {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${RESEND_API_KEY}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            from: fromAddress,
+            to: targetTo,
+            subject: targetSubject,
+            html: targetHtml,
+          }),
+        });
+        if (!res.ok) {
+          const errText = await res.text();
+          console.error(`Resend error sending to ${targetTo}:`, errText);
+          return false;
+        }
+        return true;
+      } catch (err) {
+        console.error(`Fetch error sending to ${targetTo}:`, err);
+        return false;
+      }
+    };
+
+    // If direct custom email is requested (e.g. from notifications.ts dispatchNotification)
+    if (to && subject && html) {
+      const ok = await sendResendEmail(to, subject, html);
+      return new Response(JSON.stringify({ success: ok }), {
+        status: 200,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
     if (!booking) {
       return new Response(JSON.stringify({ error: "No booking data provided" }), {

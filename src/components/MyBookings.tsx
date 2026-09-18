@@ -7,6 +7,7 @@ import { fetchMyBookings, rescheduleBooking } from '@/lib/myBookings';
 import { supabase } from '@/lib/supabase';
 import { DateTimeStep } from '@/components/DateTimeStep';
 import { deleteUserAccount } from '@/lib/terms';
+import { notifyBookingCancelled, notifyBookingRescheduled } from '@/lib/notifications';
 
 interface MyBookingsProps {
   onBack: () => void;
@@ -50,6 +51,22 @@ export function MyBookings({ onBack, userEmail, userId, onSignOut }: MyBookingsP
     return () => clearTimeout(t);
   }, [successMessage]);
 
+  const getBarber = useCallback((id: string): Barber => {
+    const found = barbers.find((b) => b.id === id);
+    if (found) return found;
+    const adrian = barbers.find((b) => b.id === 'adrian');
+    if (adrian) return adrian;
+    if (barbers.length > 0) return barbers[0];
+    return {
+      id: id || 'adrian',
+      name: 'Adrián Millán',
+      role: 'Barbero',
+      initials: 'AM',
+      active: true,
+      sort_order: 1,
+    };
+  }, [barbers]);
+
   const canCancel = (date: string, time: string): boolean => {
     const appointment = new Date(`${date}T${time}:00`);
     const diff = appointment.getTime() - Date.now();
@@ -58,11 +75,15 @@ export function MyBookings({ onBack, userEmail, userId, onSignOut }: MyBookingsP
 
   const handleCancel = useCallback(async (id: string) => {
     if (!confirm('¿Seguro que quieres cancelar esta cita?')) return;
+    const target = bookings.find((b) => b.id === id);
     setCancellingId(id);
     await supabase.from('bookings').update({ status: 'cancelled' }).eq('id', id);
     setBookings((prev) => prev.filter((b) => b.id !== id));
     setCancellingId(null);
-  }, []);
+    if (target) {
+      notifyBookingCancelled(target, getBarber(target.barber)).catch(console.error);
+    }
+  }, [bookings, getBarber]);
 
   const handleRescheduleContinue = useCallback(
     async (newDate: string, newTime: string) => {
@@ -74,6 +95,13 @@ export function MyBookings({ onBack, userEmail, userId, onSignOut }: MyBookingsP
         if (error) throw new Error(error);
         if (updated) {
           setBookings((prev) => prev.map((b) => (b.id === updated.id ? updated : b)));
+          notifyBookingRescheduled(
+            updated,
+            reschedulingBooking.booking_date,
+            reschedulingBooking.booking_time,
+            undefined,
+            getBarber(updated.barber)
+          ).catch(console.error);
           setReschedulingBooking(null);
           setSuccessMessage('Cita reprogramada correctamente.');
         }
@@ -121,26 +149,6 @@ export function MyBookings({ onBack, userEmail, userId, onSignOut }: MyBookingsP
     }
   }, [userId, userEmail, onSignOut, onBack]);
 
-  const getBarber = (id: string): Barber => {
-    const found = barbers.find((b) => b.id === id);
-    if (found) return found;
-    const adrian = barbers.find((b) => b.id === 'adrian');
-    if (adrian) return adrian;
-    if (barbers.length > 0) return barbers[0];
-    return {
-      id: id || 'adrian',
-      name: 'Adrián Millán',
-      role: 'Barbero',
-      initials: 'AM',
-      active: true,
-      services: [],
-      working_hours: {
-        start: '09:00',
-        end: '20:30',
-        days: [1, 2, 3, 4, 5, 6],
-      },
-    };
-  };
   const now = new Date().toISOString().slice(0, 10);
 
   const nonCancelled = bookings.filter((b) => b.status !== 'cancelled');

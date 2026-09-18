@@ -21,6 +21,7 @@ import {
   Sparkles
 } from 'lucide-react';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
+import { ModalPortal } from '@/components/ui/ModalPortal';
 
 export interface CustomerDetailModalProps {
   customer: {
@@ -141,16 +142,17 @@ export function CustomerDetailModal({ customer, onClose }: CustomerDetailModalPr
   const getBarber = (id: string) => barbers.find((b) => b.id === id);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-md animate-fade-in">
-      {/* Click outside backdrop */}
-      <div className="absolute inset-0" onClick={onClose} />
+    <ModalPortal>
+      <div className="fixed inset-0 z-[9999] flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+        {/* Click outside backdrop */}
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-md animate-fade-in" onClick={onClose} />
 
-      <div 
-        className="relative z-10 flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-3xl border border-gold/20 bg-zinc-950/95 shadow-2xl shadow-gold/5 backdrop-blur-xl"
-        onClick={(e) => e.stopPropagation()}
-      >
-        {/* Header */}
-        <div className="border-b border-white/10 bg-zinc-900/60 px-6 py-5">
+        <div 
+          className="relative z-10 my-auto flex max-h-[88vh] w-full max-w-2xl flex-col overflow-hidden rounded-3xl border border-gold/20 bg-zinc-950/95 shadow-2xl shadow-gold/5 backdrop-blur-xl animate-scale-in"
+          onClick={(e) => e.stopPropagation()}
+        >
+          {/* Header */}
+          <div className="border-b border-white/10 bg-zinc-900/60 px-5 sm:px-6 py-4 sm:py-5 shrink-0">
           <div className="flex items-start justify-between gap-4">
             <div className="flex items-center gap-3.5">
               <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl gold-gradient font-display text-lg font-bold text-black shadow-lg shadow-gold/20">
@@ -375,5 +377,6 @@ export function CustomerDetailModal({ customer, onClose }: CustomerDetailModalPr
         </div>
       </div>
     </div>
+    </ModalPortal>
   );
 }

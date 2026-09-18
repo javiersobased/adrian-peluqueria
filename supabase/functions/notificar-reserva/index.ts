@@ -144,7 +144,7 @@ Deno.serve(async (req: Request) => {
         const adminSupabase = createClient(supabaseUrl, supabaseKey);
         const { data: staffCaller } = await adminSupabase
           .from("staff")
-          .select("id")
+          .select("role, status")
           .eq("email", callerEmail)
           .eq("status", "verified")
           .maybeSingle();
@@ -169,7 +169,8 @@ Deno.serve(async (req: Request) => {
               "Content-Type": "application/json",
             },
             body: JSON.stringify({
-              from: "Peluquería Adrián Millán <citas@adrianmillan.es>",
+              from: Deno.env.get("RESEND_FROM_EMAIL") || "Peluquería Adrián Millán <citas@adrianmillan.es>",
+              reply_to: Deno.env.get("RESEND_REPLY_TO") || "adrian.millan.peguero@hotmail.com",
               to: body.email.to,
               subject: body.email.subject,
               html: body.email.html,

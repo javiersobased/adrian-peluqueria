@@ -48,7 +48,8 @@ Deno.serve(async (req: Request) => {
       });
     }
 
-    const fromAddress = Deno.env.get("RESEND_FROM_EMAIL") || "Peluquería Adrián Millán <onboarding@resend.dev>";
+    const fromAddress = Deno.env.get("RESEND_FROM_EMAIL") || "Peluquería Adrián Millán <citas@adrianmillan.es>";
+    const replyToAddress = Deno.env.get("RESEND_REPLY_TO") || "adrian.millan.peguero@hotmail.com";
 
     const sendResendEmail = async (targetTo: string, targetSubject: string, targetHtml: string) => {
       try {
@@ -61,6 +62,7 @@ Deno.serve(async (req: Request) => {
           body: JSON.stringify({
             from: fromAddress,
             to: targetTo,
+            reply_to: replyToAddress,
             subject: targetSubject,
             html: targetHtml,
           }),

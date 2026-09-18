@@ -39,7 +39,7 @@ export function ServiceStep({ onBack, onSelect }: ServiceStepProps) {
   }, []);
 
   return (
-    <div className="min-h-screen animate-slide-in">
+    <div className="min-h-screen animate-slide-in max-w-xl mx-auto w-full">
       <StepHeader title="Elige tu servicio" subtitle="Paso 1 de 4" onBack={onBack} />
       <div className="px-5 pb-10 pt-4">
         <p className="mb-5 text-sm text-zinc-400">Elige el servicio que necesitas</p>

@@ -283,9 +283,10 @@ export function DetailsStep({ onBack, onSubmit, submitting, error }: DetailsStep
 
   return (
     <div className="flex h-[100dvh] max-h-[100dvh] flex-col animate-slide-in overflow-hidden">
-      <StepHeader title="Tus datos" subtitle="Paso 4 de 4" onBack={onBack} />
+      <div className="flex flex-col h-full w-full max-w-xl mx-auto sm:my-auto sm:max-h-[94vh] sm:rounded-3xl sm:border sm:border-white/10 sm:bg-zinc-950/80 sm:backdrop-blur-xl sm:shadow-2xl overflow-hidden">
+        <StepHeader title="Tus datos" subtitle="Paso 4 de 4" onBack={onBack} />
 
-      <form onSubmit={handleSubmit} className="flex flex-1 flex-col overflow-hidden">
+        <form onSubmit={handleSubmit} className="flex flex-1 flex-col overflow-hidden">
         {/* Campo trampa anti-spam (invisible para humanos, rellenado por bots) */}
         <div
           className="sr-only"
@@ -480,6 +481,7 @@ export function DetailsStep({ onBack, onSubmit, submitting, error }: DetailsStep
           </button>
         </div>
       </form>
+    </div>
 
       {/* Modal / Selector de país con buscador */}
       {showCountryModal && (

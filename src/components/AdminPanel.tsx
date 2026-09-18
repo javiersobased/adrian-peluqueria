@@ -269,7 +269,7 @@ export function AdminPanel({ userRole, onSignOut, onGoPublic }: AdminPanelProps)
   const panelTitle = isAdmin ? 'Panel de Administración' : 'Panel de Barbero';
 
   return (
-    <div className="flex min-h-screen md:h-screen md:max-h-screen md:overflow-hidden w-full overflow-x-hidden bg-zinc-950 text-zinc-200 animate-fade-in">
+    <div data-lenis-prevent className="flex min-h-screen md:h-screen md:max-h-screen md:overflow-hidden w-full overflow-x-hidden bg-zinc-950 text-zinc-200 animate-fade-in">
       {/* Icon Dock — desktop only */}
       <div className="fixed left-0 top-0 z-40 hidden h-screen w-16 flex-col items-center border-r border-white/5 bg-zinc-900/80 py-5 backdrop-blur-xl md:flex">
         <div className="mb-6 flex h-10 w-10 items-center justify-center rounded-xl gold-gradient font-display text-sm font-bold text-black">AM</div>

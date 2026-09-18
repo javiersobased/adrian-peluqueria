@@ -183,6 +183,24 @@ export function AdminAgenda({ bookings, loading, onRefresh }: AdminAgendaProps) 
     return `${WEEKDAY_SHORT[d.getDay()]} ${d.getDate()} de ${MONTH_SHORT[d.getMonth()]} de ${d.getFullYear()}`;
   };
 
+  const formatCreatedAt = (iso?: string | null) => {
+    if (!iso) return null;
+    try {
+      const d = new Date(iso);
+      if (isNaN(d.getTime())) return null;
+      return d.toLocaleString('es-ES', {
+        timeZone: 'Europe/Madrid',
+        day: 'numeric',
+        month: 'short',
+        year: d.getFullYear() !== new Date().getFullYear() ? 'numeric' : undefined,
+        hour: '2-digit',
+        minute: '2-digit',
+      });
+    } catch {
+      return null;
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20">
@@ -481,6 +499,7 @@ export function AdminAgenda({ bookings, loading, onRefresh }: AdminAgendaProps) 
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-md animate-fade-in">
           <div className="absolute inset-0" onClick={() => setSelectedBooking(null)} />
           <div 
+            data-lenis-prevent
             className="relative z-10 flex max-h-[90vh] w-full max-w-lg flex-col overflow-hidden rounded-3xl border border-gold/20 bg-zinc-950/95 p-6 shadow-2xl shadow-gold/5 backdrop-blur-xl"
             onClick={(e) => e.stopPropagation()}
           >
@@ -504,6 +523,12 @@ export function AdminAgenda({ bookings, loading, onRefresh }: AdminAgendaProps) 
                 <h3 className="font-display text-lg font-bold text-white">
                   {formatDateFull(selectedBooking.booking_date)}
                 </h3>
+                {selectedBooking.created_at && formatCreatedAt(selectedBooking.created_at) && (
+                  <p className="text-xs text-zinc-400 flex items-center gap-1.5 pt-0.5">
+                    <CalendarClock className="h-3.5 w-3.5 text-gold/80 shrink-0" />
+                    <span>Reservada el <strong className="text-zinc-200">{formatCreatedAt(selectedBooking.created_at)} h</strong></span>
+                  </p>
+                )}
               </div>
               <button
                 onClick={() => setSelectedBooking(null)}
@@ -515,7 +540,7 @@ export function AdminAgenda({ bookings, loading, onRefresh }: AdminAgendaProps) 
             </div>
 
             {/* Details Content */}
-            <div className="my-5 space-y-4 text-sm">
+            <div data-lenis-prevent className="my-5 space-y-4 text-sm overflow-y-auto pr-1">
               {/* Client card */}
               <div className="rounded-2xl glass-card p-4 border border-white/5 bg-zinc-900/40 space-y-2">
                 <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500">Cliente</p>

@@ -1,5 +1,5 @@
 import { CheckIcon, CalendarIcon, ClockIcon, HomeIcon } from '@/components/icons';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 import type { SavedBooking, Barber } from '@/types';
 import { safeCap, googleCalendarUrl, downloadIcs } from '@/lib/calendar';
@@ -40,11 +40,28 @@ export function SuccessStep({ booking, onHome }: SuccessStepProps) {
       .then(({ data }) => setBarber(data as Barber | null));
   }, [booking?.barber]);
 
+  const emailSentRef = useRef<string | null>(null);
+
   useEffect(() => {
-    if (booking?.id && booking?.email) {
-      sendBookingEmail(booking);
+    if (!booking?.id) return;
+    const barberEmail = barber?.google_email || (Array.isArray(barber?.admin_emails) ? barber?.admin_emails[0] : null);
+    if (barber && emailSentRef.current !== booking.id) {
+      emailSentRef.current = booking.id;
+      sendBookingEmail(booking, barberEmail, barber.name);
     }
-  }, [booking?.id, booking?.email]);
+  }, [booking?.id, barber]);
+
+  useEffect(() => {
+    if (!booking?.id) return;
+    const timer = setTimeout(() => {
+      if (emailSentRef.current !== booking.id) {
+        emailSentRef.current = booking.id;
+        const barberEmail = barber?.google_email || (Array.isArray(barber?.admin_emails) ? barber?.admin_emails[0] : null);
+        sendBookingEmail(booking, barberEmail, barber?.name);
+      }
+    }, 1200);
+    return () => clearTimeout(timer);
+  }, [booking?.id]);
 
   const gcalUrl = googleCalendarUrl({
     title: `Cita: ${booking?.service ?? 'Peluquería'}`,

@@ -59,6 +59,26 @@ export function SmoothScroll({ children }: SmoothScrollProps) {
         orientation: 'vertical',
         gestureOrientation: 'vertical',
         autoRaf: true,
+        prevent: (node: any) => {
+          if (!node || !(node instanceof HTMLElement)) return false;
+          if (node.closest('[data-lenis-prevent], .no-lenis, .admin-embed, [role="dialog"], .overflow-y-auto, .overflow-y-scroll')) {
+            return true;
+          }
+          let curr: HTMLElement | null = node;
+          while (curr && curr !== document.body && curr !== document.documentElement) {
+            const style = window.getComputedStyle(curr);
+            const overflowY = style.overflowY;
+            if ((overflowY === 'auto' || overflowY === 'scroll') && curr.scrollHeight > curr.clientHeight) {
+              return true;
+            }
+            const overflowX = style.overflowX;
+            if ((overflowX === 'auto' || overflowX === 'scroll') && curr.scrollWidth > curr.clientWidth) {
+              return true;
+            }
+            curr = curr.parentElement;
+          }
+          return false;
+        },
       }}
     >
       {children}

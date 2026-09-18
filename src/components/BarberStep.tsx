@@ -22,7 +22,7 @@ export function BarberStep({ onBack, onSelect }: BarberStepProps) {
   }, []);
 
   return (
-    <div className="min-h-screen animate-slide-in">
+    <div className="min-h-screen animate-slide-in max-w-xl mx-auto w-full">
       <StepHeader title="Elige tu barbero" subtitle="Paso 2 de 4" onBack={onBack} />
 
       <div className="px-4 pb-10 pt-2 sm:px-5 sm:pt-4">

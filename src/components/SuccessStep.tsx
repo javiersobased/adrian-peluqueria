@@ -114,7 +114,6 @@ export function SuccessStep({ booking, onHome }: SuccessStepProps) {
       setEnablingPush(false);
     }
   };
->>>>>>> 4a1308358e1e7851e3ef24b03972b969bd2a8878
 
   const gcalUrl = googleCalendarUrl({
     title: `Cita: ${booking?.service ?? 'Peluquería'}`,

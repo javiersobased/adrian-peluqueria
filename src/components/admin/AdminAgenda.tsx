@@ -556,8 +556,7 @@ export function AdminAgenda({ bookings, loading, onRefresh }: AdminAgendaProps) 
                 {/* Client card */}
                 <div className="rounded-2xl glass-card p-4 border border-white/5 bg-zinc-900/40 space-y-2">
                   <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500">Cliente</p>
->>>>>>> 4a1308358e1e7851e3ef24b03972b969bd2a8878
-                <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-3">
                   <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl gold-gradient font-display text-sm font-bold text-black">
                     {selectedBooking.full_name ? selectedBooking.full_name.charAt(0).toUpperCase() : '?'}
                   </div>

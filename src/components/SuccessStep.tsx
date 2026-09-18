@@ -4,10 +4,10 @@ import { supabase } from '@/lib/supabase';
 import type { SavedBooking, Barber } from '@/types';
 import { safeCap, googleCalendarUrl, downloadIcs } from '@/lib/calendar';
 import { notifyBookingConfirmed } from '@/lib/notifications';
-import { requestPushPermission, updateOneSignalMarketingConsent } from '@/lib/onesignal';
+import { requestPushPermission } from '@/lib/onesignal';
 import { notify } from '@/lib/notify';
 import { SALON_ADDRESS } from '@/data/services';
-import { Mail, Bell } from 'lucide-react';
+import { Mail, Bell, Lock, Share2, PlusSquare, X } from 'lucide-react';
 
 interface SuccessStepProps {
   booking: SavedBooking;
@@ -31,13 +31,16 @@ export function SuccessStep({ booking, onHome }: SuccessStepProps) {
   const [showModal, setShowModal] = useState(true);
   const [enablingPush, setEnablingPush] = useState(false);
   const [pushEnabled, setPushEnabled] = useState(false);
+  const [showBlockedModal, setShowBlockedModal] = useState(false);
+  const [showIosModal, setShowIosModal] = useState(false);
   const notifiedBookingIdRef = useRef<string | null>(null);
 
   // Check if push/reminders have already been activated previously on this device/account
   const [alreadyConfigured, setAlreadyConfigured] = useState(() => {
     if (typeof window === 'undefined') return false;
-    const stored = localStorage.getItem('push_notifications_enabled') === 'true' ||
-                   localStorage.getItem('notification_prompt_completed') === 'true';
+    const stored =
+      localStorage.getItem('push_notifications_enabled') === 'true' ||
+      localStorage.getItem('notification_prompt_completed') === 'true';
     const browserGranted = 'Notification' in window && Notification.permission === 'granted';
     return stored || browserGranted;
   });
@@ -73,48 +76,33 @@ export function SuccessStep({ booking, onHome }: SuccessStepProps) {
     setEnablingPush(true);
     try {
       const res = await requestPushPermission();
-      if (res.status === 'denied') {
-        notify.error(
-          'Notificaciones bloqueadas',
-          'Están bloqueadas en tu navegador. Puedes activarlas pulsando en el candado 🔒 junto a la URL.'
-        );
+
+      // En iOS Safari no-PWA, guiar para añadir a pantalla de inicio
+      if (res.status === 'ios_pwa_required') {
+        setShowIosModal(true);
         return;
       }
 
-      // Guardar que el usuario activó los avisos para no volver a mostrar el botón
-      setPushEnabled(true);
-      setAlreadyConfigured(true);
-      localStorage.setItem('push_notifications_enabled', 'true');
-      localStorage.setItem('notification_prompt_completed', 'true');
-
-      // Guardar también consentimiento para comunicaciones comerciales
-      localStorage.setItem('marketing_accepted', 'true');
-      if (booking?.user_id) {
-        localStorage.setItem(`marketing_accepted_${booking.user_id}`, 'true');
-        await supabase.auth.updateUser({
-          data: { marketing_accepted: true },
-        }).catch(() => {});
+      // Si el usuario/navegador tiene denegadas las notificaciones
+      if (res.status === 'denied') {
+        setShowBlockedModal(true);
+        return;
       }
 
-      // Actualizar tabla customers
-      if (booking?.phone || booking?.email) {
-        await supabase
-          .from('customers')
-          .upsert({
-            user_id: booking?.user_id || null,
-            full_name: booking?.full_name || '',
-            phone: booking?.phone || '',
-            email: booking?.email || null,
-            marketing_accepted: true,
-            updated_at: new Date().toISOString(),
-          }, { onConflict: 'phone' })
-          .catch(() => {});
+      // Si el permiso fue otorgado
+      if (res.granted) {
+        setPushEnabled(true);
+        setAlreadyConfigured(true);
+        localStorage.setItem('push_notifications_enabled', 'true');
+        localStorage.setItem('notification_prompt_completed', 'true');
+
+        notify.success('¡Avisos activados!', 'Recibirás recordatorios de tu cita en tu móvil');
+      } else {
+        notify.error(
+          'Permiso no concedido',
+          'Puedes activarlo cuando quieras en la configuración de tu navegador.'
+        );
       }
-
-      // Sincronizar etiqueta de marketing en OneSignal
-      await updateOneSignalMarketingConsent(true);
-
-      notify.success('¡Avisos activados!', 'Recibirás recordatorios de tu cita y promociones en tu móvil');
     } catch (err) {
       console.error('Error enabling push:', err);
     } finally {
@@ -243,8 +231,8 @@ export function SuccessStep({ booking, onHome }: SuccessStepProps) {
             </div>
 
             <h3 className="font-display text-xl font-bold text-white">¡Cita confirmada con éxito!</h3>
-            <p className="mt-2 text-sm leading-relaxed text-zinc-400">
-              Te hemos enviado un correo con los detalles de tu cita.
+            <p className="mt-2 text-xs sm:text-sm leading-relaxed text-zinc-300">
+              Te hemos enviado los detalles a tu correo electrónico. Recuerda que las confirmaciones, cambios y cancelaciones se te enviarán <span className="text-gold font-semibold">siempre a tu email automáticamente</span>.
             </p>
 
             <div className="mt-5 space-y-2.5">
@@ -274,15 +262,20 @@ export function SuccessStep({ booking, onHome }: SuccessStepProps) {
               </button>
 
               {!alreadyConfigured && !pushEnabled && (
-                <button
-                  type="button"
-                  onClick={handleEnablePush}
-                  disabled={enablingPush}
-                  className="flex w-full items-center justify-center gap-2 rounded-full bg-gold/15 px-5 py-3 text-sm font-bold text-gold transition-all hover:bg-gold/25 active:scale-[0.98] border border-gold/30 shadow-sm shadow-gold/10 disabled:opacity-60"
-                >
-                  <Bell className="h-4 w-4 text-gold" />
-                  <span>{enablingPush ? 'Activando avisos...' : 'Activar avisos y recordatorios en el móvil'}</span>
-                </button>
+                <div className="pt-1">
+                  <button
+                    type="button"
+                    onClick={handleEnablePush}
+                    disabled={enablingPush}
+                    className="flex w-full items-center justify-center gap-2 rounded-full bg-gold/15 px-5 py-3 text-sm font-bold text-gold transition-all hover:bg-gold/25 active:scale-[0.98] border border-gold/30 shadow-sm shadow-gold/10 disabled:opacity-60"
+                  >
+                    <Bell className="h-4 w-4 text-gold" />
+                    <span>{enablingPush ? 'Activando avisos...' : 'Activar avisos y recordatorios en el móvil'}</span>
+                  </button>
+                  <p className="mt-1.5 text-[0.68rem] text-zinc-400">
+                    Solo se te solicitará esta primera vez para avisarte en pantalla antes de tu cita.
+                  </p>
+                </div>
               )}
             </div>
 
@@ -291,6 +284,120 @@ export function SuccessStep({ booking, onHome }: SuccessStepProps) {
               className="mt-4 w-full text-xs font-medium text-zinc-500 transition-colors hover:text-white"
             >
               Ver resumen de mi cita
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Modal explicativo si el navegador tiene bloqueadas las notificaciones (Brave / Chrome) */}
+      {showBlockedModal && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center px-4">
+          <div
+            className="absolute inset-0 bg-black/80 backdrop-blur-md animate-fade-in"
+            onClick={() => setShowBlockedModal(false)}
+          />
+          <div className="relative w-full max-w-sm rounded-3xl border border-gold/30 bg-zinc-900/95 p-6 shadow-2xl backdrop-blur-xl animate-scale-in text-left">
+            <button
+              onClick={() => setShowBlockedModal(false)}
+              aria-label="Cerrar"
+              className="absolute right-4 top-4 text-zinc-400 hover:text-white"
+            >
+              <X className="h-5 w-5" />
+            </button>
+
+            <div className="flex items-center gap-3 mb-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gold/15 text-gold border border-gold/30">
+                <Lock className="h-5 w-5" />
+              </div>
+              <div>
+                <h4 className="font-display text-base font-bold text-white">Notificaciones bloqueadas</h4>
+                <p className="text-[0.7rem] text-zinc-400">En tu navegador web</p>
+              </div>
+            </div>
+
+            <p className="text-xs text-zinc-300 leading-relaxed">
+              Tu navegador tiene las notificaciones desactivadas o bloqueadas para este sitio. Para activarlas:
+            </p>
+
+            <ol className="my-4 space-y-2.5 text-xs text-zinc-300">
+              <li className="flex items-start gap-2.5">
+                <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-gold/20 font-bold text-[0.7rem] text-gold">1</span>
+                <span>Pulsa en el candado 🔒 o el escudo del navegador junto a la barra de dirección (URL).</span>
+              </li>
+              <li className="flex items-start gap-2.5">
+                <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-gold/20 font-bold text-[0.7rem] text-gold">2</span>
+                <span>Busca <strong className="text-white">Permisos</strong> o <strong className="text-white">Notificaciones</strong> y cámbialo a <strong className="text-gold">Permitir</strong>.</span>
+              </li>
+              <li className="flex items-start gap-2.5">
+                <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-gold/20 font-bold text-[0.7rem] text-gold">3</span>
+                <span>Vuelve aquí y pulsa nuevamente en "Activar avisos y recordatorios".</span>
+              </li>
+            </ol>
+
+            <button
+              onClick={() => setShowBlockedModal(false)}
+              className="w-full rounded-2xl gold-gradient py-2.5 text-xs font-bold text-black uppercase tracking-wider transition-all hover:brightness-110 active:scale-95"
+            >
+              Entendido
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Modal explicativo para iPhone (iOS Safari PWA) */}
+      {showIosModal && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center px-4">
+          <div
+            className="absolute inset-0 bg-black/80 backdrop-blur-md animate-fade-in"
+            onClick={() => setShowIosModal(false)}
+          />
+          <div className="relative w-full max-w-sm rounded-3xl border border-gold/30 bg-zinc-900/95 p-6 shadow-2xl backdrop-blur-xl animate-scale-in text-left">
+            <button
+              onClick={() => setShowIosModal(false)}
+              aria-label="Cerrar"
+              className="absolute right-4 top-4 text-zinc-400 hover:text-white"
+            >
+              <X className="h-5 w-5" />
+            </button>
+
+            <div className="flex items-center gap-3 mb-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gold/15 text-gold border border-gold/30">
+                <Bell className="h-5 w-5" />
+              </div>
+              <div>
+                <h4 className="font-display text-base font-bold text-white">Avisos en iPhone</h4>
+                <p className="text-[0.7rem] text-zinc-400">Requisito del sistema iOS</p>
+              </div>
+            </div>
+
+            <p className="text-xs text-zinc-300 leading-relaxed">
+              Apple solo permite recibir notificaciones en iPhone si añades la web a tu pantalla de inicio:
+            </p>
+
+            <ol className="my-4 space-y-2.5 text-xs text-zinc-300">
+              <li className="flex items-start gap-2.5">
+                <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-gold/20 font-bold text-[0.7rem] text-gold">1</span>
+                <span>
+                  Pulsa el botón <strong className="text-white">Compartir</strong> <Share2 className="inline h-3.5 w-3.5 text-gold mx-0.5" /> en la barra inferior de Safari.
+                </span>
+              </li>
+              <li className="flex items-start gap-2.5">
+                <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-gold/20 font-bold text-[0.7rem] text-gold">2</span>
+                <span>
+                  Selecciona <strong className="text-white">Añadir a la pantalla de inicio</strong> <PlusSquare className="inline h-3.5 w-3.5 text-gold mx-0.5" />.
+                </span>
+              </li>
+              <li className="flex items-start gap-2.5">
+                <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-gold/20 font-bold text-[0.7rem] text-gold">3</span>
+                <span>Abre la app desde tu pantalla de inicio para recibir todos tus recordatorios.</span>
+              </li>
+            </ol>
+
+            <button
+              onClick={() => setShowIosModal(false)}
+              className="w-full rounded-2xl gold-gradient py-2.5 text-xs font-bold text-black uppercase tracking-wider transition-all hover:brightness-110 active:scale-95"
+            >
+              Entendido
             </button>
           </div>
         </div>

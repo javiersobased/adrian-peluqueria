@@ -4,6 +4,8 @@ import type { PendingBookingPayload } from '@/lib/pendingBooking';
 import { clearPendingBooking } from '@/lib/pendingBooking';
 import { createBooking, findExistingBooking } from '@/lib/bookings';
 import { fetchAllServices, fetchAllBarbers } from '@/data/services';
+import { supabase } from '@/lib/supabase';
+import { updateOneSignalMarketingConsent } from '@/lib/onesignal';
 
 export type BookingStep = 'landing' | 'barber' | 'service' | 'datetime' | 'details' | 'success';
 
@@ -61,6 +63,7 @@ export function useBooking() {
         full_name: form.fullName,
         phone: form.phone,
         comments: form.comments || null,
+        marketing_accepted: form.marketingAccepted,
       };
     },
     [barber, service, date, time]
@@ -79,6 +82,22 @@ export function useBooking() {
         const { booking, error: rpcError } = await createBooking(payload);
         if (rpcError) throw new Error(rpcError);
         clearPendingBooking();
+
+        // Sincronizar preferencia de marketing comercial si fue seleccionada
+        if (form.marketingAccepted !== undefined) {
+          const accepted = Boolean(form.marketingAccepted);
+          localStorage.setItem('marketing_accepted', accepted ? 'true' : 'false');
+          supabase.auth.updateUser({ data: { marketing_accepted: accepted } }).catch(() => {});
+          updateOneSignalMarketingConsent(accepted).catch(() => {});
+          if (booking?.user_id) {
+            supabase
+              .from('customers')
+              .update({ marketing_accepted: accepted, updated_at: new Date().toISOString() })
+              .eq('user_id', booking.user_id)
+              .then(null, () => {});
+          }
+        }
+
         if (booking) {
           setConfirmation(booking);
           setStep('success');
@@ -99,6 +118,12 @@ export function useBooking() {
         const existing = await findExistingBooking(payload.barber, payload.booking_date, payload.booking_time);
         if (existing) {
           clearPendingBooking();
+          if (form.marketingAccepted !== undefined) {
+            const accepted = Boolean(form.marketingAccepted);
+            localStorage.setItem('marketing_accepted', accepted ? 'true' : 'false');
+            supabase.auth.updateUser({ data: { marketing_accepted: accepted } }).catch(() => {});
+            updateOneSignalMarketingConsent(accepted).catch(() => {});
+          }
           setConfirmation(existing);
           setStep('success');
           return;

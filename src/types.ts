@@ -33,6 +33,7 @@ export interface BookingForm {
   fullName: string;
   phone: string;
   comments: string;
+  marketingAccepted?: boolean;
 }
 
 export interface SavedBooking {

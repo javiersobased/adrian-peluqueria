@@ -7,6 +7,21 @@ export const ONESIGNAL_APP_ID = '86a6a369-9e5f-472b-8461-cac4fb762af7';
 let isInitialized = false;
 let initPromise: Promise<void> | null = null;
 
+export type PushPermissionResult = {
+  granted: boolean;
+  status: 'granted' | 'denied' | 'unsupported' | 'ios_pwa_required';
+};
+
+function isIosNonStandalone(): boolean {
+  if (typeof window === 'undefined') return false;
+  const ua = window.navigator.userAgent;
+  const isApple = /iphone|ipad|ipod/i.test(ua) || (ua.includes('Macintosh') && 'ontouchend' in document);
+  const isStandalone =
+    window.matchMedia('(display-mode: standalone)').matches ||
+    (window.navigator as unknown as { standalone?: boolean }).standalone === true;
+  return isApple && !isStandalone;
+}
+
 /**
  * Initializes OneSignal Web Push SDK
  */
@@ -22,6 +37,25 @@ export async function initOneSignal(): Promise<void> {
         allowLocalhostAsSecureOrigin: true,
         notifyButton: {
           enable: false, // We use custom subtle prompts instead of the default intrusive bell
+        } as any,
+        promptOptions: {
+          slidedown: {
+            prompts: [
+              {
+                type: 'push',
+                autoPrompt: false,
+                text: {
+                  actionMessage: '¿Deseas recibir avisos de tu cita y recordatorios en tu móvil?',
+                  acceptButton: 'Permitir',
+                  cancelButton: 'Ahora no',
+                },
+                delay: {
+                  pageViews: 1,
+                  timeDelay: 0,
+                },
+              },
+            ],
+          },
         },
         serviceWorkerParam: { scope: '/' },
         serviceWorkerPath: '/OneSignalSDKWorker.js',
@@ -99,57 +133,78 @@ export async function syncOneSignalUser(
 }
 
 /**
- * Requests native browser permission for push notifications
+ * Requests native browser permission for push notifications.
+ * Preserves transient user activation by calling Notification.requestPermission() immediately.
  */
-export async function requestPushPermission(): Promise<{ granted: boolean; status: 'granted' | 'denied' | 'unsupported' }> {
+export async function requestPushPermission(): Promise<PushPermissionResult> {
   if (typeof window === 'undefined') return { granted: false, status: 'unsupported' };
 
-  try {
-    await initOneSignal();
+  // 1. iOS Safari check: Web push requires PWA (Home Screen) in iOS
+  if (isIosNonStandalone()) {
+    return { granted: false, status: 'ios_pwa_required' };
+  }
 
-    // 1. If native Notification API exists in window
-    if ('Notification' in window) {
-      if (Notification.permission === 'denied') {
-        console.warn('[Push] Notifications are blocked by user in browser settings');
-        return { granted: false, status: 'denied' };
-      }
-
-      if (Notification.permission === 'granted') {
-        try {
-          await OneSignal.User.PushSubscription.optIn();
-        } catch (e) {
-          console.warn('[OneSignal] optIn error:', e);
-        }
-        return { granted: true, status: 'granted' };
-      }
-
-      // Explicitly trigger browser native permission dialog
-      const nativePerm = await Notification.requestPermission();
-      if (nativePerm === 'granted') {
-        try {
-          await OneSignal.User.PushSubscription.optIn();
-        } catch (e) {
-          console.warn('[OneSignal] optIn error:', e);
-        }
-        return { granted: true, status: 'granted' };
-      }
-
-      return { granted: false, status: nativePerm === 'denied' ? 'denied' : 'unsupported' };
+  // 2. Check native Notification status
+  if ('Notification' in window) {
+    if (Notification.permission === 'denied') {
+      console.warn('[Push] Notifications are blocked by user in browser settings');
+      return { granted: false, status: 'denied' };
     }
 
-    // 2. Fallback to OneSignal Notifications API
-    const permission = await OneSignal.Notifications.requestPermission();
-    if (permission) {
-      try {
-        await OneSignal.User.PushSubscription.optIn();
-      } catch {}
+    if (Notification.permission === 'granted') {
+      initOneSignal()
+        .then(() => OneSignal.User.PushSubscription.optIn())
+        .catch(() => {});
       return { granted: true, status: 'granted' };
     }
-    return { granted: false, status: 'unsupported' };
-  } catch (err) {
-    console.warn('[OneSignal] Error requesting permission:', err);
-    return { granted: false, status: 'unsupported' };
+
+    // Synchronously initiate permission request within the user gesture context!
+    let nativePerm: NotificationPermission = 'default';
+    try {
+      nativePerm = await Notification.requestPermission();
+    } catch (e) {
+      console.warn('[Push] Notification.requestPermission failed:', e);
+    }
+
+    if (nativePerm === 'granted') {
+      try {
+        await initOneSignal();
+        await OneSignal.User.PushSubscription.optIn();
+      } catch (e) {
+        console.warn('[OneSignal] optIn error after grant:', e);
+      }
+      return { granted: true, status: 'granted' };
+    }
+
+    if (nativePerm === 'denied') {
+      return { granted: false, status: 'denied' };
+    }
   }
+
+  // 3. Fallback to OneSignal Slidedown (in-page prompt that cannot be suppressed by browsers)
+  try {
+    await initOneSignal();
+    if (OneSignal.Slidedown) {
+      await OneSignal.Slidedown.promptPush({ force: true });
+    } else if (OneSignal.Notifications) {
+      const permission = await OneSignal.Notifications.requestPermission();
+      if (permission) {
+        await OneSignal.User.PushSubscription.optIn().catch(() => {});
+        return { granted: true, status: 'granted' };
+      }
+    }
+  } catch (err) {
+    console.warn('[OneSignal] Error requesting permission via fallback:', err);
+  }
+
+  if ('Notification' in window && Notification.permission === 'granted') {
+    return { granted: true, status: 'granted' };
+  }
+
+  return {
+    granted: false,
+    status: 'Notification' in window && Notification.permission === 'denied' ? 'denied' : 'unsupported',
+  };
 }
 
 /**

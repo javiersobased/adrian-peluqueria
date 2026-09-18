@@ -77,8 +77,81 @@ Deno.serve(async (req: Request) => {
       }
     };
 
-    // If direct custom email is requested (e.g. from notifications.ts dispatchNotification)
+    // 1. Verificación de Autenticación de Supabase
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader) {
+      return new Response(JSON.stringify({ error: "Missing Authorization header" }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
+    const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || Deno.env.get("SUPABASE_ANON_KEY") || "";
+    const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY") || supabaseKey;
+
+    const authClient = createClient(supabaseUrl, supabaseAnonKey, {
+      global: { headers: { Authorization: authHeader } },
+    });
+    const { data: { user }, error: authErr } = await authClient.auth.getUser();
+
+    if (authErr || !user) {
+      return new Response(JSON.stringify({ error: "Unauthorized: Invalid or expired session" }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // 2. Si se solicita envío directo de plantilla (e.g. desde notifications.ts)
     if (to && subject && html) {
+      const cleanTo = to.trim().toLowerCase();
+      const callerEmail = user.email?.trim().toLowerCase();
+
+      let isAllowed = false;
+      // El cliente solo puede enviarse correos a sí mismo (ej. copia de confirmación o recordatorio)
+      if (callerEmail && cleanTo === callerEmail) {
+        isAllowed = true;
+      }
+
+      // Si no es a sí mismo, verificar si el remitente es staff o si el destinatario es un barbero/admin registrado
+      if (!isAllowed) {
+        const adminSupabase = createClient(supabaseUrl, supabaseKey);
+        const { data: staffMember } = await adminSupabase
+          .from("staff")
+          .select("role, status")
+          .eq("email", callerEmail)
+          .eq("status", "verified")
+          .maybeSingle();
+
+        if (staffMember) {
+          isAllowed = true;
+        } else {
+          // Comprobar si el correo destino pertenece a un barbero o admin de la peluquería
+          const MASTER_ADMINS = [
+            'adrian.millan.peguero@hotmail.com',
+            'adrianmillanpeguero1994@hotmail.com',
+            'franciscojavierfarinapadilla@gmail.com',
+          ];
+          if (MASTER_ADMINS.includes(cleanTo)) {
+            isAllowed = true;
+          } else {
+            const { data: targetBarber } = await adminSupabase
+              .from("barbers")
+              .select("id")
+              .eq("google_email", cleanTo)
+              .maybeSingle();
+            if (targetBarber) isAllowed = true;
+          }
+        }
+      }
+
+      if (!isAllowed) {
+        return new Response(JSON.stringify({ error: "Forbidden: Destination email not authorized for this account" }), {
+          status: 403,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
       const ok = await sendResendEmail(to, subject, html);
       return new Response(JSON.stringify({ success: ok }), {
         status: 200,
@@ -93,7 +166,6 @@ Deno.serve(async (req: Request) => {
       });
     }
 
-    const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
     if (!RESEND_API_KEY) {
       console.warn("RESEND_API_KEY not configured. Skipping email dispatch.");
       return new Response(JSON.stringify({ warning: "RESEND_API_KEY not configured" }), {
@@ -102,12 +174,7 @@ Deno.serve(async (req: Request) => {
       });
     }
 
-    // Default sender (resend sandbox or custom domain)
-    const fromAddress = Deno.env.get("RESEND_FROM_EMAIL") || "Peluquería Adrián Millán <onboarding@resend.dev>";
-
     // Initialize Supabase admin client to query barber details if needed
-    const supabaseUrl = Deno.env.get("SUPABASE_URL");
-    const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || Deno.env.get("SUPABASE_ANON_KEY");
     let barberEmails: string[] = [];
     let barberDisplayName = body.barber_name || booking.barber;
 
@@ -117,9 +184,8 @@ Deno.serve(async (req: Request) => {
 
     if (supabaseUrl && supabaseKey) {
       try {
-        const supabase = createClient(supabaseUrl, supabaseKey);
-        // Find barber in barbers table
-        const { data: bData } = await supabase
+        const adminDb = createClient(supabaseUrl, supabaseKey);
+        const { data: bData } = await adminDb
           .from("barbers")
           .select("id, name, google_email, admin_emails")
           .eq("id", booking.barber)
@@ -140,8 +206,7 @@ Deno.serve(async (req: Request) => {
           }
         }
 
-        // Also check staff table for assigned barber
-        const { data: sData } = await supabase
+        const { data: sData } = await adminDb
           .from("staff")
           .select("email, barber_id")
           .eq("barber_id", booking.barber);
@@ -158,33 +223,6 @@ Deno.serve(async (req: Request) => {
         console.error("Error looking up barber email in database:", dbErr);
       }
     }
-
-    const sendResendEmail = async (to: string, subject: string, html: string) => {
-      try {
-        const res = await fetch("https://api.resend.com/emails", {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${RESEND_API_KEY}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            from: fromAddress,
-            to,
-            subject,
-            html,
-          }),
-        });
-        if (!res.ok) {
-          const errText = await res.text();
-          console.error(`Resend error sending to ${to}:`, errText);
-          return false;
-        }
-        return true;
-      } catch (err) {
-        console.error(`Fetch error sending to ${to}:`, err);
-        return false;
-      }
-    };
 
     const results: { clientSent?: boolean; barbersSent: string[] } = { barbersSent: [] };
 
@@ -253,8 +291,9 @@ Deno.serve(async (req: Request) => {
       }
     }
 
-    // 2. Send confirmation to Customer (if email provided)
-    if (booking.email) {
+    // 2. Send confirmation to Customer (forzado al email de la sesión autenticada salvo que sea staff)
+    const clientTargetEmail = user.email || booking.email;
+    if (clientTargetEmail) {
       const clientSubject = `Confirmación de tu cita · Peluquería Adrián Millán`;
       const clientHtml = `
         <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #09090b; color: #f4f4f5; border-radius: 16px; border: 1px solid #27272a;">
@@ -294,7 +333,7 @@ Deno.serve(async (req: Request) => {
           </div>
         </div>
       `;
-      const ok = await sendResendEmail(booking.email, clientSubject, clientHtml);
+      const ok = await sendResendEmail(clientTargetEmail, clientSubject, clientHtml);
       results.clientSent = ok;
     }
 

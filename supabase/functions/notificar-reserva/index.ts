@@ -1,7 +1,8 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-const APP_ID = Deno.env.get("ONESIGNAL_APP_ID") || "86a6a369-9e5f-472b-8461-cac4fb762af7";
-const API_KEY = Deno.env.get("ONESIGNAL_REST_API_KEY") || "lgfr7ht7teveunp5tu3luvp4u";
+const APP_ID = Deno.env.get("ONESIGNAL_APP_ID");
+const API_KEY = Deno.env.get("ONESIGNAL_REST_API_KEY");
 const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
 
 const corsHeaders = {
@@ -16,6 +17,39 @@ Deno.serve(async (req: Request) => {
   }
 
   try {
+    // 1. Verificación de Autenticación
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader) {
+      return new Response(JSON.stringify({ error: "Missing Authorization header" }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
+    const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY") || "";
+    const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || supabaseAnonKey;
+
+    const authClient = createClient(supabaseUrl, supabaseAnonKey, {
+      global: { headers: { Authorization: authHeader } },
+    });
+    const { data: { user }, error: authErr } = await authClient.auth.getUser();
+
+    if (authErr || !user) {
+      return new Response(JSON.stringify({ error: "Unauthorized: Valid session required" }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    if (!APP_ID || !API_KEY) {
+      console.warn("OneSignal credentials not fully configured in environment.");
+      return new Response(JSON.stringify({ warning: "OneSignal not configured" }), {
+        status: 200,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     const body = await req.json();
     const results: Record<string, any> = {};
 
@@ -33,7 +67,7 @@ Deno.serve(async (req: Request) => {
       }
     }
 
-    // 1. OneSignal Push Dispatch
+    // 2. OneSignal Push Dispatch
     if (body.push) {
       const pushBody: Record<string, any> = {
         app_id: APP_ID,
@@ -46,6 +80,25 @@ Deno.serve(async (req: Request) => {
         pushBody.include_aliases = { external_id: body.push.userIds };
         pushBody.target_channel = "push";
       } else if (body.push.tags && body.push.tags.length > 0) {
+        // Broadcast / multi-target push: solo permitido si el usuario es staff verificado o notifica a su barbero
+        const isBarberTarget = body.push.tags.some((t: any) => t.key === 'barber_id');
+        if (!isBarberTarget) {
+          const adminSupabase = createClient(supabaseUrl, supabaseKey);
+          const { data: staffMember } = await adminSupabase
+            .from("staff")
+            .select("role, status")
+            .eq("email", user.email?.toLowerCase().trim())
+            .eq("status", "verified")
+            .maybeSingle();
+
+          if (!staffMember) {
+            return new Response(JSON.stringify({ error: "Forbidden: Broadcast push requires staff role" }), {
+              status: 403,
+              headers: { ...corsHeaders, "Content-Type": "application/json" },
+            });
+          }
+        }
+
         const filters: any[] = [];
         body.push.tags.forEach((t: any, index: number) => {
           if (index > 0) {
@@ -80,25 +133,52 @@ Deno.serve(async (req: Request) => {
       }
     }
 
-    // 2. Email Dispatch via Resend (si está configurada la API key)
+    // 3. Email Dispatch via Resend (si está configurada la API key)
     if (body.email && body.email.to && RESEND_API_KEY) {
-      try {
-        const mailRes = await fetch("https://api.resend.com/emails", {
-          method: "POST",
-          headers: {
-            "Authorization": `Bearer ${RESEND_API_KEY}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            from: "Peluquería Adrián Millán <citas@adrianmillan.es>",
-            to: body.email.to,
-            subject: body.email.subject,
-            html: body.email.html,
-          }),
-        });
-        results.email = await mailRes.json();
-      } catch (err: any) {
-        results.emailError = err.message;
+      const cleanTo = String(body.email.to).trim().toLowerCase();
+      const callerEmail = user.email?.trim().toLowerCase();
+
+      // Comprobar que no sea un relay a terceros no autorizados
+      let emailAllowed = (callerEmail && cleanTo === callerEmail);
+      if (!emailAllowed) {
+        const adminSupabase = createClient(supabaseUrl, supabaseKey);
+        const { data: staffCaller } = await adminSupabase
+          .from("staff")
+          .select("id")
+          .eq("email", callerEmail)
+          .eq("status", "verified")
+          .maybeSingle();
+        if (staffCaller) {
+          emailAllowed = true;
+        } else {
+          const { data: targetBarber } = await adminSupabase
+            .from("barbers")
+            .select("id")
+            .eq("google_email", cleanTo)
+            .maybeSingle();
+          if (targetBarber) emailAllowed = true;
+        }
+      }
+
+      if (emailAllowed) {
+        try {
+          const mailRes = await fetch("https://api.resend.com/emails", {
+            method: "POST",
+            headers: {
+              "Authorization": `Bearer ${RESEND_API_KEY}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              from: "Peluquería Adrián Millán <citas@adrianmillan.es>",
+              to: body.email.to,
+              subject: body.email.subject,
+              html: body.email.html,
+            }),
+          });
+          results.email = await mailRes.json();
+        } catch (err: any) {
+          results.emailError = err.message;
+        }
       }
     }
 

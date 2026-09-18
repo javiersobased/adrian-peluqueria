@@ -23,7 +23,7 @@ export async function fetchAllServices(): Promise<Service[]> {
 export async function fetchBarbers(): Promise<Barber[]> {
   const { data, error } = await supabase
     .from('barbers')
-    .select('*')
+    .select('id, name, role, initials, photo_url, active, sort_order')
     .eq('active', true)
     .order('sort_order', { ascending: true });
   if (error) return [];
@@ -40,7 +40,7 @@ export async function fetchBarbers(): Promise<Barber[]> {
 export async function fetchAllBarbers(): Promise<Barber[]> {
   const { data, error } = await supabase
     .from('barbers')
-    .select('*')
+    .select('id, name, role, initials, photo_url, active, sort_order')
     .order('sort_order', { ascending: true });
   if (error) return [];
   const list = (data as Barber[]) ?? [];

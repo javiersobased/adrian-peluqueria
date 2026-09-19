@@ -147,12 +147,9 @@ export function AdminPanel({ userRole, onSignOut, onGoPublic }: AdminPanelProps)
 
   const refresh = useCallback(async () => {
     setLoading(true);
-    await Promise.all([fetchBookings(), fetchBlocks()]);
-    if (isAdmin) {
-      await fetchCustomers();
-    }
+    await Promise.all([fetchBookings(), fetchBlocks(), fetchCustomers()]);
     setLoading(false);
-  }, [fetchBookings, fetchBlocks, fetchCustomers, isAdmin]);
+  }, [fetchBookings, fetchBlocks, fetchCustomers]);
 
   const handleManualRefresh = useCallback(() => {
     try {
@@ -218,7 +215,7 @@ export function AdminPanel({ userRole, onSignOut, onGoPublic }: AdminPanelProps)
     { id: 'profile', label: 'Mi Perfil', icon: UserCircle2, category: 'Principal', barberOnly: true },
     { id: 'availability', label: 'Horarios y Bloqueos', icon: SlidersHorizontal, category: 'Control', adminOnly: true },
     { id: 'schedule', label: 'Horarios Semanales', icon: Clock, category: 'Control', adminOnly: true },
-    { id: 'customers', label: 'Clientes', icon: Users, category: 'Gestión', adminOnly: true },
+    { id: 'customers', label: 'Clientes', icon: Users, category: 'Gestión' },
     { id: 'services', label: 'Servicios', icon: Scissors, category: 'Gestión', adminOnly: true },
     { id: 'staff', label: 'Personal', icon: Users, category: 'Gestión', adminOnly: true },
   ];
@@ -368,7 +365,7 @@ export function AdminPanel({ userRole, onSignOut, onGoPublic }: AdminPanelProps)
           {tab === 'services' && isAdmin && <AdminServices />}
           {tab === 'staff' && isAdmin && <AdminStaff />}
           {tab === 'schedule' && isAdmin && <AdminStaffSchedule />}
-          {tab === 'customers' && isAdmin && <AdminCustomers customers={customers} loading={loading} onRefresh={refresh} />}
+          {tab === 'customers' && (isAdmin || userRole.role === 'barber') && <AdminCustomers customers={customers} loading={loading} onRefresh={refresh} />}
           </div>
         </div>
       </div>

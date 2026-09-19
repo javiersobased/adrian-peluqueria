@@ -108,10 +108,14 @@ export function AdminProfile({ userRole, onBarberUpdated }: AdminProfileProps) {
 
       if (!savedInDb || updateError) {
         // Fallback to RPC if RLS blocks direct update
-        await supabase.rpc('update_my_barber_photo', {
-          p_barber_id: barber.id,
-          p_photo_url: publicUrl,
-        }).catch(() => null);
+        try {
+          await supabase.rpc('update_my_barber_photo', {
+            p_barber_id: barber.id,
+            p_photo_url: publicUrl,
+          });
+        } catch {
+          // ignore
+        }
       }
 
       setBarber((prev) => (prev ? { ...prev, photo_url: publicUrl } : null));
@@ -144,10 +148,14 @@ export function AdminProfile({ userRole, onBarberUpdated }: AdminProfileProps) {
         .update({ photo_url: null })
         .eq('id', barber.id);
 
-      await supabase.rpc('update_my_barber_photo', {
-        p_barber_id: barber.id,
-        p_photo_url: null,
-      }).catch(() => null);
+      try {
+        await supabase.rpc('update_my_barber_photo', {
+          p_barber_id: barber.id,
+          p_photo_url: null,
+        });
+      } catch {
+        // ignore
+      }
 
       setBarber((prev) => (prev ? { ...prev, photo_url: null } : null));
       notify.success('Foto eliminada', 'Se ha restablecido tu avatar por defecto.');

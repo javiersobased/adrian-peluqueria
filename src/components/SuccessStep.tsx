@@ -68,10 +68,6 @@ export function SuccessStep({ booking, onHome }: SuccessStepProps) {
       }
       // Envía push y email transaccional tanto al cliente como al barbero
       notifyBookingConfirmed(booking, resolvedBarber);
-
-      // Despacho directo garantizado a sendBookingEmail
-      const barberEmail = resolvedBarber?.google_email || (Array.isArray(resolvedBarber?.admin_emails) ? resolvedBarber?.admin_emails[0] : null);
-      sendBookingEmail(booking, barberEmail, resolvedBarber?.name);
     };
 
     resolveBarberAndNotify();

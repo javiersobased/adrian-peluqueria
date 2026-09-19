@@ -11,7 +11,7 @@ interface FAQItem {
 const FAQS: FAQItem[] = [
   {
     question: '¿Dónde está ubicada la peluquería y barbería de Adrián Millán en Huelva?',
-    answer: `Nos encontramos en ${SALON_ADDRESS}. El salón está situado en una zona de fácil acceso y aparcamiento en Huelva capital. Si vienes en coche o a pie, puedes encontrarnos fácilmente en Google Maps con indicaciones directas.`,
+    answer: `Nos encontramos en ${SALON_ADDRESS} (entre las barriadas de Santa Marta y La Orden). El salón está situado en una zona de muy fácil acceso y cómodo aparcamiento en Huelva capital. Si vienes en coche o a pie, puedes encontrarnos fácilmente en Google Maps con indicaciones directas.`,
     icon: MapPin,
   },
   {

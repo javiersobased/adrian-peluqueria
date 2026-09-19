@@ -10,10 +10,9 @@ import { AdminServices } from '@/components/admin/AdminServices';
 import { AdminStaff } from '@/components/admin/AdminStaff';
 import { AdminStaffSchedule } from '@/components/admin/AdminStaffSchedule';
 import { AdminCustomers } from '@/components/admin/AdminCustomers';
-import { AdminStore } from '@/components/admin/AdminStore';
 import { AdminProfile } from '@/components/admin/AdminProfile';
 import {
-  CalendarDays, Clock, PlusCircle, SlidersHorizontal, Scissors, Users, ShoppingBag,
+  CalendarDays, Clock, PlusCircle, SlidersHorizontal, Scissors, Users,
   Search, X, LogOut, Menu, ArrowLeft, RotateCw, UserCircle2, type LucideIcon,
 } from 'lucide-react';
 import { InstallAppButton } from '@/components/InstallAppButton';
@@ -29,7 +28,7 @@ interface AdminPanelProps {
   onGoPublic: () => void;
 }
 
-type AdminTab = 'today' | 'agenda' | 'manual' | 'availability' | 'services' | 'staff' | 'schedule' | 'customers' | 'store' | 'profile';
+type AdminTab = 'today' | 'agenda' | 'manual' | 'availability' | 'services' | 'staff' | 'schedule' | 'customers' | 'profile';
 
 interface NavItem {
   id: AdminTab;
@@ -50,7 +49,7 @@ export function AdminPanel({ userRole, onSignOut, onGoPublic }: AdminPanelProps)
   const [tab, setTab] = useState<AdminTab>(() => {
     try {
       const saved = sessionStorage.getItem('admin_active_tab') as AdminTab;
-      if (saved) return saved;
+      if (saved && saved !== ('store' as any)) return saved;
     } catch {}
     return 'today';
   });
@@ -148,12 +147,9 @@ export function AdminPanel({ userRole, onSignOut, onGoPublic }: AdminPanelProps)
 
   const refresh = useCallback(async () => {
     setLoading(true);
-    await Promise.all([fetchBookings(), fetchBlocks()]);
-    if (isAdmin) {
-      await fetchCustomers();
-    }
+    await Promise.all([fetchBookings(), fetchBlocks(), fetchCustomers()]);
     setLoading(false);
-  }, [fetchBookings, fetchBlocks, fetchCustomers, isAdmin]);
+  }, [fetchBookings, fetchBlocks, fetchCustomers]);
 
   const handleManualRefresh = useCallback(() => {
     try {
@@ -219,9 +215,8 @@ export function AdminPanel({ userRole, onSignOut, onGoPublic }: AdminPanelProps)
     { id: 'profile', label: 'Mi Perfil', icon: UserCircle2, category: 'Principal', barberOnly: true },
     { id: 'availability', label: 'Horarios y Bloqueos', icon: SlidersHorizontal, category: 'Control', adminOnly: true },
     { id: 'schedule', label: 'Horarios Semanales', icon: Clock, category: 'Control', adminOnly: true },
-    { id: 'customers', label: 'Clientes', icon: Users, category: 'Gestión', adminOnly: true },
+    { id: 'customers', label: 'Clientes', icon: Users, category: 'Gestión' },
     { id: 'services', label: 'Servicios', icon: Scissors, category: 'Gestión', adminOnly: true },
-    { id: 'store', label: 'Tienda', icon: ShoppingBag, category: 'Gestión', adminOnly: true },
     { id: 'staff', label: 'Personal', icon: Users, category: 'Gestión', adminOnly: true },
   ];
 
@@ -248,7 +243,7 @@ export function AdminPanel({ userRole, onSignOut, onGoPublic }: AdminPanelProps)
   const panelTitle = isAdmin ? 'Panel de Administración' : 'Panel de Barbero';
 
   return (
-    <div className="flex min-h-screen md:h-screen md:max-h-screen md:overflow-hidden w-full overflow-x-hidden bg-zinc-950 text-zinc-200 animate-fade-in">
+    <div data-lenis-prevent className="flex min-h-screen md:h-screen md:max-h-screen md:overflow-hidden w-full overflow-x-hidden bg-zinc-950 text-zinc-200 animate-fade-in">
       {/* Icon Dock — desktop only */}
       <div className="fixed left-0 top-0 z-40 hidden h-screen w-16 flex-col items-center border-r border-white/5 bg-zinc-900/80 py-5 backdrop-blur-xl md:flex">
         <div className="mb-6 flex h-10 w-10 items-center justify-center rounded-xl gold-gradient font-display text-sm font-bold text-black">AM</div>
@@ -370,8 +365,7 @@ export function AdminPanel({ userRole, onSignOut, onGoPublic }: AdminPanelProps)
           {tab === 'services' && isAdmin && <AdminServices />}
           {tab === 'staff' && isAdmin && <AdminStaff />}
           {tab === 'schedule' && isAdmin && <AdminStaffSchedule />}
-          {tab === 'customers' && isAdmin && <AdminCustomers customers={customers} loading={loading} onRefresh={refresh} />}
-          {tab === 'store' && isAdmin && <AdminStore />}
+          {tab === 'customers' && (isAdmin || userRole.role === 'barber') && <AdminCustomers customers={customers} loading={loading} onRefresh={refresh} />}
           </div>
         </div>
       </div>

@@ -66,6 +66,7 @@ export function SuccessStep({ booking, onHome }: SuccessStepProps) {
           // ignore
         }
       }
+      // Envía push y email transaccional tanto al cliente como al barbero
       notifyBookingConfirmed(booking, resolvedBarber);
     };
 

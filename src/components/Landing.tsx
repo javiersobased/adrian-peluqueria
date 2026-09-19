@@ -14,6 +14,7 @@ import type { UserRole, GalleryPhoto } from '@/types';
 import { safeInitial } from '@/lib/calendar';
 import { fetchGalleryPhotos } from '@/lib/gallery';
 import { useLenis, useLockScroll } from '@/components/SmoothScroll';
+import { FAQSection } from '@/components/FAQSection';
 
 interface LandingProps {
   onBook: () => void;
@@ -96,10 +97,11 @@ export function Landing({ onBook, onSignIn, onGoToPanel, user, role, onSignOut, 
   const scrollToSection = (id: string) => {
     const el = document.getElementById(id);
     if (!el) return;
-    if (lenis) {
+    const isMobile = typeof window !== 'undefined' && (window.innerWidth <= 768 || window.matchMedia('(pointer: coarse)').matches);
+    if (lenis && !isMobile) {
       lenis.scrollTo(el, { offset: -24, duration: 1.2 });
     } else {
-      el.scrollIntoView({ behavior: 'smooth' });
+      el.scrollIntoView({ behavior: 'auto' });
     }
   };
 
@@ -108,10 +110,11 @@ export function Landing({ onBook, onSignIn, onGoToPanel, user, role, onSignOut, 
       icon: <Home size={18} />,
       label: 'Inicio',
       onClick: () => {
-        if (lenis) {
+        const isMobile = typeof window !== 'undefined' && (window.innerWidth <= 768 || window.matchMedia('(pointer: coarse)').matches);
+        if (lenis && !isMobile) {
           lenis.scrollTo(0, { duration: 1.2 });
         } else {
-          window.scrollTo({ top: 0, behavior: 'smooth' });
+          window.scrollTo({ top: 0, behavior: 'auto' });
         }
       },
     },
@@ -211,12 +214,12 @@ export function Landing({ onBook, onSignIn, onGoToPanel, user, role, onSignOut, 
       <header className="relative flex min-h-[92vh] flex-col items-center justify-center px-6 text-center">
         <div className="pointer-events-none absolute inset-0 -z-10">
           <img
-            src="https://images.pexels.com/photos/7195803/pexels-photo-7195803.jpeg?auto=compress&cs=tinysrgb&w=1260&h=1680"
+            src="/images/hero-bg.jpg"
             alt="Interior de Peluquería y Barbería Adrián Millán en Huelva"
             className="h-full w-full object-cover"
           />
-          <div className="absolute inset-0 bg-gradient-to-b from-black/80 via-black/75 to-black/95" />
-          <div className="absolute inset-0 backdrop-blur-md" />
+          <div className="absolute inset-0 bg-gradient-to-b from-black/70 via-black/60 to-black/90" />
+          <div className="absolute inset-0 backdrop-blur-[2px]" />
         </div>
 
         <h1 className="sr-only">Peluquería y Barbería Adrián Millán en Huelva · Cita Previa Online</h1>
@@ -277,12 +280,13 @@ export function Landing({ onBook, onSignIn, onGoToPanel, user, role, onSignOut, 
         <section className="px-6 py-16">
           <div className="mx-auto max-w-5xl">
             <div className="relative overflow-hidden rounded-3xl border border-gold/20 bg-zinc-900/70 backdrop-blur-xl shadow-2xl">
-              <div className="absolute inset-0 -z-10 opacity-20">
+              <div className="absolute inset-0 -z-10 opacity-35">
                 <img
-                  src="https://images.unsplash.com/photo-1503951914875-452162b0f3f1?auto=format&fit=crop&w=1200&q=80"
+                  src="/images/products-banner.jpg"
                   alt="Productos de barbería y cuidado profesional"
                   className="h-full w-full object-cover"
                 />
+                <div className="absolute inset-0 bg-gradient-to-r from-zinc-950/90 via-zinc-950/60 to-transparent" />
               </div>
               <div className="relative flex flex-col items-center gap-5 p-8 text-center md:flex-row md:text-left">
                 <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl gold-gradient">
@@ -509,6 +513,9 @@ export function Landing({ onBook, onSignIn, onGoToPanel, user, role, onSignOut, 
           </div>
         </div>
       </section>
+
+      {/* FAQ Section */}
+      <FAQSection onBook={onBook} />
 
       {/* Dock */}
       <div className="fixed bottom-8 left-0 right-0 z-40 flex justify-center">

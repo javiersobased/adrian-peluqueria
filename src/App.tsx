@@ -309,7 +309,7 @@ function App() {
       <div className="relative min-h-screen bg-ink text-zinc-200">
         <div className="fixed inset-0 -z-20">
           <img
-            src="https://images.pexels.com/photos/7195803/pexels-photo-7195803.jpeg?auto=compress&cs=tinysrgb&w=1260&h=1680"
+            src="/images/hero-bg.jpg"
             alt=""
             aria-hidden="true"
             className="h-full w-full object-cover"
@@ -319,7 +319,7 @@ function App() {
         </div>
         <div className="relative z-10 mx-auto w-full max-w-5xl">
           <Suspense fallback={<ScreenLoader message="Cargando catálogo..." />}>
-            <Catalog onBack={goPublic} />
+            <Catalog onBack={goPublic} userRole={auth.role} />
           </Suspense>
         </div>
       </div>
@@ -332,7 +332,7 @@ function App() {
       <div className="relative min-h-screen bg-ink text-zinc-200">
         <div className="fixed inset-0 -z-20">
           <img
-            src="https://images.pexels.com/photos/7195803/pexels-photo-7195803.jpeg?auto=compress&cs=tinysrgb&w=1260&h=1680"
+            src="/images/hero-bg.jpg"
             alt=""
             aria-hidden="true"
             className="h-full w-full object-cover"
@@ -363,7 +363,7 @@ function App() {
       <div className="relative min-h-screen bg-ink text-zinc-200">
         <div className="fixed inset-0 -z-20">
           <img
-            src="https://images.pexels.com/photos/7195803/pexels-photo-7195803.jpeg?auto=compress&cs=tinysrgb&w=1260&h=1680"
+            src="/images/hero-bg.jpg"
             alt=""
             aria-hidden="true"
             className="h-full w-full object-cover"
@@ -392,7 +392,7 @@ function App() {
     <div className="relative min-h-screen bg-ink text-zinc-200">
       <div className="fixed inset-0 -z-20">
         <img
-          src="https://images.pexels.com/photos/7195803/pexels-photo-7195803.jpeg?auto=compress&cs=tinysrgb&w=1260&h=1680"
+          src="/images/hero-bg.jpg"
           alt=""
           aria-hidden="true"
           className="h-full w-full object-cover"

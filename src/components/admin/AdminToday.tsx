@@ -1,4 +1,4 @@
-import { CalendarDays, CalendarClock, Clock, Scissors, Phone, X, ChevronDown, ChevronUp, History, CheckCircle2, Trash2 } from 'lucide-react';
+import { CalendarDays, CalendarClock, Clock, Scissors, Phone, X, ChevronDown, ChevronUp, History, CheckCircle2, Trash2, PhoneCall, User, XCircle } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { fetchAllBarbers } from '@/data/services';
 import type { SavedBooking, Barber } from '@/types';
@@ -7,7 +7,11 @@ import { useEffect, useState } from 'react';
 import { notify } from '@/lib/notify';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import { ReorganizeBookingModal } from '@/components/admin/ReorganizeBookingModal';
+import { CustomerDetailModal } from '@/components/admin/CustomerDetailModal';
+import { getWhatsAppUrl, getCallUrl } from '@/lib/phoneActions';
+import { WhatsAppIcon } from '@/components/icons';
 import { notifyBookingCancelled } from '@/lib/notifications';
+import { ModalPortal } from '@/components/ui/ModalPortal';
 
 interface AdminTodayProps {
   bookings: SavedBooking[];
@@ -18,11 +22,42 @@ interface AdminTodayProps {
 export function AdminToday({ bookings, loading, onRefresh }: AdminTodayProps) {
   const [barbers, setBarbers] = useState<Barber[]>([]);
   const [showPastBookings, setShowPastBookings] = useState(false);
+  const [selectedBooking, setSelectedBooking] = useState<SavedBooking | null>(null);
   const [reorganizingBooking, setReorganizingBooking] = useState<SavedBooking | null>(null);
+  const [selectedCustomer, setSelectedCustomer] = useState<{
+    user_id?: string | null;
+    full_name: string;
+    phone: string;
+    email?: string | null;
+    comments?: string | null;
+  } | null>(null);
   const [currentTimeStr, setCurrentTimeStr] = useState(() => {
     const d = new Date();
     return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
   });
+
+  const formatDateFull = (iso: string) => {
+    const d = new Date(iso + 'T00:00:00');
+    return `${WEEKDAY_SHORT[d.getDay()]} ${d.getDate()} de ${MONTH_SHORT[d.getMonth()]} de ${d.getFullYear()}`;
+  };
+
+  const formatCreatedAt = (iso?: string | null) => {
+    if (!iso) return null;
+    try {
+      const d = new Date(iso);
+      if (isNaN(d.getTime())) return null;
+      return d.toLocaleString('es-ES', {
+        timeZone: 'Europe/Madrid',
+        day: 'numeric',
+        month: 'short',
+        year: d.getFullYear() !== new Date().getFullYear() ? 'numeric' : undefined,
+        hour: '2-digit',
+        minute: '2-digit',
+      });
+    } catch {
+      return null;
+    }
+  };
 
   const todayISO = toISO(new Date());
 
@@ -74,11 +109,26 @@ export function AdminToday({ bookings, loading, onRefresh }: AdminTodayProps) {
   };
 
   const handlePermanentDelete = async (id: string) => {
-    if (!confirm('¿Eliminar por completo esta cita de la base de datos?\n\nEsta acción es irreversible y borrará el registro definitivamente.')) return;
+    const target = bookings.find((b) => b.id === id) || (selectedBooking?.id === id ? selectedBooking : null);
+    const clientLabel = target ? ` de ${target.full_name} (${target.email || target.phone})` : '';
+    if (!confirm(`¿Eliminar por completo la cita${clientLabel} de la base de datos?\n\nEsta acción es irreversible y enviará la notificación y correo de cancelación al cliente.`)) return;
     try {
+      if (target) {
+        await notifyBookingCancelled(target, getBarber(target.barber), 'Cita eliminada de la agenda por la administración').catch((err) => {
+          console.warn('[handlePermanentDelete] Error notificando al cliente:', err);
+        });
+      }
       const { error } = await supabase.from('bookings').delete().eq('id', id);
       if (error) throw error;
-      notify.success('Cita eliminada definitivamente', 'El registro se ha borrado por completo');
+      notify.success(
+        'Cita eliminada definitivamente',
+        target?.email
+          ? `El registro se ha borrado y se notificó por correo a ${target.email}`
+          : 'El registro se ha borrado y se notificó al cliente'
+      );
+      if (selectedBooking?.id === id) {
+        setSelectedBooking(null);
+      }
       onRefresh();
     } catch (err: any) {
       console.error('Error al eliminar cita:', err);
@@ -158,7 +208,8 @@ export function AdminToday({ bookings, loading, onRefresh }: AdminTodayProps) {
             return (
               <div
                 key={b.id}
-                className={`flex items-start gap-2.5 sm:gap-3 rounded-2xl glass-card p-2.5 sm:p-3 transition-all hover:border-gold/30 ${
+                onClick={() => setSelectedBooking(b)}
+                className={`flex items-start gap-2.5 sm:gap-3 rounded-2xl glass-card p-2.5 sm:p-3 transition-all hover:border-gold/30 cursor-pointer ${
                   isNext ? 'border-gold/30 bg-gold/[0.03] ring-1 ring-gold/20' : ''
                 }`}
               >
@@ -200,6 +251,7 @@ export function AdminToday({ bookings, loading, onRefresh }: AdminTodayProps) {
                     {b.phone && (
                       <a
                         href={`tel:${b.phone}`}
+                        onClick={(e) => e.stopPropagation()}
                         className="flex items-center gap-1 hover:text-white transition-colors"
                       >
                         <Phone className="h-3 w-3 text-zinc-500" />
@@ -212,7 +264,10 @@ export function AdminToday({ bookings, loading, onRefresh }: AdminTodayProps) {
                 <div className="flex items-center gap-1.5 shrink-0 self-center">
                   <button
                     type="button"
-                    onClick={() => setReorganizingBooking(b)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setReorganizingBooking(b);
+                    }}
                     aria-label="Reorganizar cita"
                     title="Reorganizar cita (cambiar hora o sugerir cambio al cliente)"
                     className="flex h-8 w-8 items-center justify-center rounded-full bg-gold/10 text-gold border border-gold/20 hover:bg-gold/20 hover:scale-105 active:scale-95 transition-all shadow-sm shadow-gold/5"
@@ -221,7 +276,10 @@ export function AdminToday({ bookings, loading, onRefresh }: AdminTodayProps) {
                   </button>
                   <button
                     type="button"
-                    onClick={() => handlePermanentDelete(b.id)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handlePermanentDelete(b.id);
+                    }}
                     aria-label="Eliminar cita por completo"
                     title="Eliminar cita por completo de la base de datos"
                     className="flex h-8 w-8 items-center justify-center rounded-full bg-red-500/10 text-red-400 transition-colors hover:bg-red-500/20"
@@ -264,7 +322,8 @@ export function AdminToday({ bookings, loading, onRefresh }: AdminTodayProps) {
                 return (
                   <div
                     key={b.id}
-                    className="flex items-center gap-3 rounded-xl border border-white/5 bg-zinc-950/40 p-3 opacity-60 transition-opacity hover:opacity-100"
+                    onClick={() => setSelectedBooking(b)}
+                    className="flex items-center gap-3 rounded-xl border border-white/5 bg-zinc-950/40 p-3 opacity-60 transition-opacity hover:opacity-100 cursor-pointer"
                   >
                     <div className="self-start shrink-0 inline-flex items-baseline justify-center rounded-lg bg-zinc-900 px-2 py-1 text-zinc-400">
                       <span className="font-mono text-xs font-semibold line-through decoration-zinc-600">
@@ -280,6 +339,7 @@ export function AdminToday({ bookings, loading, onRefresh }: AdminTodayProps) {
                       {b.phone && (
                         <a
                           href={`tel:${b.phone}`}
+                          onClick={(e) => e.stopPropagation()}
                           className="text-xs text-zinc-500 hover:text-zinc-300 transition-colors p-1"
                         >
                           <Phone className="h-3.5 w-3.5" />
@@ -287,7 +347,10 @@ export function AdminToday({ bookings, loading, onRefresh }: AdminTodayProps) {
                       )}
                       <button
                         type="button"
-                        onClick={() => setReorganizingBooking(b)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setReorganizingBooking(b);
+                        }}
                         aria-label="Reorganizar cita"
                         title="Reorganizar cita (reprogramar a otro día u hora)"
                         className="text-zinc-500 hover:text-gold transition-colors p-1 rounded hover:bg-gold/10"
@@ -296,7 +359,10 @@ export function AdminToday({ bookings, loading, onRefresh }: AdminTodayProps) {
                       </button>
                       <button
                         type="button"
-                        onClick={() => handlePermanentDelete(b.id)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handlePermanentDelete(b.id);
+                        }}
                         aria-label="Eliminar cita por completo"
                         title="Eliminar cita por completo de la base de datos"
                         className="text-zinc-600 hover:text-red-400 transition-colors p-1 rounded hover:bg-red-500/10"
@@ -310,6 +376,200 @@ export function AdminToday({ bookings, loading, onRefresh }: AdminTodayProps) {
             </div>
           )}
         </div>
+      )}
+
+      {/* Appointment Detail Modal in AdminToday */}
+      {selectedBooking && (
+        <ModalPortal>
+          <div className="fixed inset-0 z-[9999] flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+            <div className="fixed inset-0 bg-black/80 backdrop-blur-md animate-fade-in" onClick={() => setSelectedBooking(null)} />
+            <div 
+              data-lenis-prevent
+              className="relative z-10 my-auto flex max-h-[88vh] w-full max-w-lg flex-col overflow-hidden rounded-3xl border border-gold/20 bg-zinc-950/95 p-4 sm:p-6 shadow-2xl shadow-gold/5 backdrop-blur-xl animate-scale-in"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Header */}
+              <div className="flex items-start justify-between gap-4 border-b border-white/10 pb-3 sm:pb-4 shrink-0">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <span className="inline-flex items-center gap-1 rounded-full bg-gold/10 px-2.5 py-0.5 font-display text-xs font-bold text-gold border border-gold/20">
+                      <Clock className="h-3 w-3" /> {selectedBooking.booking_time} h
+                    </span>
+                    {selectedBooking.status === 'cancelled' ? (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-red-500/10 px-2 py-0.5 text-[0.65rem] font-semibold text-red-400 border border-red-500/20">
+                        <XCircle className="h-3 w-3" /> Cancelada
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-[0.65rem] font-semibold text-emerald-400 border border-emerald-500/20">
+                        <CheckCircle2 className="h-3 w-3" /> Confirmada
+                      </span>
+                    )}
+                  </div>
+                  <h3 className="font-display text-lg font-bold text-white">
+                    {formatDateFull(selectedBooking.booking_date)}
+                  </h3>
+                  {selectedBooking.created_at && formatCreatedAt(selectedBooking.created_at) && (
+                    <p className="text-xs text-zinc-400 flex items-center gap-1.5 pt-0.5">
+                      <CalendarClock className="h-3.5 w-3.5 text-gold/80 shrink-0" />
+                      <span>Reservada el <strong className="text-zinc-200">{formatCreatedAt(selectedBooking.created_at)} h</strong></span>
+                    </p>
+                  )}
+                </div>
+                <button
+                  onClick={() => setSelectedBooking(null)}
+                  aria-label="Cerrar detalle"
+                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white/5 text-zinc-400 transition-colors hover:bg-white/10 hover:text-white"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+
+              {/* Details Content */}
+              <div data-lenis-prevent className="my-3 sm:my-4 space-y-4 text-sm flex-1 overflow-y-auto pr-1">
+                {/* Client card */}
+                <div className="rounded-2xl glass-card p-4 border border-white/5 bg-zinc-900/40 space-y-2">
+                  <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500">Cliente</p>
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl gold-gradient font-display text-sm font-bold text-black">
+                      {selectedBooking.full_name ? selectedBooking.full_name.charAt(0).toUpperCase() : '?'}
+                    </div>
+                    <div className="min-w-0">
+                      <p className="font-bold text-white">{selectedBooking.full_name}</p>
+                      <p className="text-xs text-zinc-400">{selectedBooking.phone}</p>
+                      {selectedBooking.email && <p className="text-xs text-zinc-500">{selectedBooking.email}</p>}
+                    </div>
+                  </div>
+
+                  {selectedBooking.comments && (
+                    <p className="mt-2 rounded-xl bg-white/[0.03] p-2.5 text-xs text-zinc-300 italic border border-white/5">
+                      "{selectedBooking.comments}"
+                    </p>
+                  )}
+                </div>
+
+                {/* Service y Barber */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="rounded-2xl glass-card p-3.5 border border-white/5 bg-zinc-900/40">
+                    <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500">Servicio</p>
+                    <p className="mt-1 font-bold text-white text-sm truncate">{selectedBooking.service}</p>
+                    <p className="mt-0.5 text-xs font-mono font-bold text-gold">{selectedBooking.service_price} €</p>
+                  </div>
+
+                  <div className="rounded-2xl glass-card p-3.5 border border-white/5 bg-zinc-900/40">
+                    <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500">Barbero</p>
+                    <div className="mt-1 flex items-center gap-2">
+                      {getBarber(selectedBooking.barber)?.photo_url ? (
+                        <img
+                          src={getBarber(selectedBooking.barber)!.photo_url!}
+                          alt=""
+                          className="h-5 w-5 rounded-full object-cover"
+                        />
+                      ) : (
+                        <User className="h-4 w-4 text-zinc-500" />
+                      )}
+                      <p className="font-bold text-white text-sm truncate">
+                        {getBarber(selectedBooking.barber)?.name || selectedBooking.barber}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Actions */}
+              <div className="space-y-2 border-t border-white/10 pt-3 sm:pt-4 shrink-0">
+                <div className="grid grid-cols-2 gap-2">
+                  <a
+                    href={getWhatsAppUrl(
+                      selectedBooking.phone,
+                      `¡Hola ${selectedBooking.full_name}! Te contactamos de Peluquería Adrián sobre tu cita de hoy a las ${selectedBooking.booking_time}h.`
+                    )}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center justify-center gap-2 rounded-xl bg-emerald-500/15 py-2.5 text-xs font-semibold text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/25 active:scale-95 transition-all shadow-sm shadow-emerald-900/20"
+                  >
+                    <WhatsAppIcon className="h-4 w-4 fill-current" />
+                    <span>WhatsApp</span>
+                  </a>
+
+                  <a
+                    href={getCallUrl(selectedBooking.phone)}
+                    className="flex items-center justify-center gap-2 rounded-xl bg-gold/15 py-2.5 text-xs font-semibold text-gold border border-gold/30 hover:bg-gold/25 active:scale-95 transition-all shadow-sm shadow-gold/10"
+                  >
+                    <PhoneCall className="h-4 w-4" />
+                    <span>Llamar</span>
+                  </a>
+                </div>
+
+                {/* Open customer profile and history */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    const b = selectedBooking;
+                    setSelectedBooking(null);
+                    setSelectedCustomer({
+                      user_id: b.user_id,
+                      full_name: b.full_name,
+                      phone: b.phone,
+                      email: b.email,
+                      comments: b.comments,
+                    });
+                  }}
+                  className="w-full flex items-center justify-center gap-2 rounded-xl bg-white/5 py-2.5 text-xs font-semibold text-white border border-white/10 hover:bg-white/10 hover:border-gold/30 active:scale-95 transition-all"
+                >
+                  <User className="h-4 w-4 text-gold" />
+                  <span>Ver perfil e historial del cliente</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    const b = selectedBooking;
+                    setSelectedBooking(null);
+                    setReorganizingBooking(b);
+                  }}
+                  className="w-full flex items-center justify-center gap-2 rounded-xl bg-gold/15 py-2.5 text-xs font-bold text-gold border border-gold/30 hover:bg-gold/25 active:scale-95 transition-all mt-1 shadow-sm shadow-gold/10"
+                >
+                  <CalendarClock className="h-4 w-4" />
+                  <span>Reorganizar cita (sugerir cambio de hora)</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={async () => {
+                    const id = selectedBooking.id;
+                    await handleCancel(id);
+                    setSelectedBooking(null);
+                  }}
+                  className="w-full text-center text-[0.7rem] text-zinc-500 hover:text-red-400 py-1 transition-colors"
+                >
+                  Cancelar esta cita (marcar cancelada)
+                </button>
+
+                {/* Permanent Delete */}
+                <button
+                  type="button"
+                  onClick={async () => {
+                    const id = selectedBooking.id;
+                    await handlePermanentDelete(id);
+                    setSelectedBooking(null);
+                  }}
+                  className="w-full flex items-center justify-center gap-2 rounded-xl bg-red-500/10 py-2 text-xs font-semibold text-red-400 border border-red-500/20 hover:bg-red-500/20 active:scale-95 transition-all mt-1 shadow-sm shadow-red-950/20"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                  <span>Eliminar por completo de la base de datos</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </ModalPortal>
+      )}
+
+      {/* Customer Detail / History Modal */}
+      {selectedCustomer && (
+        <CustomerDetailModal
+          customer={selectedCustomer}
+          onClose={() => setSelectedCustomer(null)}
+        />
       )}
 
       {/* Reorganize Booking Modal */}

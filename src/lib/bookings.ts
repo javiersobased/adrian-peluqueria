@@ -70,11 +70,15 @@ export async function createBooking(payload: PendingBookingPayload): Promise<{ b
   // 1. Client-side cooldown guard (prevent rapid double-clicks or bot flooding)
   try {
     const lastTs = sessionStorage.getItem(LAST_BOOKING_KEY);
-    if (lastTs && (Date.now() - parseInt(lastTs, 10)) < 8000) {
-      return {
-        booking: null,
-        error: 'Has realizado una reserva recientemente. Por favor, espera unos segundos antes de solicitar otra.',
-      };
+    if (lastTs) {
+      const elapsed = Date.now() - parseInt(lastTs, 10);
+      if (elapsed < 10000) {
+        const remaining = Math.ceil((10000 - elapsed) / 1000);
+        return {
+          booking: null,
+          error: `Has realizado una reserva recientemente. Por favor, espera ${remaining} segundo${remaining > 1 ? 's' : ''} antes de realizar tu siguiente reserva.`,
+        };
+      }
     }
   } catch {
     // ignore sessionStorage errors

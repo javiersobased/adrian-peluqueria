@@ -1,5 +1,5 @@
 [functions.send-booking-email]
-verify_jwt = true
+verify_jwt = false
 
 [functions.notificar-reserva]
 enabled = true

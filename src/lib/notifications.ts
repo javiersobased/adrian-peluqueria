@@ -82,15 +82,32 @@ async function dispatchNotification(payload: {
   };
 }) {
   try {
-    // 1. Send via Supabase Edge Function
-    const { error } = await supabase.functions.invoke('notificar-reserva', {
-      body: payload,
-    });
-    if (error) {
-      console.warn('[Notifications] Edge Function warning:', error.message);
+    // 1. Send email via send-booking-email Edge Function (Resend)
+    if (payload.email) {
+      try {
+        await supabase.functions.invoke('send-booking-email', {
+          body: {
+            to: payload.email.to,
+            subject: payload.email.subject,
+            html: payload.email.html,
+          },
+        });
+      } catch (emailErr) {
+        console.warn('[Notifications] Email dispatch failed:', emailErr);
+      }
+    }
+
+    // 2. Send push via notificar-reserva Edge Function (OneSignal)
+    if (payload.push) {
+      const { error } = await supabase.functions.invoke('notificar-reserva', {
+        body: payload,
+      });
+      if (error) {
+        console.warn('[Notifications] Push Edge Function warning:', error.message);
+      }
     }
   } catch (err) {
-    console.warn('[Notifications] Edge function dispatch failed, falling back:', err);
+    console.warn('[Notifications] Notification dispatch failed:', err);
   }
 }
 
@@ -101,26 +118,47 @@ async function resolveTargetEmail(booking: SavedBooking): Promise<string | null>
   if (booking.email && booking.email.includes('@')) {
     return booking.email.trim();
   }
-  // Fallback to active Supabase user email
-  try {
-    const { data } = await supabase.auth.getUser();
-    if (data?.user?.email && data.user.email.includes('@')) {
-      return data.user.email.trim();
-    }
-  } catch {}
-  // Fallback to customer record in database
+
+  // 1. Fallback to customer record in database by user_id
   if (booking.user_id) {
     try {
       const { data } = await supabase
         .from('customers')
         .select('email')
         .eq('user_id', booking.user_id)
+        .not('email', 'is', null)
         .maybeSingle();
       if (data?.email && data.email.includes('@')) {
         return data.email.trim();
       }
     } catch {}
   }
+
+  // 2. Fallback to customer record by phone number
+  if (booking.phone) {
+    try {
+      const { data } = await supabase
+        .from('customers')
+        .select('email')
+        .eq('phone', booking.phone)
+        .not('email', 'is', null)
+        .maybeSingle();
+      if (data?.email && data.email.includes('@')) {
+        return data.email.trim();
+      }
+    } catch {}
+  }
+
+  // 3. Fallback to active Supabase user ONLY if current user is the booking owner
+  try {
+    const { data } = await supabase.auth.getUser();
+    if (data?.user && booking.user_id && data.user.id === booking.user_id) {
+      if (data.user.email && data.user.email.includes('@')) {
+        return data.user.email.trim();
+      }
+    }
+  } catch {}
+
   return null;
 }
 
@@ -129,7 +167,7 @@ async function resolveTargetEmail(booking: SavedBooking): Promise<string | null>
  * Dispara:
  * - Push al Cliente (con link a sus citas)
  * - Email al Cliente (plantilla dorada completa, SIEMPRE enviado)
- * - Push y Email al Barbero SOLAMENTE si la cita es para HOY en las próximas 3 HORAS
+ * - Push y Email al Barbero (notificación al barbero con todos los datos)
  */
 export async function notifyBookingConfirmed(booking: SavedBooking, barber?: Barber | null) {
   try {
@@ -156,14 +194,14 @@ export async function notifyBookingConfirmed(booking: SavedBooking, barber?: Bar
       } : undefined,
     });
 
-    // 2. Al Barbero: SOLAMENTE SI LA CITA ES PARA HOY Y EN LAS PRÓXIMAS 3 HORAS
-    const isUrgentForBarber = isTodayWithinNextHours(booking.booking_date, booking.booking_time, 3);
-    if (isUrgentForBarber) {
-      const barberGoogleEmail = barber?.google_email || (booking.barber === 'adrian' ? 'adrian.millan.peguero@hotmail.com' : null);
-      const barberEmailPayload = barberGoogleEmail ? getBarberNewBookingEmail(booking, barberName) : null;
+    // 2. Al Barbero: Enviar email siempre que se reserve una cita con él
+    const barberGoogleEmail = barber?.google_email || (Array.isArray(barber?.admin_emails) ? barber?.admin_emails[0] : null) || (booking.barber === 'adrian' ? 'adrian.millan.peguero@hotmail.com' : null);
+    if (barberGoogleEmail) {
+      const isUrgentForBarber = isTodayWithinNextHours(booking.booking_date, booking.booking_time, 3);
+      const barberEmailPayload = getBarberNewBookingEmail(booking, barberName);
 
       await dispatchNotification({
-        push: {
+        push: isUrgentForBarber ? {
           tags: [
             { key: 'barber_id', relation: '=', value: booking.barber },
             { key: 'role', relation: '=', value: 'barber' },
@@ -171,15 +209,15 @@ export async function notifyBookingConfirmed(booking: SavedBooking, barber?: Bar
           heading: '⚡ Nueva Cita Urgente (Próximas 3h)',
           content: `${clientName} ha reservado para hoy a las ${hora}h (${booking.service}).`,
           url: ADMIN_URL,
-        },
-        email: barberGoogleEmail && barberEmailPayload ? {
+        } : undefined,
+        email: barberEmailPayload ? {
           to: barberGoogleEmail,
-          subject: `⚡ [HOY ${hora}h] Nueva Cita: ${clientName}`,
+          subject: isUrgentForBarber
+            ? `⚡ [HOY ${hora}h] Nueva Cita: ${clientName}`
+            : `💈 Nueva Cita Reservada: ${clientName} · ${booking.booking_date} a las ${hora}h`,
           html: barberEmailPayload.html,
         } : undefined,
       });
-    } else {
-      console.log(`[Notifications] Reserva (${booking.booking_date} ${hora}h) no es para hoy en las próximas 3h. No se notifica al barbero según regla.`);
     }
   } catch (err) {
     console.warn('[Notifications] Error in notifyBookingConfirmed:', err);
@@ -210,7 +248,7 @@ export async function notifyBookingCancelled(
       push: booking.user_id ? {
         userIds: [booking.user_id],
         heading: 'Cita Cancelada · Peluquería Adrián Millán',
-        content: `Tu cita del ${booking.booking_date} a las ${hora}h ha sido cancelada.`,
+        content: `Tu cita del ${booking.booking_date} a las ${hora}h ha sido cancelada. Para dudas o consultas: citas@adrianmillan.es`,
         url: CITAS_URL,
       } : undefined,
       email: targetEmail && clientEmail ? {

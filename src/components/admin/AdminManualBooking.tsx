@@ -9,6 +9,7 @@ import {
   User,
   Plus,
   Phone,
+  Mail,
   FileText,
   AlertCircle,
   AlertTriangle,
@@ -33,6 +34,7 @@ export function AdminManualBooking({ onCreated }: AdminManualBookingProps) {
   const [time, setTime] = useState('');
   const [fullName, setFullName] = useState('');
   const [phone, setPhone] = useState('');
+  const [email, setEmail] = useState('');
   const [comments, setComments] = useState('');
 
   const [saving, setSaving] = useState(false);
@@ -143,6 +145,7 @@ export function AdminManualBooking({ onCreated }: AdminManualBookingProps) {
       const svc = services.find((s) => s.name === service);
       const cleanName = fullName.trim();
       const cleanPhone = phone.trim();
+      const cleanEmail = email.trim().toLowerCase() || null;
       const cleanComments = comments.trim() || null;
 
       // 2. Insertar la cita
@@ -154,7 +157,7 @@ export function AdminManualBooking({ onCreated }: AdminManualBookingProps) {
         booking_time: time,
         full_name: cleanName,
         phone: cleanPhone,
-        email: null,
+        email: cleanEmail,
         comments: cleanComments,
         status: 'confirmed',
         user_id: null,
@@ -174,6 +177,7 @@ export function AdminManualBooking({ onCreated }: AdminManualBookingProps) {
             {
               full_name: cleanName,
               phone: cleanPhone,
+              email: cleanEmail,
               comments: cleanComments,
               updated_at: new Date().toISOString(),
             },
@@ -192,6 +196,7 @@ export function AdminManualBooking({ onCreated }: AdminManualBookingProps) {
 
       setFullName('');
       setPhone('');
+      setEmail('');
       setComments('');
       setTime('');
 
@@ -205,7 +210,7 @@ export function AdminManualBooking({ onCreated }: AdminManualBookingProps) {
     } finally {
       setSaving(false);
     }
-  }, [valid, barber, service, date, time, fullName, phone, comments, services, selectedBarberObj, loadAvailableSlots, onCreated]);
+  }, [valid, barber, service, date, time, fullName, phone, email, comments, services, selectedBarberObj, loadAvailableSlots, onCreated]);
 
   return (
     <div className="mx-auto max-w-4xl w-full min-w-0">
@@ -406,6 +411,18 @@ export function AdminManualBooking({ onCreated }: AdminManualBookingProps) {
               </div>
 
               <div>
+                <label className="mb-1 block text-xs text-zinc-400 font-medium">Correo electrónico (opcional, para avisos de cambio o cancelación)</label>
+                <div className="flex items-center gap-3 rounded-xl glass-card px-4 py-3 focus-within:border-gold/30">
+                  <Mail className="h-4 w-4 text-zinc-500 shrink-0" />
+                  <input
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="ej. cliente@gmail.com"
+                    className="w-full bg-transparent text-sm text-white placeholder:text-zinc-600 focus:outline-none"
+                  />
+                </div>
+              </div>
                 <label className="mb-1 block text-xs text-zinc-400 font-medium">Notas u observaciones (opcional)</label>
                 <div className="flex items-center gap-3 rounded-xl glass-card px-4 py-2.5 focus-within:border-gold/30">
                   <FileText className="h-4 w-4 text-zinc-500 shrink-0" />

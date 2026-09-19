@@ -147,11 +147,24 @@ export function AdminAgenda({ bookings, loading, onRefresh }: AdminAgendaProps) 
   };
 
   const handlePermanentDelete = async (id: string) => {
-    if (!confirm('¿Eliminar por completo esta cita de la base de datos?\n\nEsta acción es irreversible y borrará el registro definitivamente.')) return;
+    const target = bookings.find((b) => b.id === id) || (selectedBooking?.id === id ? selectedBooking : null);
+    const clientLabel = target ? ` de ${target.full_name} (${target.email || target.phone})` : '';
+    if (!confirm(`¿Eliminar por completo la cita${clientLabel} de la base de datos?\n\nEsta acción es irreversible y enviará la notificación y correo de cancelación al cliente.`)) return;
     try {
+      if (target) {
+        const targetBarber = barbers.find((b) => b.id === target.barber) || getBarber(target.barber);
+        await notifyBookingCancelled(target, targetBarber, 'Cita eliminada de la agenda por la administración').catch((err) => {
+          console.warn('[handlePermanentDelete] Error notificando al cliente:', err);
+        });
+      }
       const { error } = await supabase.from('bookings').delete().eq('id', id);
       if (error) throw error;
-      notify.success('Cita eliminada definitivamente', 'El registro se ha borrado por completo de la base de datos');
+      notify.success(
+        'Cita eliminada definitivamente',
+        target?.email
+          ? `El registro se ha borrado y se notificó por correo a ${target.email}`
+          : 'El registro se ha borrado y se notificó al cliente'
+      );
       if (selectedBooking?.id === id) {
         setSelectedBooking(null);
       }
@@ -189,6 +202,24 @@ export function AdminAgenda({ bookings, loading, onRefresh }: AdminAgendaProps) 
   const formatDateFull = (iso: string) => {
     const d = new Date(iso + 'T00:00:00');
     return `${WEEKDAY_SHORT[d.getDay()]} ${d.getDate()} de ${MONTH_SHORT[d.getMonth()]} de ${d.getFullYear()}`;
+  };
+
+  const formatCreatedAt = (iso?: string | null) => {
+    if (!iso) return null;
+    try {
+      const d = new Date(iso);
+      if (isNaN(d.getTime())) return null;
+      return d.toLocaleString('es-ES', {
+        timeZone: 'Europe/Madrid',
+        day: 'numeric',
+        month: 'short',
+        year: d.getFullYear() !== new Date().getFullYear() ? 'numeric' : undefined,
+        hour: '2-digit',
+        minute: '2-digit',
+      });
+    } catch {
+      return null;
+    }
   };
 
   if (loading) {
@@ -493,6 +524,7 @@ export function AdminAgenda({ bookings, loading, onRefresh }: AdminAgendaProps) 
           <div className="fixed inset-0 z-[9999] flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
             <div className="fixed inset-0 bg-black/80 backdrop-blur-md animate-fade-in" onClick={() => setSelectedBooking(null)} />
             <div 
+              data-lenis-prevent
               className="relative z-10 my-auto flex max-h-[88vh] w-full max-w-lg flex-col overflow-hidden rounded-3xl border border-gold/20 bg-zinc-950/95 p-4 sm:p-6 shadow-2xl shadow-gold/5 backdrop-blur-xl animate-scale-in"
               onClick={(e) => e.stopPropagation()}
             >
@@ -516,6 +548,12 @@ export function AdminAgenda({ bookings, loading, onRefresh }: AdminAgendaProps) 
                   <h3 className="font-display text-lg font-bold text-white">
                     {formatDateFull(selectedBooking.booking_date)}
                   </h3>
+                  {selectedBooking.created_at && formatCreatedAt(selectedBooking.created_at) && (
+                    <p className="text-xs text-zinc-400 flex items-center gap-1.5 pt-0.5">
+                      <CalendarClock className="h-3.5 w-3.5 text-gold/80 shrink-0" />
+                      <span>Reservada el <strong className="text-zinc-200">{formatCreatedAt(selectedBooking.created_at)} h</strong></span>
+                    </p>
+                  )}
                 </div>
                 <button
                   onClick={() => setSelectedBooking(null)}
@@ -527,11 +565,11 @@ export function AdminAgenda({ bookings, loading, onRefresh }: AdminAgendaProps) 
               </div>
 
               {/* Details Content */}
-              <div className="my-3 sm:my-4 space-y-4 text-sm flex-1 overflow-y-auto pr-1">
+              <div data-lenis-prevent className="my-3 sm:my-4 space-y-4 text-sm flex-1 overflow-y-auto pr-1">
                 {/* Client card */}
                 <div className="rounded-2xl glass-card p-4 border border-white/5 bg-zinc-900/40 space-y-2">
                   <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500">Cliente</p>
-                <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-3">
                   <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl gold-gradient font-display text-sm font-bold text-black">
                     {selectedBooking.full_name ? selectedBooking.full_name.charAt(0).toUpperCase() : '?'}
                   </div>

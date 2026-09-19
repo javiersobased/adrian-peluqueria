@@ -6,20 +6,33 @@ Allow: /
 Disallow: /admin
 Disallow: /api/
 
-# AI Search y Indexing bots (Perplexity, OpenAI Search, Anthropic)
+# OpenAI & SearchGPT Crawlers (ChatGPT Web Search & Grounding)
 User-agent: GPTBot
+Allow: /
+
+User-agent: OAI-SearchBot
 Allow: /
 
 User-agent: ChatGPT-User
 Allow: /
 
+# Perplexity AI Crawler
 User-agent: PerplexityBot
 Allow: /
 
+# Anthropic Claude Crawlers
 User-agent: Claude-Web
 Allow: /
 
+User-agent: ClaudeBot
+Allow: /
+
+# Google AI Overviews & Gemini
 User-agent: Google-Extended
 Allow: /
+
+# AI Information & LLM Documentation
+# https://www.adrianmillan.es/llms.txt
+# https://www.adrianmillan.es/llms-full.txt
 
 Sitemap: https://www.adrianmillan.es/sitemap.xml

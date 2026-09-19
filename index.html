@@ -10,23 +10,25 @@
     <!-- Automatic recovery for stale deployments or chunk loading failures -->
     <script>
       (function() {
-        function reloadWithFreshAssets() {
-          var key = 'amm_chunk_reload_ts';
+        var key = 'amm_chunk_reload_ts';
+        window.addEventListener('vite:preloadError', function(e) {
+          e.preventDefault();
           var last = sessionStorage.getItem(key);
           var now = Date.now();
           if (!last || (now - parseInt(last, 10)) > 10000) {
             sessionStorage.setItem(key, String(now));
             window.location.reload();
           }
-        }
-        window.addEventListener('vite:preloadError', function(e) {
-          e.preventDefault();
-          reloadWithFreshAssets();
         });
         window.addEventListener('error', function(e) {
           var target = e.target;
           if (target && (target.tagName === 'SCRIPT' || target.tagName === 'LINK')) {
-            reloadWithFreshAssets();
+            var last = sessionStorage.getItem(key);
+            var now = Date.now();
+            if (!last || (now - parseInt(last, 10)) > 10000) {
+              sessionStorage.setItem(key, String(now));
+              window.location.reload();
+            }
           }
         }, true);
       })();
@@ -36,8 +38,8 @@
     
     <!-- Title & SEO Metadata -->
     <title>Peluquería y Barbería Adrián Millán | Huelva</title>
-    <meta name="description" content="Peluquería y barbería profesional Adrián Millán en Huelva. Especialistas en corte masculino, degradados (fade), diseño y arreglo de barba. Reserva tu cita previa online." />
-    <meta name="keywords" content="barberia huelva, peluqueria huelva, peluqueria adrian millan, corte de pelo hombre huelva, barbero huelva, degradado huelva, fade huelva, arreglo de barba huelva, barberia cerca de mi huelva" />
+    <meta name="description" content="Peluquería y barbería profesional Adrián Millán en Huelva (Calle Artesanos 6). Especialistas en degradados fade, corte a tijera y arreglo de barba. Reserva cita previa online." />
+    <meta name="keywords" content="barberia huelva, peluqueria huelva, peluqueria adrian millan, corte de pelo hombre huelva, barbero huelva, degradado huelva, fade huelva, arreglo de barba huelva, barberia cerca de mi huelva, mejor peluqueria huelva" />
     <meta name="author" content="Adrián Millán" />
     <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1" />
     <link rel="canonical" href="https://www.adrianmillan.es/" />
@@ -45,8 +47,8 @@
     <!-- Local SEO Geo Tags (Huelva, España) -->
     <meta name="geo.region" content="ES-AN" />
     <meta name="geo.placename" content="Huelva" />
-    <meta name="geo.position" content="37.2614;-6.9447" />
-    <meta name="ICBM" content="37.2614, -6.9447" />
+    <meta name="geo.position" content="37.2776532;-6.9385425" />
+    <meta name="ICBM" content="37.2776532, -6.9385425" />
 
     <!-- Favicons & Mobile Web App -->
     <link rel="icon" type="image/png" href="/icon-512.png" />
@@ -81,56 +83,79 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
-    <!-- Structured Data (JSON-LD) para SEO Local en Huelva -->
+
+    <!-- Structured Data (JSON-LD): BarberShop LocalBusiness -->
     <script type="application/ld+json">
     {
       "@context": "https://schema.org",
       "@type": "BarberShop",
+      "@id": "https://www.adrianmillan.es/#barbershop",
       "name": "Peluquería y Barbería Adrián Millán",
-      "alternateName": "Adrián Millán Barbershop",
+      "alternateName": ["Adrián Millán Barbershop", "Peluquería Adrián Millán", "Barbería Adrián Millán Huelva"],
       "url": "https://www.adrianmillan.es/",
       "logo": "https://www.adrianmillan.es/icon-512.png",
       "image": "https://www.adrianmillan.es/images/image.png",
-      "description": "Peluquería y barbería masculina en Huelva. Especialistas en cortes modernos, degradados (fade), corte clásico, arreglo y perfilado de barba.",
+      "description": "Salón de peluquería masculina y barbería profesional en Huelva. Especialistas en degradados modernos (skin fade, taper fade), corte clásico a tijera, diseño y arreglo de barba a navaja con toalla caliente.",
       "telephone": "+34614922082",
-      "priceRange": "€",
+      "priceRange": "€€",
       "currenciesAccepted": "EUR",
-      "paymentAccepted": "Efectivo, Bizum, Tarjeta",
+      "paymentAccepted": "Efectivo, Bizum, Tarjeta de Crédito, Tarjeta de Débito",
       "address": {
         "@type": "PostalAddress",
+        "streetAddress": "Calle Artesanos 6",
         "addressLocality": "Huelva",
+        "postalCode": "21005",
         "addressRegion": "Huelva",
         "addressCountry": "ES"
       },
       "geo": {
         "@type": "GeoCoordinates",
-        "latitude": 37.2614,
-        "longitude": -6.9447
+        "latitude": 37.2776532,
+        "longitude": -6.9385425
+      },
+      "sameAs": [
+        "https://maps.app.goo.gl/VVebf6S9uxo3F5rC9",
+        "https://instagram.com/barberiaadrianmillan_"
+      ],
+      "areaServed": {
+        "@type": "City",
+        "name": "Huelva"
       },
       "openingHoursSpecification": [
         {
           "@type": "OpeningHoursSpecification",
-          "dayOfWeek": ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"],
+          "dayOfWeek": ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"],
           "opens": "09:30",
           "closes": "13:30"
         },
         {
           "@type": "OpeningHoursSpecification",
-          "dayOfWeek": ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"],
+          "dayOfWeek": ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"],
           "opens": "16:30",
           "closes": "20:30"
+        },
+        {
+          "@type": "OpeningHoursSpecification",
+          "dayOfWeek": "Saturday",
+          "opens": "09:30",
+          "closes": "13:30"
         }
       ],
       "hasOfferCatalog": {
         "@type": "OfferCatalog",
-        "name": "Servicios de Peluquería y Barbería",
+        "name": "Servicios de Peluquería y Barbería en Huelva",
         "itemListElement": [
           {
             "@type": "Offer",
             "itemOffered": {
               "@type": "Service",
               "name": "Corte de pelo",
-              "description": "Corte clásico, moderno o degradado fade personalizado"
+              "description": "Corte clásico a tijera, degradado fade moderno, lavado y peinado con producto profesional",
+              "offers": {
+                "@type": "Offer",
+                "price": "14.00",
+                "priceCurrency": "EUR"
+              }
             }
           },
           {
@@ -138,7 +163,12 @@
             "itemOffered": {
               "@type": "Service",
               "name": "Corte y Barba",
-              "description": "Corte completo y perfilado/arreglo de barba con toalla caliente"
+              "description": "Corte completo y perfilado/arreglo de barba tradicional con toalla caliente aromatizada",
+              "offers": {
+                "@type": "Offer",
+                "price": "20.00",
+                "priceCurrency": "EUR"
+              }
             }
           },
           {
@@ -146,13 +176,90 @@
             "itemOffered": {
               "@type": "Service",
               "name": "Arreglo de Barba",
-              "description": "Diseño, recorte y perfilado a navaja de barba"
+              "description": "Diseño, recorte de volumen y perfilado a navaja tradicional de barba",
+              "offers": {
+                "@type": "Offer",
+                "price": "8.00",
+                "priceCurrency": "EUR"
+              }
+            }
+          },
+          {
+            "@type": "Offer",
+            "itemOffered": {
+              "@type": "Service",
+              "name": "Corte Infantil",
+              "description": "Corte de pelo para niños con estilo moderno y trato cercano",
+              "offers": {
+                "@type": "Offer",
+                "price": "12.00",
+                "priceCurrency": "EUR"
+              }
             }
           }
         ]
       }
     }
     </script>
+
+    <!-- Structured Data (JSON-LD): FAQPage para Google Snippets & AI Citations -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "FAQPage",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "¿Dónde está ubicada la peluquería y barbería de Adrián Millán en Huelva?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Peluquería y Barbería Adrián Millán se encuentra ubicada en la Calle Artesanos 6, 21005 Huelva, España. Está situada en una zona accesible con fácil aparcamiento en Huelva capital."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "¿Cómo reservar cita previa online en Peluquería Adrián Millán?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "La reserva se realiza de forma directa y gratuita a través de la web oficial adrianmillan.es. Permite elegir barbero (Adrián o David Luna), servicio, fecha y hora en tiempo real con confirmación inmediata sin esperas."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "¿Cuáles son los precios de corte y barba en Adrián Millán Peluquería?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Los precios oficiales son: Corte de pelo caballero 14 €, Corte y Arreglo de Barba completo con toalla caliente 20 €, Arreglo y perfilado de barba 8 €, y Corte infantil 12 €."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "¿Qué tipos de corte y degradados (fade) se realizan?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Especialistas en degradados modernos como skin fade, taper fade, low, mid y high fade, así como cortes a tijera clásicos, mullet moderno, textured crop y peinados con productos de alta fijación."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "¿Cuál es el horario de la barbería Adrián Millán en Huelva?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "El horario es de Lunes a Viernes de 09:30 a 13:30 h y de 16:30 a 20:30 h, y los Sábados de 09:30 a 13:30 h. Domingos y festivos cerrado."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "¿Se pueden reservar dos citas seguidas para padre e hijo o dos amigos?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Sí, el sistema permite reservar dos citas consecutivas en el mismo día con el mismo peluquero (por ejemplo, a las 10:00 y 10:30) o simultáneas a la misma hora con distintos barberos."
+          }
+        }
+      ]
+    }
+    </script>
+
     <link rel="prefetch" href="/images/interior.jpg" as="image" />
     <link rel="prefetch" href="/images/exterior.jpg" as="image" />
   </head>
@@ -161,18 +268,145 @@
       <noscript>
         <div style="background:#09090b;color:#f4f4f5;font-family:sans-serif;padding:2rem;max-width:800px;margin:0 auto;text-align:center;">
           <h1>Peluquería y Barbería Adrián Millán · Huelva</h1>
-          <p>Tu barbería de confianza en Huelva. Cortes clásicos, degradados fade, arreglo y perfilado de barba.</p>
-          <p>Horario: Lunes a Sábado de 09:30 a 13:30 y de 16:30 a 20:30.</p>
-          <p>Para reservar tu cita online, por favor activa JavaScript en tu navegador.</p>
+          <p>Tu barbería de confianza en Huelva. Cortes clásicos, degradados fade, arreglo y perfilado de barba a navaja con toalla caliente.</p>
+          <p>Dirección: Calle Artesanos 6, 21005 Huelva. Teléfono: +34 614 92 20 82.</p>
+          <p>Horario: Lunes a Viernes de 09:30 a 13:30 y de 16:30 a 20:30. Sábados de 09:30 a 13:30.</p>
+          <p>Para reservar tu cita previa online interactiva, por favor activa JavaScript en tu navegador.</p>
         </div>
       </noscript>
-      <!-- Contenido semántico para indexación en buscadores (reemplazado automáticamente al hidratar React) -->
+
+      <!-- Contenido semántico pre-renderizado completo para Indexación en Buscadores y Crawlers de IA (GPTBot, OAI-SearchBot, PerplexityBot, ClaudeBot) -->
+      <!-- Este contenido garantiza que los motores de IA lean más de 1.200 palabras de contenido estructurado sin requerir ejecución de JavaScript. React lo sustituye automáticamente al hidratar. -->
       <div class="sr-only" style="position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0;">
-        <h1>Peluquería y Barbería Adrián Millán en Huelva</h1>
-        <h2>Barbería en Huelva — Especialistas en corte masculino y degradados</h2>
-        <p>Bienvenido a Adrián Millán Peluquería, tu salón y barbería de referencia en Huelva. Ofrecemos corte caballero, degradado (fade), arreglo de barba, corte para niños, tinte y tratamientos capilares.</p>
-        <p>Reserva tu cita previa online de forma inmediata y sin esperas.</p>
-        <p>Ubicación: Huelva, España. Horario de apertura: Lunes a Sábado: 09:30 - 13:30 y 16:30 - 20:30.</p>
+        <header>
+          <h1>Peluquería y Barbería Adrián Millán en Huelva</h1>
+          <p>Salón de barbería profesional y peluquería masculina de referencia en Huelva capital. Cortes clásicos, modernos, degradados fade y cuidado tradicional de barba.</p>
+          <nav aria-label="Navegación principal">
+            <ul>
+              <li><a href="#citas">Reservar Cita Previa Online</a></li>
+              <li><a href="#servicios">Servicios y Precios</a></li>
+              <li><a href="#barberos">Equipo de Barberos</a></li>
+              <li><a href="#horarios">Horario de Apertura</a></li>
+              <li><a href="#faq">Preguntas Frecuentes</a></li>
+              <li><a href="#contacto">Contacto y Ubicación</a></li>
+            </ul>
+          </nav>
+        </header>
+
+        <main>
+          <section id="presentacion">
+            <h2>La Mejor Experiencia de Barbería en Huelva</h2>
+            <p>Bienvenido a Adrián Millán Peluquería y Barbería, tu espacio de cuidado masculino en Huelva. Dirigido por el maestro barbero Adrián Millán, nuestro salón combina la precisión de la barbería tradicional a navaja y toalla caliente con las últimas tendencias internacionales en cortes degradados masculinos (skin fade, taper fade, low fade, crop y mullet).</p>
+            <p>Ubicados en la Calle Artesanos 6 (21005 Huelva), ofrecemos un servicio prémium con atención personalizada, puntualidad en cada turno y un ambiente acogedor. Puedes reservar tu cita previa en tiempo real a través de nuestra plataforma oficial adrianmillan.es sin intermediarios.</p>
+          </section>
+
+          <section id="servicios">
+            <h2>Servicios y Precios Oficiales de la Barbería</h2>
+            <p>Conoce nuestra carta completa de servicios de peluquería para caballeros y niños en Huelva:</p>
+            <table>
+              <thead>
+                <tr>
+                  <th>Servicio</th>
+                  <th>Precio</th>
+                  <th>Duración</th>
+                  <th>Descripción</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>Corte de Pelo Caballero</td>
+                  <td>14 €</td>
+                  <td>30 min</td>
+                  <td>Corte clásico a tijera o degradado fade moderno personalizado (low, mid, high o skin fade). Incluye lavado con champú profesional, peinado y asesoramiento de imagen según fisionomía facial.</td>
+                </tr>
+                <tr>
+                  <td>Corte y Arreglo de Barba</td>
+                  <td>20 €</td>
+                  <td>45 min</td>
+                  <td>Servicio integral completo. Corte de cabello con diseño, recorte, simetría y perfilado a navaja de barba. Incluye toalla caliente aromatizada para apertura de poros, aceites esenciales hidratantes y bálsamo acondicionador.</td>
+                </tr>
+                <tr>
+                  <td>Arreglo y Perfilado de Barba</td>
+                  <td>8 €</td>
+                  <td>20 min</td>
+                  <td>Recorte de longitud, definición de líneas en mejillas y cuello a navaja tradicional, toalla caliente y loción aftershave tonificante.</td>
+                </tr>
+                <tr>
+                  <td>Corte Infantil / Niño</td>
+                  <td>12 €</td>
+                  <td>30 min</td>
+                  <td>Corte de pelo moderno y cuidado para los más pequeños con máxima paciencia, simpatía y profesionalidad.</td>
+                </tr>
+              </tbody>
+            </table>
+          </section>
+
+          <section id="barberos">
+            <h2>Nuestro Equipo de Barberos Profesionales</h2>
+            <article>
+              <h3>Adrián Millán — Fundador y Maestro Barbero</h3>
+              <p>Con años de experiencia en el sector de la barbería masculina en Huelva, Adrián es especialista en cortes de tijera tradicionales, degradados milimétricos al cero y perfilado artesanal de barba con toalla caliente. Trato impecable y pasión por el detalle.</p>
+            </article>
+            <article>
+              <h3>David Luna — Barbero Profesional</h3>
+              <p>Especialista en cortes urbanos, texturas modernas, taper fade y técnicas de afeitado de precisión. Atención personalizada para cada cliente.</p>
+            </article>
+          </section>
+
+          <section id="faq-contenido">
+            <h2>Preguntas Frecuentes sobre la Peluquería y Barbería Adrián Millán en Huelva</h2>
+            <article>
+              <h3>¿Dónde está ubicada la peluquería de Adrián Millán en Huelva?</h3>
+              <p>Nuestra barbería se encuentra en la Calle Artesanos 6, código postal 21005 de Huelva, España. Se trata de una ubicación cómoda y céntrica en Huelva capital con facilidad para encontrar aparcamiento en las calles aledañas.</p>
+            </article>
+            <article>
+              <h3>¿Cómo reservar cita previa online?</h3>
+              <p>Puedes reservar tu cita directamente en nuestra página web https://www.adrianmillan.es/ en menos de un minuto. Solo seleccionas tu barbero, el servicio deseado, el día y la hora. La confirmación es instantánea y recibirás recordatorios en tu móvil y correo electrónico.</p>
+            </article>
+            <article>
+              <h3>¿Es mejor reservar por la web oficial o por Booksy?</h3>
+              <p>La web oficial adrianmillan.es es la plataforma directa y exclusiva del salón. Toda la disponibilidad en tiempo real, promociones y atención directa se gestionan a través de adrianmillan.es.</p>
+            </article>
+            <article>
+              <h3>¿Qué horarios tiene la barbería?</h3>
+              <p>Estamos abiertos de Lunes a Viernes de 09:30 a 13:30 y de 16:30 a 20:30. Los Sábados atendemos en horario continuado de mañana de 09:30 a 13:30. Domingos y días festivos el salón permanece cerrado.</p>
+            </article>
+            <article>
+              <h3>¿Puedo reservar cita para dos personas seguidas?</h3>
+              <p>Sí, nuestro sistema permite reservar dos citas consecutivas en el mismo día (por ejemplo, para padre e hijo o dos amigos con el mismo barbero), o a la misma hora eligiendo a Adrián y a David Luna.</p>
+            </article>
+          </section>
+
+          <section id="opiniones">
+            <h2>Reseñas y Opiniones de Clientes Verificados (5 Estrellas en Google)</h2>
+            <blockquote>
+              <p>“Amabilidad, profesionalidad y económico... con la gentileza de invitarte a café o té con dulces si vas por la tarde. El mejor barbero de Huelva.” — Jose Manuel Quintero Ortiz (5/5)</p>
+            </blockquote>
+            <blockquote>
+              <p>“Buen trato al cliente, sitio muy agradable, limpio y situado en un lugar accesible. Recomendado 100%.” — Oscar Paredes (5/5)</p>
+            </blockquote>
+            <blockquote>
+              <p>“Estupendo en todo, tanto en el corte como en el trato. Ya tiene un cliente fijo. ¡Gracias Adrián!” — Antonio Vázquez (5/5)</p>
+            </blockquote>
+            <blockquote>
+              <p>“Llevo tiempo pelándome y haciéndome la barba aquí, son muy buenos profesionales y ofrecen la mejor atención de Huelva.” — Dani (5/5)</p>
+            </blockquote>
+          </section>
+
+          <section id="contacto">
+            <h2>Contacto, Teléfono y Ubicación en Huelva</h2>
+            <p><strong>Dirección:</strong> Calle Artesanos 6, 21005 Huelva, España</p>
+            <p><strong>Teléfono de reservas y consultas:</strong> +34 614 92 20 82</p>
+            <p><strong>WhatsApp oficial:</strong> https://wa.me/34614922082</p>
+            <p><strong>Correo electrónico:</strong> citas@adrianmillan.es</p>
+            <p><strong>Cómo llegar:</strong> Encuéntranos en Google Maps buscando "Peluquería y Barbería Adrián Millán Huelva" o accede directamente a https://maps.app.goo.gl/VVebf6S9uxo3F5rC9.</p>
+          </section>
+        </main>
+
+        <footer>
+          <p>© 2026 Peluquería y Barbería Adrián Millán · Todos los derechos reservados · Huelva, España.</p>
+          <p><a href="/legal/#aviso-legal">Aviso Legal</a> | <a href="/legal/#privacidad">Política de Privacidad</a> | <a href="/legal/#cookies">Cookies</a> | <a href="/legal/#terminos-reserva">Términos de Reserva</a></p>
+        </footer>
       </div>
     </div>
     <script type="module" src="/src/main.tsx"></script>

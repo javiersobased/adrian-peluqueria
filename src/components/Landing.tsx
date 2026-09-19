@@ -14,6 +14,7 @@ import type { UserRole, GalleryPhoto } from '@/types';
 import { safeInitial } from '@/lib/calendar';
 import { fetchGalleryPhotos } from '@/lib/gallery';
 import { useLenis, useLockScroll } from '@/components/SmoothScroll';
+import { FAQSection } from '@/components/FAQSection';
 
 interface LandingProps {
   onBook: () => void;
@@ -512,6 +513,9 @@ export function Landing({ onBook, onSignIn, onGoToPanel, user, role, onSignOut, 
           </div>
         </div>
       </section>
+
+      {/* FAQ Section */}
+      <FAQSection onBook={onBook} />
 
       {/* Dock */}
       <div className="fixed bottom-8 left-0 right-0 z-40 flex justify-center">

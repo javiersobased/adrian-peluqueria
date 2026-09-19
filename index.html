@@ -6,6 +6,11 @@
       if (window.location.hostname.endsWith('.vercel.app')) {
         window.location.replace('https://www.adrianmillan.es' + window.location.pathname + window.location.search + window.location.hash);
       }
+      try {
+        if (localStorage.getItem('adrian_theme') === 'light') {
+          document.documentElement.classList.add('light-mode');
+        }
+      } catch (e) {}
     </script>
     <!-- Automatic recovery for stale deployments or chunk loading failures -->
     <script>
@@ -163,24 +168,11 @@
             "@type": "Offer",
             "itemOffered": {
               "@type": "Service",
-              "name": "Corte de pelo",
-              "description": "Corte clásico a tijera, degradado fade moderno, lavado y peinado con producto profesional",
+              "name": "Corte de Cabello",
+              "description": "Corte clásico a tijera o degradado fade moderno personalizado",
               "offers": {
                 "@type": "Offer",
-                "price": "14.00",
-                "priceCurrency": "EUR"
-              }
-            }
-          },
-          {
-            "@type": "Offer",
-            "itemOffered": {
-              "@type": "Service",
-              "name": "Corte y Barba",
-              "description": "Corte completo y perfilado/arreglo de barba tradicional con toalla caliente aromatizada",
-              "offers": {
-                "@type": "Offer",
-                "price": "20.00",
+                "price": "11.00",
                 "priceCurrency": "EUR"
               }
             }
@@ -190,10 +182,10 @@
             "itemOffered": {
               "@type": "Service",
               "name": "Arreglo de Barba",
-              "description": "Diseño, recorte de volumen y perfilado a navaja tradicional de barba",
+              "description": "Diseño, recorte y perfilado de barba",
               "offers": {
                 "@type": "Offer",
-                "price": "8.00",
+                "price": "6.00",
                 "priceCurrency": "EUR"
               }
             }
@@ -202,11 +194,63 @@
             "@type": "Offer",
             "itemOffered": {
               "@type": "Service",
-              "name": "Corte Infantil",
-              "description": "Corte de pelo para niños con estilo moderno y trato cercano",
+              "name": "Corte de Cabello + Arreglo de Barba",
+              "description": "Corte completo y perfilado integral de barba",
               "offers": {
                 "@type": "Offer",
-                "price": "12.00",
+                "price": "16.00",
+                "priceCurrency": "EUR"
+              }
+            }
+          },
+          {
+            "@type": "Offer",
+            "itemOffered": {
+              "@type": "Service",
+              "name": "Corte de Cabello + Decoloración",
+              "description": "Corte estilizado más servicio de decoloración capilar",
+              "offers": {
+                "@type": "Offer",
+                "price": "65.00",
+                "priceCurrency": "EUR"
+              }
+            }
+          },
+          {
+            "@type": "Offer",
+            "itemOffered": {
+              "@type": "Service",
+              "name": "Corte de Cabello + Lavado",
+              "description": "Corte con lavado capilar y peinado con producto",
+              "offers": {
+                "@type": "Offer",
+                "price": "13.00",
+                "priceCurrency": "EUR"
+              }
+            }
+          },
+          {
+            "@type": "Offer",
+            "itemOffered": {
+              "@type": "Service",
+              "name": "Tinte Barba",
+              "description": "Tinte y cobertura de color para barba",
+              "offers": {
+                "@type": "Offer",
+                "price": "10.00",
+                "priceCurrency": "EUR"
+              }
+            }
+          },
+          {
+            "@type": "Offer",
+            "itemOffered": {
+              "@type": "Service",
+              "name": "Arreglo de Cuello y Patillas",
+              "description": "Limpieza y perfilado rápido de contorno, cuello y patillas",
+              "offers": {
+                "@type": "Offer",
+                "price": "6.00",
                 "priceCurrency": "EUR"
               }
             }
@@ -243,7 +287,7 @@
           "name": "¿Cuáles son los precios de corte y barba en Adrián Millán Peluquería?",
           "acceptedAnswer": {
             "@type": "Answer",
-            "text": "Los precios oficiales son: Corte de pelo caballero 14 €, Corte y Arreglo de Barba completo con toalla caliente 20 €, Arreglo y perfilado de barba 8 €, y Corte infantil 12 €."
+            "text": "Los precios oficiales son: Corte de Cabello 11 €, Arreglo de Barba 6 €, Corte de Cabello + Arreglo de Barba 16 €, Corte de Cabello + Decoloración 65 €, Corte de Cabello + Lavado 13 €, Tinte Barba 10 € y Arreglo de Cuello y Patillas 6 €."
           }
         },
         {
@@ -328,28 +372,46 @@
               </thead>
               <tbody>
                 <tr>
-                  <td>Corte de Pelo Caballero</td>
-                  <td>14 €</td>
-                  <td>30 min</td>
-                  <td>Corte clásico a tijera o degradado fade moderno personalizado (low, mid, high o skin fade). Incluye lavado con champú profesional, peinado y asesoramiento de imagen según fisionomía facial.</td>
-                </tr>
-                <tr>
-                  <td>Corte y Arreglo de Barba</td>
-                  <td>20 €</td>
-                  <td>45 min</td>
-                  <td>Servicio integral completo. Corte de cabello con diseño, recorte, simetría y perfilado a navaja de barba. Incluye toalla caliente aromatizada para apertura de poros, aceites esenciales hidratantes y bálsamo acondicionador.</td>
-                </tr>
-                <tr>
-                  <td>Arreglo y Perfilado de Barba</td>
-                  <td>8 €</td>
+                  <td>Corte de Cabello</td>
+                  <td>11 €</td>
                   <td>20 min</td>
-                  <td>Recorte de longitud, definición de líneas en mejillas y cuello a navaja tradicional, toalla caliente y loción aftershave tonificante.</td>
+                  <td>Corte clásico a tijera o degradado fade moderno personalizado (low, mid, high o skin fade). Asesoramiento personalizado.</td>
                 </tr>
                 <tr>
-                  <td>Corte Infantil / Niño</td>
-                  <td>12 €</td>
+                  <td>Arreglo de Barba</td>
+                  <td>6 €</td>
+                  <td>10 min</td>
+                  <td>Recorte de longitud, definición de líneas en mejillas y cuello a navaja y loción tonificante.</td>
+                </tr>
+                <tr>
+                  <td>Corte de Cabello + Arreglo de Barba</td>
+                  <td>16 €</td>
                   <td>30 min</td>
-                  <td>Corte de pelo moderno y cuidado para los más pequeños con máxima paciencia, simpatía y profesionalidad.</td>
+                  <td>Servicio integral de corte y perfilado completo de barba con toalla caliente y productos premium.</td>
+                </tr>
+                <tr>
+                  <td>Corte de Cabello + Decoloración</td>
+                  <td>65 €</td>
+                  <td>40 min</td>
+                  <td>Corte moderno más decoloración profesional y matización capilar de alta calidad.</td>
+                </tr>
+                <tr>
+                  <td>Corte de Cabello + Lavado</td>
+                  <td>13 €</td>
+                  <td>30 min</td>
+                  <td>Corte de cabello completo con lavado capilar y peinado con producto de fijación.</td>
+                </tr>
+                <tr>
+                  <td>Tinte Barba</td>
+                  <td>10 €</td>
+                  <td>20 min</td>
+                  <td>Tinte y cobertura de canas o cambio de color para barba masculina.</td>
+                </tr>
+                <tr>
+                  <td>Arreglo de Cuello y Patillas</td>
+                  <td>6 €</td>
+                  <td>10 min</td>
+                  <td>Mantenimiento, limpieza de contorno de nuca y perfilado rápido de patillas.</td>
                 </tr>
               </tbody>
             </table>

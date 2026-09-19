@@ -314,7 +314,7 @@ function App() {
             aria-hidden="true"
             className="h-full w-full object-cover"
           />
-          <div className="absolute inset-0 bg-black/85" />
+          <div className="absolute inset-0 bg-black/85 backdrop-overlay transition-colors duration-300" />
           <div className="absolute inset-0 backdrop-blur-xl" />
         </div>
         <div className="relative z-10 mx-auto w-full max-w-5xl">
@@ -337,7 +337,7 @@ function App() {
             aria-hidden="true"
             className="h-full w-full object-cover"
           />
-          <div className="absolute inset-0 bg-black/85" />
+          <div className="absolute inset-0 bg-black/85 backdrop-overlay transition-colors duration-300" />
           <div className="absolute inset-0 backdrop-blur-xl" />
         </div>
         <div className="relative z-10">
@@ -368,7 +368,7 @@ function App() {
             aria-hidden="true"
             className="h-full w-full object-cover"
           />
-          <div className="absolute inset-0 bg-black/85" />
+          <div className="absolute inset-0 bg-black/85 backdrop-overlay transition-colors duration-300" />
           <div className="absolute inset-0 backdrop-blur-xl" />
         </div>
         <div className="relative z-10">
@@ -397,7 +397,7 @@ function App() {
           aria-hidden="true"
           className="h-full w-full object-cover"
         />
-        <div className="absolute inset-0 bg-black/85" />
+        <div className="absolute inset-0 bg-black/85 backdrop-overlay transition-colors duration-300" />
         <div className="absolute inset-0 backdrop-blur-xl" />
       </div>
 
@@ -413,6 +413,7 @@ function App() {
             onGoToMyBookings={auth.user ? goMyBookings : undefined}
             onGoToCatalog={goCatalog}
             onGoToGallery={goGallery}
+            onSelectService={booking.selectService}
           />
         )}
 

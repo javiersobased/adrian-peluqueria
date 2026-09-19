@@ -15,6 +15,8 @@ import { safeInitial } from '@/lib/calendar';
 import { fetchGalleryPhotos } from '@/lib/gallery';
 import { useLenis, useLockScroll } from '@/components/SmoothScroll';
 import { FAQSection } from '@/components/FAQSection';
+import { BooksyServicesList } from '@/components/BooksyServicesList';
+import type { Service } from '@/types';
 
 interface LandingProps {
   onBook: () => void;
@@ -26,6 +28,7 @@ interface LandingProps {
   onGoToMyBookings?: () => void;
   onGoToCatalog?: () => void;
   onGoToGallery?: () => void;
+  onSelectService?: (service: Service) => void;
 }
 
 const REVIEWS = [
@@ -85,7 +88,7 @@ function SalonImage({
   );
 }
 
-export function Landing({ onBook, onSignIn, onGoToPanel, user, role, onSignOut, onGoToMyBookings, onGoToCatalog, onGoToGallery }: LandingProps) {
+export function Landing({ onBook, onSignIn, onGoToPanel, user, role, onSignOut, onGoToMyBookings, onGoToCatalog, onGoToGallery, onSelectService }: LandingProps) {
   const [showAccountMenu, setShowAccountMenu] = useState(false);
   const [showInstallModal, setShowInstallModal] = useState(false);
   const [galleryPreview, setGalleryPreview] = useState<GalleryPhoto[]>([]);
@@ -218,7 +221,7 @@ export function Landing({ onBook, onSignIn, onGoToPanel, user, role, onSignOut, 
             alt="Interior de Peluquería y Barbería Adrián Millán en Huelva"
             className="h-full w-full object-cover"
           />
-          <div className="absolute inset-0 bg-gradient-to-b from-black/70 via-black/60 to-black/90" />
+          <div className="absolute inset-0 bg-gradient-to-b from-black/70 via-black/60 to-black/90 hero-gradient-overlay transition-colors duration-300" />
           <div className="absolute inset-0 backdrop-blur-[2px]" />
         </div>
 
@@ -309,6 +312,9 @@ export function Landing({ onBook, onSignIn, onGoToPanel, user, role, onSignOut, 
           </div>
         </section>
       )}
+
+      {/* Booksy-inspired Services List */}
+      <BooksyServicesList onSelectService={onSelectService} onBookGeneral={onBook} />
 
       {/* Haircuts Gallery Section */}
       <section id="cortes" className="px-6 py-10">

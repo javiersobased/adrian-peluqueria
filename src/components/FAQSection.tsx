@@ -21,7 +21,7 @@ const FAQS: FAQItem[] = [
   },
   {
     question: '¿Cuáles son los precios y servicios de barbería que ofrecéis?',
-    answer: 'Ofrecemos una carta de servicios profesional con precios transparentes y competitivos: Corte de Caballero (14€), Corte y Arreglo de Barba con toalla caliente (20€), Arreglo y Perfilado de Barba a navaja (8€), Corte Infantil / Niño (12€) y Lavado y Peinado. Todos los servicios incluyen asesoramiento de imagen personalizado.',
+    answer: 'Ofrecemos una carta de servicios profesional y transparente adaptada a cada cliente: Corte de Cabello (11 € · 20 min), Arreglo de Barba (6 € · 10 min), Corte de Cabello + Arreglo de Barba (16 € · 30 min), Corte de Cabello + Decoloración (65 € · 40 min), Corte de Cabello + Lavado (13 € · 30 min), Tinte Barba (10 € · 20 min) y Arreglo de Cuello y Patillas (6 € · 10 min). Todos nuestros servicios se realizan con productos de primera calidad y sin costes ocultos.',
     icon: Scissors,
   },
   {

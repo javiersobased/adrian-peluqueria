@@ -320,3 +320,357 @@
   box-shadow: 0 0 8px rgba(0, 0, 0, 0.4);
 }
 
+/* ==========================================================================
+   THEME TOGGLE BUTTON & FLOATING ACCENTS
+   ========================================================================== */
+.theme-toggle-btn {
+  background-color: rgba(18, 18, 20, 0.85);
+  border-color: rgba(255, 255, 255, 0.12);
+  color: #d4d4d8;
+}
+.theme-toggle-btn:hover {
+  border-color: rgba(212, 175, 55, 0.4);
+  color: #ffffff;
+}
+.theme-toggle-tooltip {
+  background-color: rgba(18, 18, 20, 0.95);
+  color: #f4f4f5;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* ==========================================================================
+   LIGHT MODE REIMAGINING (White Canvas, Dark Wood, Espresso & Black Accents)
+   ========================================================================== */
+html.light-mode {
+  --ink: #faf8f5;
+  --ink-soft: #ffffff;
+  --ink-muted: #f3efe6;
+  --gold: #3e2415;
+  --gold-light: #52311d;
+  --gold-dark: #27160c;
+  --marble: #1c1917;
+  color-scheme: light;
+}
+
+html.light-mode body {
+  background-color: #faf8f5;
+  color: #1c1917;
+}
+
+/* Theme Toggle Button in Light Mode */
+html.light-mode .theme-toggle-btn {
+  background-color: rgba(255, 255, 255, 0.94);
+  border-color: rgba(62, 36, 21, 0.18);
+  box-shadow: 0 4px 16px rgba(43, 24, 16, 0.12);
+  color: #1c1917;
+}
+html.light-mode .theme-toggle-btn:hover {
+  border-color: rgba(62, 36, 21, 0.45);
+  background-color: #ffffff;
+}
+html.light-mode .theme-toggle-tooltip {
+  background-color: rgba(255, 255, 255, 0.98);
+  color: #1c1917;
+  border: 1px solid rgba(62, 36, 21, 0.18);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.08);
+}
+
+/* Background Overlays */
+html.light-mode .backdrop-overlay {
+  background-color: rgba(250, 248, 245, 0.93) !important;
+}
+
+html.light-mode .hero-gradient-overlay {
+  background: linear-gradient(
+    to bottom,
+    rgba(255, 255, 255, 0.85) 0%,
+    rgba(250, 248, 245, 0.88) 50%,
+    rgba(250, 248, 245, 0.98) 100%
+  ) !important;
+}
+
+html.light-mode .bg-ink {
+  background-color: #faf8f5 !important;
+}
+
+/* Glass Surfaces in Light Mode */
+html.light-mode .glass-panel {
+  background: rgba(255, 255, 255, 0.94) !important;
+  backdrop-filter: blur(20px) saturate(150%) !important;
+  -webkit-backdrop-filter: blur(20px) saturate(150%) !important;
+  border: 1px solid rgba(62, 36, 21, 0.1) !important;
+  box-shadow: 0 8px 30px rgba(43, 24, 16, 0.06) !important;
+}
+
+html.light-mode .glass-card {
+  background: rgba(255, 255, 255, 0.9) !important;
+  backdrop-filter: blur(16px) saturate(140%) !important;
+  -webkit-backdrop-filter: blur(16px) saturate(140%) !important;
+  border: 1px solid rgba(62, 36, 21, 0.1) !important;
+  box-shadow: 0 4px 20px rgba(43, 24, 16, 0.04) !important;
+}
+
+html.light-mode .glass-light {
+  background: rgba(62, 36, 21, 0.03) !important;
+  border: 1px solid rgba(62, 36, 21, 0.08) !important;
+}
+
+/* Dark Cards & Backgrounds to Crisp Light Surfaces */
+html.light-mode .bg-zinc-900,
+html.light-mode .bg-zinc-900\/70,
+html.light-mode .bg-zinc-900\/80,
+html.light-mode .bg-zinc-900\/90 {
+  background-color: rgba(255, 255, 255, 0.94) !important;
+  border-color: rgba(62, 36, 21, 0.12) !important;
+}
+
+html.light-mode .bg-zinc-950,
+html.light-mode .bg-zinc-950\/40 {
+  background-color: rgba(245, 242, 235, 0.9) !important;
+  border-color: rgba(62, 36, 21, 0.08) !important;
+}
+
+html.light-mode .bg-zinc-850\/80 {
+  background-color: rgba(255, 255, 255, 0.96) !important;
+}
+
+html.light-mode .bg-black\/40,
+html.light-mode .bg-black\/50,
+html.light-mode .bg-black\/60 {
+  background-color: rgba(242, 238, 230, 0.85) !important;
+}
+
+/* Translucent borders in light mode */
+html.light-mode .border-white\/5,
+html.light-mode .border-white\/10,
+html.light-mode .border-white\/15,
+html.light-mode .border-white\/20 {
+  border-color: rgba(62, 36, 21, 0.1) !important;
+}
+
+/* ==========================================================================
+   REPLACING GOLD WITH DARK WOOD, ESPRESSO, AND BLACK
+   ========================================================================== */
+html.light-mode .gold-gradient {
+  background: linear-gradient(135deg, #2b1810 0%, #3e2415 50%, #1c1917 100%) !important;
+  color: #ffffff !important;
+  box-shadow: 0 4px 16px rgba(43, 24, 16, 0.25) !important;
+}
+
+html.light-mode .gold-gradient * {
+  color: #ffffff !important;
+}
+
+html.light-mode .gold-text,
+html.light-mode .gold-gradient-text {
+  background: linear-gradient(135deg, #3e2415 0%, #2b1810 100%) !important;
+  -webkit-background-clip: text !important;
+  background-clip: text !important;
+  -webkit-text-fill-color: transparent !important;
+}
+
+html.light-mode .gold-glow {
+  box-shadow: 0 4px 20px rgba(43, 24, 16, 0.2), 0 0 35px rgba(43, 24, 16, 0.1) !important;
+}
+
+html.light-mode .text-gold {
+  color: #3e2415 !important;
+}
+
+html.light-mode .border-gold,
+html.light-mode .border-gold\/20,
+html.light-mode .border-gold\/30,
+html.light-mode .border-gold\/40,
+html.light-mode .border-gold\/50 {
+  border-color: rgba(62, 36, 21, 0.28) !important;
+}
+
+html.light-mode .bg-gold\/5 {
+  background-color: rgba(62, 36, 21, 0.05) !important;
+}
+html.light-mode .bg-gold\/10 {
+  background-color: rgba(62, 36, 21, 0.09) !important;
+}
+html.light-mode .bg-gold\/15 {
+  background-color: rgba(62, 36, 21, 0.14) !important;
+}
+html.light-mode .bg-gold\/20 {
+  background-color: rgba(62, 36, 21, 0.18) !important;
+}
+
+/* ==========================================================================
+   TYPOGRAPHY CONTRAST IN LIGHT MODE
+   ========================================================================== */
+html.light-mode .text-white:not(.gold-gradient *):not(.badge-white *):not(.dock-item-highlight-text):not(#cortes .drop-shadow) {
+  color: #1c1917 !important;
+}
+
+html.light-mode .text-zinc-200 {
+  color: #292524 !important;
+}
+
+html.light-mode .text-zinc-300 {
+  color: #3f3b37 !important;
+}
+
+html.light-mode .text-zinc-400 {
+  color: #57534e !important;
+}
+
+html.light-mode .text-zinc-500 {
+  color: #78716c !important;
+}
+
+html.light-mode .text-zinc-600 {
+  color: #a8a29e !important;
+}
+
+/* Accent decorative lines */
+html.light-mode .bg-gold\/60 {
+  background-color: rgba(62, 36, 21, 0.5) !important;
+}
+
+/* ==========================================================================
+   DOCK IN LIGHT MODE
+   ========================================================================== */
+html.light-mode .dock-panel {
+  background-color: rgba(255, 255, 255, 0.92) !important;
+  border: 1px solid rgba(62, 36, 21, 0.14) !important;
+  box-shadow: 0 10px 36px rgba(43, 24, 16, 0.1) !important;
+}
+
+html.light-mode .dock-item {
+  background-color: rgba(255, 255, 255, 0.95) !important;
+  border: 1px solid rgba(62, 36, 21, 0.1) !important;
+  color: #292524 !important;
+}
+
+html.light-mode .dock-item:hover {
+  border-color: rgba(62, 36, 21, 0.35) !important;
+  background-color: rgba(62, 36, 21, 0.08) !important;
+}
+
+html.light-mode .dock-label {
+  background-color: rgba(255, 255, 255, 0.98) !important;
+  border: 1px solid rgba(62, 36, 21, 0.18) !important;
+  color: #2b1810 !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08) !important;
+}
+
+html.light-mode .dock-item-highlight {
+  background: linear-gradient(135deg, #2b1810 0%, #3e2415 50%, #1c1917 100%) !important;
+  box-shadow: 0 4px 14px rgba(43, 24, 16, 0.35) !important;
+}
+
+html.light-mode .dock-item-highlight-text {
+  color: #ffffff !important;
+}
+
+/* ==========================================================================
+   BOOKSY COMPONENT IN LIGHT MODE
+   ========================================================================== */
+html.light-mode .booksy-container {
+  background-color: rgba(255, 255, 255, 0.92) !important;
+  border-color: rgba(62, 36, 21, 0.12) !important;
+  box-shadow: 0 10px 40px rgba(43, 24, 16, 0.05) !important;
+}
+
+html.light-mode .booksy-header-border {
+  border-color: rgba(62, 36, 21, 0.1) !important;
+}
+
+html.light-mode .booksy-tag {
+  color: #4a2e1b !important;
+}
+
+html.light-mode .booksy-count-pill {
+  background-color: rgba(62, 36, 21, 0.08) !important;
+  color: #3e2415 !important;
+}
+
+html.light-mode .booksy-title {
+  color: #1c1917 !important;
+}
+
+html.light-mode .booksy-search-input {
+  background-color: #faf8f5 !important;
+  border-color: rgba(62, 36, 21, 0.16) !important;
+  color: #1c1917 !important;
+}
+
+html.light-mode .booksy-search-input:focus {
+  border-color: #3e2415 !important;
+  box-shadow: 0 0 0 1px rgba(62, 36, 21, 0.3) !important;
+}
+
+html.light-mode .booksy-divide > * + * {
+  border-color: rgba(62, 36, 21, 0.08) !important;
+}
+
+html.light-mode .booksy-row:hover {
+  background-color: rgba(62, 36, 21, 0.03) !important;
+}
+
+html.light-mode .booksy-item-name {
+  color: #1c1917 !important;
+}
+
+html.light-mode .booksy-row:hover .booksy-item-name {
+  color: #3e2415 !important;
+}
+
+html.light-mode .booksy-item-sub {
+  color: #57534e !important;
+}
+
+html.light-mode .booksy-item-price {
+  color: #1c1917 !important;
+}
+
+html.light-mode .booksy-btn-reservar {
+  background: linear-gradient(135deg, #2b1810 0%, #3e2415 50%, #1c1917 100%) !important;
+  color: #ffffff !important;
+  box-shadow: 0 4px 14px rgba(43, 24, 16, 0.25) !important;
+}
+
+html.light-mode .booksy-btn-reservar * {
+  color: #ffffff !important;
+}
+
+/* ==========================================================================
+   FAQ SECTION IN LIGHT MODE
+   ========================================================================== */
+html.light-mode #faq .glass-card {
+  background-color: rgba(255, 255, 255, 0.9) !important;
+}
+
+html.light-mode #faq button[aria-expanded="true"] {
+  background-color: rgba(62, 36, 21, 0.03) !important;
+}
+
+html.light-mode #faq button[aria-expanded="true"] .rotate-180 {
+  background-color: rgba(62, 36, 21, 0.12) !important;
+  border-color: rgba(62, 36, 21, 0.25) !important;
+  color: #3e2415 !important;
+}
+
+/* ==========================================================================
+   BOOKING STEPS & MODALS IN LIGHT MODE
+   ========================================================================== */
+html.light-mode input:not([type="checkbox"]):not([type="radio"]),
+html.light-mode textarea {
+  color: #1c1917 !important;
+}
+
+html.light-mode input::placeholder,
+html.light-mode textarea::placeholder {
+  color: #78716c !important;
+}
+
+html.light-mode .admin-embed {
+  background: rgba(255, 255, 255, 0.94) !important;
+  border: 1px solid rgba(62, 36, 21, 0.14) !important;
+  box-shadow: 0 8px 32px rgba(43, 24, 16, 0.08) !important;
+}
+
+

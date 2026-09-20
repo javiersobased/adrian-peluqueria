@@ -103,12 +103,6 @@ export function DateTimeStep({ barber, service, onBack, onContinue }: DateTimeSt
     return 30;
   }, [currentServiceObj]);
 
-  const iconUrl = useMemo(() => {
-    if (currentServiceObj?.icon && SERVICE_ICONS[currentServiceObj.icon]) {
-      return SERVICE_ICONS[currentServiceObj.icon];
-    }
-    return null;
-  }, [currentServiceObj]);
 
   const endTime = useMemo(() => {
     if (!selectedTime) return '';

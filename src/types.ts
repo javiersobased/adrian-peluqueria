@@ -148,3 +148,25 @@ export interface GalleryPhoto {
   barber_id?: string | null;
   created_at: string;
 }
+
+export interface BookingNotification {
+  id: string;
+  booking_id: string | null;
+  type: 'created' | 'cancelled' | 'rescheduled';
+  title: string;
+  message: string;
+  client_name: string;
+  client_phone: string | null;
+  client_email: string | null;
+  barber: string;
+  service: string | null;
+  service_price: number | null;
+  booking_date: string | null;
+  booking_time: string | null;
+  old_date: string | null;
+  old_time: string | null;
+  old_barber: string | null;
+  read: boolean;
+  created_at: string;
+}
+

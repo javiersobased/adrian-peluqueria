@@ -30,17 +30,24 @@ export function AdminProfile({ userRole, onBarberUpdated }: AdminProfileProps) {
   const loadBarberProfile = async () => {
     try {
       setLoading(true);
-      let query = supabase.from('barbers').select('*');
+      let barberData: Barber | null = null;
 
       if (userRole.barber_id) {
-        query = query.eq('id', userRole.barber_id);
-      } else if (userRole.email) {
-        query = query.ilike('google_email', userRole.email);
+        const { data } = await supabase.from('barbers').select('*').eq('id', userRole.barber_id).maybeSingle();
+        barberData = data as Barber | null;
       }
 
-      const { data, error } = await query.maybeSingle();
-      if (error) throw error;
-      let barberData = data as Barber | null;
+      if (!barberData && userRole.email) {
+        const { data } = await supabase.from('barbers').select('*').ilike('google_email', userRole.email).maybeSingle();
+        barberData = data as Barber | null;
+      }
+
+      // Default fallback for Adrián (administrator) or first active barber
+      if (!barberData) {
+        const { data } = await supabase.from('barbers').select('*').eq('id', 'adrian').maybeSingle();
+        barberData = data as Barber | null;
+      }
+
       if (barberData && !barberData.photo_url && typeof window !== 'undefined') {
         const cached = localStorage.getItem(`barber_photo_${barberData.id}`);
         if (cached) {

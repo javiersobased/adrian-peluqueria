@@ -7,6 +7,10 @@ import './index.css';
 import 'sileo/styles.css';
 
 
+try {
+  sessionStorage.removeItem('amm_chunk_recovered_v2');
+} catch {}
+
 const rootEl = document.getElementById('root')!;
 
 createRoot(rootEl).render(

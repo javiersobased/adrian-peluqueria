@@ -12,18 +12,54 @@
         }
       } catch (e) {}
     </script>
-    <!-- Single-shot automatic recovery for stale deployments across releases -->
+    <!-- Anti-cache meta headers for HTML document -->
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+    <meta http-equiv="Pragma" content="no-cache" />
+    <meta http-equiv="Expires" content="0" />
+
+    <!-- Automatic recovery for stale browser caches or deployment transitions -->
     <script>
       (function() {
-        var key = 'amm_chunk_recovered_v1';
+        var key = 'amm_chunk_recovered_v2';
+        function handleStaleAssetError() {
+          try {
+            var retries = parseInt(sessionStorage.getItem(key) || '0', 10);
+            if (retries < 2) {
+              sessionStorage.setItem(key, String(retries + 1));
+              setTimeout(function() {
+                window.location.reload(true);
+              }, 600);
+            } else {
+              // Show instant fallback UI so the screen is never left completely black
+              var root = document.getElementById('root');
+              if (root) {
+                root.innerHTML = '<div style="min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;text-align:center;font-family:system-ui,-apple-system,sans-serif;color:white;background:#09090b;position:fixed;inset:0;z-index:999999;">' +
+                  '<div style="width:48px;height:48px;border-radius:16px;background:linear-gradient(135deg,#e6c875,#bfa14a);display:flex;align-items:center;justify-content:center;font-weight:900;color:black;margin-bottom:16px;font-size:18px;">AM</div>' +
+                  '<h2 style="font-size:18px;font-weight:700;margin-bottom:8px;color:#f4f4f5;">Actualizando aplicación...</h2>' +
+                  '<p style="font-size:13px;color:#a1a1aa;margin-bottom:24px;max-width:300px;line-height:1.5;">Se ha publicado una actualización. Pulsa el botón para cargar la última versión.</p>' +
+                  '<button onclick="sessionStorage.removeItem(\'' + key + '\');window.location.reload(true);" style="background:linear-gradient(135deg,#e6c875,#bfa14a);color:#000;border:none;padding:12px 28px;border-radius:9999px;font-weight:700;font-size:13px;cursor:pointer;box-shadow:0 4px 14px rgba(212,175,55,0.25);">Recargar ahora</button>' +
+                  '</div>';
+              }
+            }
+          } catch (e) {
+            window.location.reload(true);
+          }
+        }
+
+        // Catch asset 404s on script and css tags during capture phase
+        window.addEventListener('error', function(e) {
+          if (e.target && (e.target.tagName === 'SCRIPT' || e.target.tagName === 'LINK')) {
+            var url = e.target.src || e.target.href || '';
+            if (url.indexOf('/assets/') !== -1) {
+              handleStaleAssetError();
+            }
+          }
+        }, true);
+
+        // Catch dynamic chunk load errors from Vite
         window.addEventListener('vite:preloadError', function(e) {
           e.preventDefault();
-          try {
-            if (!sessionStorage.getItem(key)) {
-              sessionStorage.setItem(key, '1');
-              window.location.reload();
-            }
-          } catch (err) {}
+          handleStaleAssetError();
         });
       })();
     </script>

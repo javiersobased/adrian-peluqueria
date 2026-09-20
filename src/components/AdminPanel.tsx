@@ -15,10 +15,12 @@ import { AdminNotifications } from '@/components/admin/AdminNotifications';
 import {
   Inbox,
   Bell,
-  CalendarDays,
-  Clock,
-  PlusCircle,
-  SlidersHorizontal,
+  CalendarRange,
+  CalendarPlus,
+  CalendarOff,
+  CalendarClock,
+  Contact2,
+  IdCard,
   Scissors,
   Users,
   Search,
@@ -33,9 +35,10 @@ import {
   Sparkles,
   Sun,
   Moon,
-  ExternalLink,
+  Globe,
   Plus,
   Check,
+  UserCircle2,
   type LucideIcon,
 } from 'lucide-react';
 import { InstallAppButton } from '@/components/InstallAppButton';
@@ -317,13 +320,13 @@ export function AdminPanel({ userRole, onSignOut, onGoPublic }: AdminPanelProps)
   // Main menu items (under "Menu" header)
   const menuItems: NavItem[] = useMemo(
     () => [
-      { id: 'agenda', label: 'Agenda Completa', icon: Clock },
-      { id: 'manual', label: 'Cita Manual', icon: PlusCircle },
-      { id: 'availability', label: 'Horarios y Bloqueos', icon: SlidersHorizontal, adminOnly: true },
-      { id: 'schedule', label: 'Horarios Semanales', icon: CalendarDays, adminOnly: true },
-      { id: 'customers', label: 'Clientes', icon: Users },
+      { id: 'agenda', label: 'Agenda Completa', icon: CalendarRange },
+      { id: 'manual', label: 'Cita Manual', icon: CalendarPlus },
+      { id: 'availability', label: 'Horarios y Bloqueos', icon: CalendarOff, adminOnly: true },
+      { id: 'schedule', label: 'Horarios Semanales', icon: CalendarClock, adminOnly: true },
+      { id: 'customers', label: 'Clientes', icon: Contact2 },
       { id: 'services', label: 'Servicios', icon: Scissors, adminOnly: true },
-      { id: 'staff', label: 'Personal', icon: Users, adminOnly: true },
+      { id: 'staff', label: 'Personal', icon: IdCard, adminOnly: true },
     ],
     []
   );
@@ -632,7 +635,7 @@ export function AdminPanel({ userRole, onSignOut, onGoPublic }: AdminPanelProps)
                 isCollapsed ? 'justify-center px-0' : ''
               }`}
             >
-              <ExternalLink className="h-4 w-4 shrink-0" />
+              <Globe className="h-4 w-4 shrink-0" />
               {!isCollapsed && <span className="flex-1 text-left">Ver web pública</span>}
             </button>
           </div>
@@ -782,7 +785,7 @@ export function AdminPanel({ userRole, onSignOut, onGoPublic }: AdminPanelProps)
                         : 'text-zinc-300 hover:bg-white/5 hover:text-gold'
                     }`}
                   >
-                    <Scissors className="h-4 w-4 shrink-0 text-gold" />
+                    <UserCircle2 className="h-4 w-4 shrink-0 text-gold" />
                     <span>Mi Perfil de Barbero</span>
                   </button>
 
@@ -926,7 +929,7 @@ export function AdminPanel({ userRole, onSignOut, onGoPublic }: AdminPanelProps)
                   }}
                   className="flex w-full items-center gap-3 rounded-xl px-3 py-2 text-xs text-zinc-400 hover:bg-white/5 hover:text-gold transition-colors"
                 >
-                  <ExternalLink className="h-4 w-4 shrink-0" />
+                  <Globe className="h-4 w-4 shrink-0" />
                   <span className="flex-1 text-left">Ver web pública</span>
                 </button>
               </div>
@@ -1050,7 +1053,7 @@ export function AdminPanel({ userRole, onSignOut, onGoPublic }: AdminPanelProps)
                           : 'text-zinc-200 hover:bg-white/5 hover:text-gold'
                       }`}
                     >
-                      <Scissors className="h-4 w-4 text-gold shrink-0" />
+                      <UserCircle2 className="h-4 w-4 text-gold shrink-0" />
                       <span>Mi Perfil de Barbero</span>
                     </button>
                     <button

@@ -21,21 +21,7 @@ import {
   MONTH_SHORT,
 } from '@/lib/schedule';
 
-const ICON_BASE = `${supabaseUrl}/storage/v1/object/public/service-icons`;
-
-const SERVICE_ICONS: Record<string, string> = {
-  scissors: `${ICON_BASE}/corte.png`,
-  'scissors-crossed': `${ICON_BASE}/corte-barba.png`,
-  beard: `${ICON_BASE}/barba.png`,
-  color: `${ICON_BASE}/tinte.png`,
-  contours: `${ICON_BASE}/peinado-estilo.png`,
-  'kids-cut': `${ICON_BASE}/corte-ninos.png`,
-  'nose-wax': `${ICON_BASE}/depilado-nasal.png`,
-  'eyebrow-razor': `${ICON_BASE}/cejas-cuchilla.png`,
-  clipper: `${ICON_BASE}/maquina-pelar.png`,
-  wash: `${ICON_BASE}/polvos-volumen.png`,
-  fade: `${ICON_BASE}/degradado-pelo.png`,
-};
+import { BarberServiceIcon } from '@/components/icons/BarberServiceIcons';
 
 interface DateTimeStepProps {
   barber: Barber;
@@ -642,10 +628,15 @@ export function DateTimeStep({ barber, service, onBack, onContinue }: DateTimeSt
               <div className="rounded-2xl border border-white/10 bg-zinc-900/90 backdrop-blur-md p-4 sm:p-5 shadow-xl mt-3 sm:mt-4">
                 {/* Fila superior: Servicio, Precio y Rango Horario */}
                 <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <p className="font-display text-sm sm:text-base font-bold text-white truncate">
-                      {currentServiceObj?.name ?? (typeof service === 'string' ? service : 'Servicio')}
-                    </p>
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-gold/20 via-gold/5 to-black/40 border border-gold/20 text-gold shadow-sm">
+                      <BarberServiceIcon name={currentServiceObj?.icon} className="h-5 w-5 text-gold" />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="font-display text-sm sm:text-base font-bold text-white truncate">
+                        {currentServiceObj?.name ?? (typeof service === 'string' ? service : 'Servicio')}
+                      </p>
+                    </div>
                   </div>
                   <div className="text-right shrink-0">
                     <p className="font-display text-sm sm:text-base font-bold text-gold">

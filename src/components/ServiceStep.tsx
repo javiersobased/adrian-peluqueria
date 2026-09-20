@@ -4,28 +4,12 @@ import { fetchServices } from '@/data/services';
 import type { Service } from '@/types';
 import { ArrowLeftIcon } from '@/components/icons';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
-import { supabaseUrl } from '@/lib/supabase';
+import { BarberServiceIcon } from '@/components/icons/BarberServiceIcons';
 
 interface ServiceStepProps {
   onBack: () => void;
   onSelect: (s: Service) => void;
 }
-
-const ICON_BASE = `${supabaseUrl}/storage/v1/object/public/service-icons`;
-
-const SERVICE_ICONS: Record<string, string> = {
-  scissors: `${ICON_BASE}/corte.png`,
-  'scissors-crossed': `${ICON_BASE}/corte-barba.png`,
-  beard: `${ICON_BASE}/barba.png`,
-  color: `${ICON_BASE}/tinte.png`,
-  contours: `${ICON_BASE}/peinado-estilo.png`,
-  'kids-cut': `${ICON_BASE}/corte-ninos.png`,
-  'nose-wax': `${ICON_BASE}/depilado-nasal.png`,
-  'eyebrow-razor': `${ICON_BASE}/cejas-cuchilla.png`,
-  clipper: `${ICON_BASE}/maquina-pelar.png`,
-  wash: `${ICON_BASE}/polvos-volumen.png`,
-  fade: `${ICON_BASE}/degradado-pelo.png`,
-};
 
 export function ServiceStep({ onBack, onSelect }: ServiceStepProps) {
   const [services, setServices] = useState<Service[]>([]);
@@ -53,27 +37,26 @@ export function ServiceStep({ onBack, onSelect }: ServiceStepProps) {
         ) : (
           <ul className="space-y-2.5">
             {services.map((service, i) => {
-              const iconUrl = SERVICE_ICONS[service.icon] ?? SERVICE_ICONS.scissors;
               return (
-              <li key={service.id}>
-                <button
-                  onClick={() => onSelect(service)}
-                  style={{ animationDelay: `${i * 0.05}s` }}
-                  className="group flex w-full items-center gap-4 rounded-3xl glass-card p-4 text-left transition-all duration-300 hover:border-gold/20 hover:bg-zinc-850/80 active:scale-[0.98] animate-fade-up"
-                >
-                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-gold/5 transition-all duration-300 group-hover:bg-gold/10 overflow-hidden">
-                    <img src={iconUrl} alt={service.name} className="h-8 w-8 rounded-lg object-cover" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="font-display text-sm font-bold leading-tight text-white">{service.name}</p>
-                    <p className="mt-0.5 text-xs text-zinc-500">{service.duration}</p>
-                  </div>
-                  {service.price > 0 && (
-                    <span className="font-display text-sm font-bold text-gold">{service.price}€</span>
-                  )}
-                  <ChevronRight className="h-5 w-5 shrink-0 text-zinc-600 transition-transform duration-300 group-hover:translate-x-1 group-hover:text-gold" />
-                </button>
-              </li>
+                <li key={service.id}>
+                  <button
+                    onClick={() => onSelect(service)}
+                    style={{ animationDelay: `${i * 0.05}s` }}
+                    className="group flex w-full items-center gap-4 rounded-3xl glass-card p-4 text-left transition-all duration-300 hover:border-gold/30 hover:bg-zinc-850/80 active:scale-[0.98] animate-fade-up shadow-sm"
+                  >
+                    <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-gold/20 via-gold/5 to-black/40 border border-gold/20 text-gold shadow-md shadow-gold/5 transition-all duration-300 group-hover:border-gold/40 group-hover:bg-gold/15">
+                      <BarberServiceIcon name={service.icon} className="h-6 w-6 text-gold" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-display text-sm font-bold leading-tight text-white">{service.name}</p>
+                      <p className="mt-0.5 text-xs text-zinc-500">{service.duration}</p>
+                    </div>
+                    {service.price > 0 && (
+                      <span className="font-display text-sm font-bold text-gold">{service.price}€</span>
+                    )}
+                    <ChevronRight className="h-5 w-5 shrink-0 text-zinc-600 transition-transform duration-300 group-hover:translate-x-1 group-hover:text-gold" />
+                  </button>
+                </li>
               );
             })}
           </ul>

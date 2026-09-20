@@ -1190,7 +1190,7 @@ export function AdminPanel({ userRole, onSignOut, onGoPublic }: AdminPanelProps)
                 loading={loading}
                 onRefresh={refresh}
                 currentBarber={currentProfileBarber}
-                selectedBarber={effectiveBarber}
+                selectedBarber={selectedBarber}
               />
             )}
 

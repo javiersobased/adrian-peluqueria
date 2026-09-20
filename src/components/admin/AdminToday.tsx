@@ -3,7 +3,7 @@ import { supabase } from '@/lib/supabase';
 import { fetchAllBarbers } from '@/data/services';
 import type { SavedBooking, Barber } from '@/types';
 import { MONTH_SHORT, WEEKDAY_SHORT, toISO } from '@/lib/schedule';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { notify } from '@/lib/notify';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import { ReorganizeBookingModal } from '@/components/admin/ReorganizeBookingModal';
@@ -17,9 +17,17 @@ interface AdminTodayProps {
   bookings: SavedBooking[];
   loading: boolean;
   onRefresh: () => void;
+  currentBarber?: Barber | null;
+  selectedBarber?: string;
 }
 
-export function AdminToday({ bookings, loading, onRefresh }: AdminTodayProps) {
+export function AdminToday({
+  bookings,
+  loading,
+  onRefresh,
+  currentBarber,
+  selectedBarber = 'all',
+}: AdminTodayProps) {
   const [barbers, setBarbers] = useState<Barber[]>([]);
   const [showPastBookings, setShowPastBookings] = useState(false);
   const [selectedBooking, setSelectedBooking] = useState<SavedBooking | null>(null);
@@ -74,9 +82,33 @@ export function AdminToday({ bookings, loading, onRefresh }: AdminTodayProps) {
     return () => clearInterval(interval);
   }, []);
 
+  // Resolved barber profile currently in use
+  const activeBarberProfile = useMemo(() => {
+    if (currentBarber) return currentBarber;
+    if (selectedBarber && selectedBarber !== 'all') {
+      const found = barbers.find((b) => b.id === selectedBarber);
+      if (found) return found;
+    }
+    const adrian = barbers.find((b) => b.id === 'adrian');
+    if (adrian) return adrian;
+    return barbers[0] || null;
+  }, [currentBarber, selectedBarber, barbers]);
+
+  const activeBarberFirstName = activeBarberProfile?.name?.split(' ')[0] || 'Adrián';
+  const activeBarberSubtitle =
+    selectedBarber === 'all'
+      ? 'Salón Activo · Todo el salón'
+      : `Vista: ${activeBarberProfile?.name || 'Barbero'}`;
+
   // All active bookings for today
   const allTodayBookings = bookings
-    .filter((b) => b.booking_date === todayISO && b.status !== 'cancelled')
+    .filter((b) => {
+      if (b.booking_date !== todayISO || b.status === 'cancelled') return false;
+      if (selectedBarber && selectedBarber !== 'all') {
+        return b.barber === selectedBarber;
+      }
+      return true;
+    })
     .sort((a, b) => a.booking_time.localeCompare(b.booking_time));
 
   // Upcoming appointments today (time is >= now)
@@ -151,23 +183,53 @@ export function AdminToday({ bookings, loading, onRefresh }: AdminTodayProps) {
 
   return (
     <div className="mx-auto max-w-6xl w-full min-w-0 space-y-3 sm:space-y-4">
-      {/* Stats cards */}
+      {/* Stats cards: Profile on Left, Citas hoy in Middle, Próxima cita on Right */}
       <div className="grid grid-cols-2 gap-2.5 sm:gap-3 md:grid-cols-3">
+        {/* Card 1 (Left): Vista del perfil de barbero activo con bienvenida */}
+        <div className="rounded-2xl glass-card p-3 sm:p-3.5 relative overflow-hidden flex items-center gap-3 col-span-2 md:col-span-1 border border-white/5 bg-zinc-900/40">
+          <div className="relative shrink-0">
+            {activeBarberProfile?.photo_url ? (
+              <img
+                src={activeBarberProfile.photo_url}
+                alt={activeBarberProfile.name}
+                className="h-11 w-11 sm:h-12 sm:w-12 rounded-full object-cover ring-2 ring-gold/40 shadow-md"
+              />
+            ) : (
+              <div className="flex h-11 w-11 sm:h-12 sm:w-12 items-center justify-center rounded-full gold-gradient font-display text-xs sm:text-sm font-black text-black shadow-md">
+                {activeBarberProfile?.initials || 'AM'}
+              </div>
+            )}
+            <span className="absolute -bottom-0.5 -right-0.5 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-emerald-500 ring-2 ring-zinc-950 shadow-sm">
+              <span className="h-1.5 w-1.5 rounded-full bg-white" />
+            </span>
+          </div>
+
+          <div className="min-w-0 flex-1">
+            <p className="text-[0.6rem] font-semibold uppercase tracking-wider text-gold">
+              Sesión activa
+            </p>
+            <h4 className="font-display text-base sm:text-lg font-bold text-white tracking-tight truncate leading-tight mt-0.5">
+              ¡Bienvenido, {activeBarberFirstName}!
+            </h4>
+            <p className="text-[0.68rem] text-zinc-400 font-medium truncate mt-0.5">
+              {activeBarberSubtitle}
+            </p>
+          </div>
+        </div>
+
+        {/* Card 2 (Middle): Citas hoy */}
         <StatCard
           label="Citas hoy"
           value={upcomingBookings.length}
           badge={pastBookings.length > 0 ? `-${pastBookings.length}` : undefined}
           badgeTitle={`${pastBookings.length} cita${pastBookings.length > 1 ? 's ya pasaron' : ' ya pasó'} hoy`}
         />
+
+        {/* Card 3 (Right): Próxima cita */}
         <StatCard
           label="Próxima cita"
           value={nextBookingTime}
           subtext={nextBookingTime !== '—' ? 'Siguiente turno' : 'Sin más turnos'}
-        />
-        <StatCard
-          label="Barberos activos"
-          value={barbers.length}
-          className="col-span-2 md:col-span-1"
         />
       </div>
 

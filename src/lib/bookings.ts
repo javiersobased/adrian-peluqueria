@@ -219,7 +219,6 @@ export async function createBooking(payload: PendingBookingPayload): Promise<{ b
             full_name: payload.full_name.trim(),
             phone: payload.phone.trim(),
             email: userEmail,
-            comments: payload.comments?.trim() || null,
             ...(payload.marketing_accepted !== undefined ? { marketing_accepted: payload.marketing_accepted } : {}),
             updated_at: new Date().toISOString(),
           });

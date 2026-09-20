@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import type { Customer } from '@/types';
 import { Search, Users, Phone, Mail, MessageSquare, ChevronRight, PhoneCall, Megaphone } from 'lucide-react';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
@@ -20,18 +20,33 @@ export function AdminCustomers({ customers, loading, onRefresh }: AdminCustomers
 
   useEffect(() => { onRefresh(); }, [onRefresh]);
 
-  const filtered = useCallback(
-    () => {
-      const q = search.toLowerCase().trim();
-      if (!q) return customers;
-      return customers.filter((c) =>
-        c.full_name.toLowerCase().includes(q) ||
-        c.phone.toLowerCase().includes(q) ||
-        (c.email ?? '').toLowerCase().includes(q)
-      );
-    },
-    [customers, search]
-  )();
+  const deduplicatedCustomers = useMemo(() => {
+    const map = new Map<string, Customer>();
+    for (const c of customers) {
+      const cleanPhone = (c.phone || '').trim().replace(/\s+/g, '');
+      const key = cleanPhone && cleanPhone.length >= 6 ? cleanPhone : (c.email?.toLowerCase().trim() || c.user_id);
+      if (!map.has(key)) {
+        map.set(key, c);
+      } else {
+        const existing = map.get(key)!;
+        // Prefer record with valid personal email
+        if (!existing.email && c.email) {
+          map.set(key, c);
+        }
+      }
+    }
+    return Array.from(map.values());
+  }, [customers]);
+
+  const filtered = useMemo(() => {
+    const q = search.toLowerCase().trim();
+    if (!q) return deduplicatedCustomers;
+    return deduplicatedCustomers.filter((c) =>
+      c.full_name.toLowerCase().includes(q) ||
+      c.phone.toLowerCase().includes(q) ||
+      (c.email ?? '').toLowerCase().includes(q)
+    );
+  }, [deduplicatedCustomers, search]);
 
   if (loading) {
     return (

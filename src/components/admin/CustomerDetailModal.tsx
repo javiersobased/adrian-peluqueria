@@ -40,6 +40,8 @@ export function CustomerDetailModal({ customer, onClose }: CustomerDetailModalPr
   const [bookings, setBookings] = useState<SavedBooking[]>([]);
   const [barbers, setBarbers] = useState<Barber[]>([]);
 
+  const [profileComments, setProfileComments] = useState<string | null>(customer?.comments || null);
+
   useEffect(() => {
     if (!customer) return;
     let active = true;
@@ -47,21 +49,73 @@ export function CustomerDetailModal({ customer, onClose }: CustomerDetailModalPr
 
     const loadData = async () => {
       try {
-        const [barbersList, bookingsRes] = await Promise.all([
+        const rawPhone = (customer.phone || '').trim();
+        const cleanPhone = rawPhone.replace(/\s+/g, '');
+        const cleanName = (customer.full_name || '').trim();
+        const cleanEmail = (customer.email || '').trim().toLowerCase();
+        const userId = customer.user_id || null;
+
+        // Build list of valid conditions to identify this specific customer's bookings
+        const orConditions: string[] = [];
+
+        if (userId) {
+          orConditions.push(`user_id.eq.${userId}`);
+        }
+        if (cleanPhone && cleanPhone.length >= 6) {
+          orConditions.push(`phone.eq.${rawPhone}`);
+          if (cleanPhone !== rawPhone) {
+            orConditions.push(`phone.eq.${cleanPhone}`);
+          }
+        }
+        if (cleanEmail && !cleanEmail.includes('adrianmillan') && !cleanEmail.includes('farinapadilla')) {
+          orConditions.push(`email.ilike.${cleanEmail}`);
+        }
+
+        // If there is no phone, user_id, or valid personal email (e.g. manual booking with only customer name):
+        // Match strictly by full_name!
+        if (orConditions.length === 0 && cleanName) {
+          orConditions.push(`full_name.ilike.${cleanName}`);
+        }
+
+        const [barbersList, bookingsRes, customerProfile] = await Promise.all([
           fetchAllBarbers(),
           (async () => {
+            if (orConditions.length === 0) return { data: [] };
             let q = supabase.from('bookings').select('*');
-            if (customer.user_id) {
-              q = q.or(`user_id.eq.${customer.user_id},phone.eq.${customer.phone}`);
+            if (orConditions.length === 1) {
+              const [field, op, ...rest] = orConditions[0].split('.');
+              const val = rest.join('.');
+              if (op === 'eq') q = q.eq(field, val);
+              else if (op === 'ilike') q = q.ilike(field, val);
             } else {
-              q = q.eq('phone', customer.phone);
+              q = q.or(orConditions.join(','));
             }
             return await q.order('booking_date', { ascending: false }).order('booking_time', { ascending: false });
-          })()
+          })(),
+          (async () => {
+            const cConditions: string[] = [];
+            if (userId) cConditions.push(`user_id.eq.${userId}`);
+            if (cleanPhone && cleanPhone.length >= 6) cConditions.push(`phone.eq.${rawPhone}`);
+            if (cleanEmail) cConditions.push(`email.ilike.${cleanEmail}`);
+
+            if (cConditions.length > 0) {
+              const { data } = await supabase.from('customers').select('comments').or(cConditions.join(',')).limit(1);
+              return data?.[0] || null;
+            }
+            return null;
+          })(),
         ]);
+
         if (!active) return;
         setBarbers(barbersList);
         setBookings(bookingsRes.data || []);
+        if (customerProfile && customerProfile.comments) {
+          setProfileComments(customerProfile.comments);
+        } else if (customer.comments && !customer.comments.toLowerCase().includes('cobra')) {
+          setProfileComments(customer.comments);
+        } else {
+          setProfileComments(null);
+        }
       } catch (err) {
         console.error('Error cargando historial del cliente:', err);
       } finally {
@@ -215,12 +269,12 @@ export function CustomerDetailModal({ customer, onClose }: CustomerDetailModalPr
           </div>
 
           {/* Customer notes / comments if saved */}
-          {customer.comments && (
+          {profileComments && (
             <div className="mt-3 flex items-start gap-2 rounded-xl bg-white/[0.03] p-2.5 text-xs text-zinc-300 border border-white/5">
               <MessageSquare className="mt-0.5 h-3.5 w-3.5 shrink-0 text-gold" />
               <div className="space-y-0.5">
                 <span className="font-semibold text-zinc-400">Nota del cliente: </span>
-                <span className="italic">{customer.comments}</span>
+                <span className="italic">{profileComments}</span>
               </div>
             </div>
           )}

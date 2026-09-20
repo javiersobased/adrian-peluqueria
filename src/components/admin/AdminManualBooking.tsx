@@ -178,7 +178,6 @@ export function AdminManualBooking({ onCreated }: AdminManualBookingProps) {
               full_name: cleanName,
               phone: cleanPhone,
               email: cleanEmail,
-              comments: cleanComments,
               updated_at: new Date().toISOString(),
             },
             { onConflict: 'phone' }

@@ -684,7 +684,6 @@ export function AdminToday({
                       full_name: b.full_name,
                       phone: b.phone,
                       email: b.email,
-                      comments: b.comments,
                     });
                   }}
                   className="w-full flex items-center justify-center gap-2 rounded-xl bg-white/5 py-2.5 text-xs font-semibold text-white border border-white/10 hover:bg-white/10 hover:border-gold/30 active:scale-95 transition-all"

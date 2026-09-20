@@ -18,6 +18,8 @@ import {
   Filter,
   Sparkles,
   RefreshCw,
+  Trash2,
+  AlertTriangle,
 } from 'lucide-react';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import { notify } from '@/lib/notify';
@@ -77,6 +79,9 @@ export function AdminNotifications({
   const [filter, setFilter] = useState<NotificationFilter>('all');
   const [search, setSearch] = useState('');
   const [markingAll, setMarkingAll] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [clearingAll, setClearingAll] = useState(false);
+  const [showClearConfirmModal, setShowClearConfirmModal] = useState(false);
 
   const fetchNotifications = useCallback(async () => {
     try {
@@ -119,6 +124,13 @@ export function AdminNotifications({
             setNotifications((prev) =>
               prev.map((n) => (n.id === updated.id ? updated : n))
             );
+          } else if (payload.eventType === 'DELETE') {
+            const deletedId = (payload.old as { id?: string })?.id;
+            if (deletedId) {
+              setNotifications((prev) => prev.filter((n) => n.id !== deletedId));
+            } else {
+              fetchNotifications();
+            }
           } else {
             fetchNotifications();
           }
@@ -158,6 +170,63 @@ export function AdminNotifications({
       console.warn('Error marking all notifications as read:', err);
     } finally {
       setMarkingAll(false);
+    }
+  };
+
+  const deleteNotification = async (id: string, e?: React.MouseEvent) => {
+    e?.stopPropagation();
+    setDeletingId(id);
+    const previousNotifs = [...notifications];
+    setNotifications((prev) => prev.filter((n) => n.id !== id));
+
+    try {
+      const { error } = await supabase
+        .from('booking_notifications')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+      notify.success('Notificación eliminada', 'La notificación se ha borrado correctamente.');
+    } catch (err: any) {
+      console.error('Error deleting notification:', err);
+      setNotifications(previousNotifs);
+      notify.error('Error al eliminar', err?.message || 'No se pudo eliminar la notificación.');
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
+  const clearAllNotifications = async () => {
+    if (notifications.length === 0) return;
+    setClearingAll(true);
+    setShowClearConfirmModal(false);
+
+    const previousNotifs = [...notifications];
+    setNotifications([]);
+
+    try {
+      let query = supabase.from('booking_notifications').delete();
+      if (selectedBarber !== 'all') {
+        query = query.eq('barber', selectedBarber);
+      } else {
+        query = query.neq('id', '00000000-0000-0000-0000-000000000000');
+      }
+
+      const { error } = await query;
+      if (error) throw error;
+
+      notify.success(
+        'Bandeja vaciada',
+        selectedBarber !== 'all'
+          ? `Se han eliminado las notificaciones del barbero seleccionado.`
+          : 'Todas las notificaciones se han eliminado correctamente.'
+      );
+    } catch (err: any) {
+      console.error('Error clearing all notifications:', err);
+      setNotifications(previousNotifs);
+      notify.error('Error al limpiar notificaciones', err?.message || 'No se pudieron eliminar.');
+    } finally {
+      setClearingAll(false);
     }
   };
 
@@ -232,11 +301,25 @@ export function AdminNotifications({
           {unreadCount > 0 && (
             <button
               onClick={markAllAsRead}
-              disabled={markingAll}
+              disabled={markingAll || clearingAll}
               className="inline-flex items-center gap-1.5 rounded-xl border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-semibold text-zinc-300 transition-all hover:bg-gold/10 hover:text-gold hover:border-gold/30 active:scale-95 disabled:opacity-50"
             >
               <CheckCheck className="h-3.5 w-3.5" />
-              <span>Marcar todas como leídas</span>
+              <span className="hidden sm:inline">Marcar todas como leídas</span>
+              <span className="sm:hidden">Marcar leídas</span>
+            </button>
+          )}
+
+          {notifications.length > 0 && (
+            <button
+              onClick={() => setShowClearConfirmModal(true)}
+              disabled={clearingAll || markingAll}
+              className="inline-flex items-center gap-1.5 rounded-xl border border-red-500/20 bg-red-500/10 px-3 py-1.5 text-xs font-semibold text-red-400 transition-all hover:bg-red-500/20 hover:border-red-500/40 active:scale-95 disabled:opacity-50"
+              title="Limpiar todas las notificaciones"
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">Limpiar todas</span>
+              <span className="sm:hidden">Limpiar</span>
             </button>
           )}
 
@@ -498,16 +581,35 @@ export function AdminNotifications({
                         </a>
                       )}
 
-                      {/* Mark as read */}
-                      {!notif.read && (
+                      {/* Action buttons on the right: Mark as read & Delete single */}
+                      <div className="ml-auto flex items-center gap-1.5">
+                        {!notif.read && (
+                          <button
+                            type="button"
+                            onClick={() => markAsRead(notif.id)}
+                            className="inline-flex items-center gap-1 rounded-lg text-[0.7rem] font-medium text-zinc-400 hover:text-gold hover:bg-gold/10 transition-colors py-1 px-2 active:scale-95"
+                            title="Marcar como leída"
+                          >
+                            <Check className="h-3.5 w-3.5" />
+                            <span>Marcar leída</span>
+                          </button>
+                        )}
+
                         <button
-                          onClick={() => markAsRead(notif.id)}
-                          className="ml-auto inline-flex items-center gap-1 rounded-lg text-[0.7rem] text-zinc-500 hover:text-gold transition-colors py-1 px-2"
+                          type="button"
+                          onClick={(e) => deleteNotification(notif.id, e)}
+                          disabled={deletingId === notif.id}
+                          className="inline-flex items-center gap-1 rounded-lg text-[0.7rem] font-medium text-zinc-500 hover:text-red-400 hover:bg-red-500/10 transition-colors py-1 px-2 active:scale-95 disabled:opacity-50"
+                          title="Eliminar esta notificación"
                         >
-                          <Check className="h-3.5 w-3.5" />
-                          <span>Marcar leída</span>
+                          {deletingId === notif.id ? (
+                            <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+                          ) : (
+                            <Trash2 className="h-3.5 w-3.5" />
+                          )}
+                          <span>Eliminar</span>
                         </button>
-                      )}
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -516,6 +618,56 @@ export function AdminNotifications({
           })
         )}
       </div>
+
+      {/* Confirmation Modal for Clearing All Notifications */}
+      {showClearConfirmModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 animate-in fade-in duration-150">
+          <div className="w-full max-w-md rounded-2xl border border-white/10 bg-zinc-900 p-6 shadow-2xl space-y-4">
+            <div className="flex items-center gap-3 text-red-400">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-red-500/10 border border-red-500/20">
+                <AlertTriangle className="h-5 w-5 text-red-400" />
+              </div>
+              <div>
+                <h3 className="font-bold text-white text-base">¿Limpiar todas las notificaciones?</h3>
+                <p className="text-xs text-zinc-400 mt-0.5">Esta acción no se puede deshacer.</p>
+              </div>
+            </div>
+
+            <p className="text-sm text-zinc-300 leading-relaxed">
+              Se eliminarán de forma permanente las{' '}
+              <strong className="text-white font-semibold">{notifications.length}</strong>{' '}
+              notificaciones actuales del registro
+              {selectedBarber !== 'all' ? (
+                <> para el barbero <strong className="text-gold font-semibold">{getBarberName(selectedBarber)}</strong></>
+              ) : ''}.
+            </p>
+
+            <div className="flex items-center justify-end gap-2.5 pt-2 border-t border-white/5">
+              <button
+                type="button"
+                onClick={() => setShowClearConfirmModal(false)}
+                disabled={clearingAll}
+                className="px-4 py-2 rounded-xl text-xs font-semibold text-zinc-400 hover:text-white hover:bg-white/5 transition-colors disabled:opacity-50"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={clearAllNotifications}
+                disabled={clearingAll}
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold text-white bg-red-600 hover:bg-red-500 active:scale-95 transition-all shadow-lg shadow-red-900/30 disabled:opacity-50"
+              >
+                {clearingAll ? (
+                  <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <Trash2 className="h-3.5 w-3.5" />
+                )}
+                <span>{clearingAll ? 'Eliminando...' : 'Sí, eliminar todas'}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

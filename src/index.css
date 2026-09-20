@@ -432,16 +432,26 @@ html.light-mode .glass-light {
   border: 1px solid #e2e8f0 !important;
 }
 
-/* Dark Cards & Backgrounds to Crisp Light Surfaces */
+/* ==========================================================================
+   DARK SURFACES → GLASSMORPHISM IN LIGHT MODE
+   Replaces flat-white overrides with layered frosted glass surfaces
+   ========================================================================== */
+
+/* Level 1 — elevated glass (was zinc-900 dark) */
 html.light-mode .bg-zinc-900,
+html.light-mode .bg-zinc-900\/60,
 html.light-mode .bg-zinc-900\/70,
 html.light-mode .bg-zinc-900\/80,
 html.light-mode .bg-zinc-900\/90,
 html.light-mode .bg-zinc-900\/95 {
-  background-color: #ffffff !important;
-  border-color: #e2e8f0 !important;
+  background: rgba(255, 255, 255, 0.72) !important;
+  backdrop-filter: blur(16px) saturate(160%) !important;
+  -webkit-backdrop-filter: blur(16px) saturate(160%) !important;
+  border-color: rgba(226, 232, 240, 0.8) !important;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06), inset 0 1px 0 rgba(255,255,255,0.9) !important;
 }
 
+/* Level 2 — subtle glass (was zinc-950) */
 html.light-mode .bg-zinc-950,
 html.light-mode .bg-zinc-950\/40,
 html.light-mode .bg-zinc-950\/80,
@@ -449,23 +459,36 @@ html.light-mode .bg-zinc-950\/85,
 html.light-mode .bg-zinc-950\/90,
 html.light-mode .bg-zinc-950\/95,
 html.light-mode .bg-zinc-950\/98 {
-  background-color: #f8fafc !important;
+  background: rgba(248, 250, 252, 0.88) !important;
+  backdrop-filter: blur(12px) saturate(140%) !important;
+  -webkit-backdrop-filter: blur(12px) saturate(140%) !important;
   border-color: #e2e8f0 !important;
 }
 
+/* Level 3 — soft tinted glass (was zinc-800/850) */
 html.light-mode .bg-zinc-850\/80,
 html.light-mode .bg-zinc-800,
 html.light-mode .bg-zinc-800\/60 {
-  background-color: #f1f5f9 !important;
+  background: rgba(241, 245, 249, 0.80) !important;
+  backdrop-filter: blur(10px) saturate(130%) !important;
+  -webkit-backdrop-filter: blur(10px) saturate(130%) !important;
   border-color: #e2e8f0 !important;
 }
 
-html.light-mode .bg-black\/40,
+/* Dark overlay pills and badges → frosted glass in light mode */
+html.light-mode .bg-black\/30,
+html.light-mode .bg-black\/40 {
+  background: rgba(15, 23, 42, 0.07) !important;
+  backdrop-filter: blur(8px) !important;
+  -webkit-backdrop-filter: blur(8px) !important;
+}
+
 html.light-mode .bg-black\/50,
 html.light-mode .bg-black\/60,
 html.light-mode .bg-black\/70 {
-  background-color: #ffffff !important;
-  border-color: #e2e8f0 !important;
+  background: rgba(15, 23, 42, 0.10) !important;
+  backdrop-filter: blur(8px) !important;
+  -webkit-backdrop-filter: blur(8px) !important;
 }
 
 /* Translucent borders in light mode */
@@ -492,7 +515,18 @@ html.light-mode .gold-gradient:hover {
   color: #ffffff !important;
 }
 
-html.light-mode .gold-gradient * {
+/* Force white on ALL children inside gold-gradient buttons (beats text-black) */
+html.light-mode .gold-gradient *,
+html.light-mode .gold-gradient .text-black,
+html.light-mode .gold-gradient span,
+html.light-mode .gold-gradient svg {
+  color: #ffffff !important;
+  fill: currentColor !important;
+}
+
+/* Also fix bg-black/20 pill inside gold-gradient button (e.g. slot count badge) */
+html.light-mode .gold-gradient .bg-black\/20 {
+  background: rgba(255,255,255,0.15) !important;
   color: #ffffff !important;
 }
 
@@ -783,6 +817,159 @@ html.light-mode aside .bg-gold\/15 * {
 html.light-mode aside .border-gold\/20 {
   border-color: #e2e8f0 !important;
   background: #f8fafc !important;
+}
+
+/* ==========================================================================
+   ADMIN TODAY — FILTER BAR & STAT CARDS (GLASSMORPHISM + CONTRAST)
+   ========================================================================== */
+
+/* Filter bar — frosted glass with visible text */
+html.light-mode .rounded-2xl.bg-zinc-900\/60,
+html.light-mode [class*="rounded"][class*="bg-zinc-900\/60"] {
+  background: rgba(255, 255, 255, 0.78) !important;
+  backdrop-filter: blur(20px) saturate(170%) !important;
+  -webkit-backdrop-filter: blur(20px) saturate(170%) !important;
+  border: 1px solid rgba(203, 213, 225, 0.7) !important;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.05), inset 0 1px 0 rgba(255,255,255,1) !important;
+}
+
+/* Text inside filter bar — ensure readable */
+html.light-mode .rounded-2xl.bg-zinc-900\/60 .text-zinc-400,
+html.light-mode .rounded-2xl.bg-zinc-900\/60 span {
+  color: #475569 !important;
+}
+html.light-mode .rounded-2xl.bg-zinc-900\/60 .text-gold {
+  color: #09090b !important;
+}
+
+/* Active barber filter button */
+html.light-mode .bg-gold\/20.text-gold.border-gold\/40 {
+  background: rgba(9,9,11,0.08) !important;
+  color: #09090b !important;
+  border-color: rgba(9,9,11,0.25) !important;
+}
+
+/* Inactive filter buttons hover state */
+html.light-mode button.hover\:text-white:hover {
+  color: #09090b !important;
+}
+
+/* Scope indicator badge */
+html.light-mode .bg-black\/30.border-white\/5 {
+  background: rgba(248,250,252,0.9) !important;
+  border-color: #e2e8f0 !important;
+  color: #475569 !important;
+}
+
+/* Count pills inside filter buttons */
+html.light-mode .rounded-full.bg-black\/40 {
+  background: rgba(15,23,42,0.10) !important;
+  color: #09090b !important;
+}
+
+/* Stat cards — glassmorphism elevated surface */
+html.light-mode .glass-card.bg-zinc-900\/40,
+html.light-mode [class*="glass-card"][class*="bg-zinc-900"] {
+  background: rgba(255,255,255,0.80) !important;
+  backdrop-filter: blur(18px) saturate(160%) !important;
+  -webkit-backdrop-filter: blur(18px) saturate(160%) !important;
+  border: 1px solid rgba(226,232,240,0.9) !important;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.06), inset 0 1px 0 rgba(255,255,255,0.95) !important;
+}
+
+/* Online status dot ring on barber avatar */
+html.light-mode .ring-zinc-950 {
+  --tw-ring-color: rgba(241,245,249,0.95) !important;
+}
+
+/* Section header text (Citas de hoy · Mon DD) */
+html.light-mode .text-white.font-display,
+html.light-mode h3.text-white,
+html.light-mode h4.text-white {
+  color: #09090b !important;
+}
+
+/* Clock badge (current time pill) */
+html.light-mode .font-mono.bg-zinc-900\/80 {
+  background: rgba(255,255,255,0.85) !important;
+  backdrop-filter: blur(12px) !important;
+  -webkit-backdrop-filter: blur(12px) !important;
+  border: 1px solid #e2e8f0 !important;
+  color: #475569 !important;
+}
+html.light-mode .font-mono.text-zinc-500 {
+  color: #475569 !important;
+}
+
+/* Appointment card barber badge */
+html.light-mode .bg-zinc-800\/60 {
+  background: rgba(241,245,249,0.85) !important;
+  color: #475569 !important;
+}
+
+/* Appointment cards — next booking highlight */
+html.light-mode .border-gold\/30.bg-gold\/\[0\.03\] {
+  background: rgba(9,9,11,0.03) !important;
+  border-color: rgba(9,9,11,0.15) !important;
+}
+
+/* Time slot badge inside booking cards */
+html.light-mode .bg-gold\/20.text-gold.border-gold\/40 {
+  background: rgba(9,9,11,0.08) !important;
+  color: #09090b !important;
+  border-color: rgba(9,9,11,0.20) !important;
+}
+html.light-mode .bg-gold\/10.text-gold.border-gold\/20 {
+  background: rgba(9,9,11,0.05) !important;
+  color: #09090b !important;
+  border-color: rgba(9,9,11,0.12) !important;
+}
+
+/* ==========================================================================
+   BOOKING MODAL (DateTimeStep) — LIGHT MODE CONTRAST FIXES
+   ========================================================================== */
+
+/* Booksy container (the modal wrapper) */
+html.light-mode .booksy-container,
+html.light-mode [class*="glass-panel"] {
+  background: rgba(255,255,255,0.95) !important;
+  border: 1px solid #e2e8f0 !important;
+}
+
+/* Barber selector embed inside modal */
+html.light-mode .rounded-2xl.border.border-white\/10 {
+  background: rgba(255,255,255,0.88) !important;
+  border-color: #e2e8f0 !important;
+  backdrop-filter: blur(12px) !important;
+  -webkit-backdrop-filter: blur(12px) !important;
+}
+
+/* Day pills row */
+html.light-mode .rounded-2xl.glass-card {
+  background: #ffffff !important;
+  border: 1px solid #e2e8f0 !important;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.05) !important;
+}
+
+/* Selected day pill */
+html.light-mode .rounded-2xl.gold-gradient {
+  background: #09090b !important;
+  color: #ffffff !important;
+}
+
+/* Continuar button — must be solid black */
+html.light-mode button.gold-gradient[disabled],
+html.light-mode button[disabled].gold-gradient {
+  background: rgba(9,9,11,0.3) !important;
+  color: rgba(255,255,255,0.6) !important;
+}
+
+/* Service summary card inside modal */
+html.light-mode .rounded-3xl.glass-card {
+  background: #ffffff !important;
+  border: 1px solid #e2e8f0 !important;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.05) !important;
+  color: #09090b !important;
 }
 
 /* ==========================================================================

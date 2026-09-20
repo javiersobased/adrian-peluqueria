@@ -469,7 +469,7 @@ export function AdminPanel({ userRole, onSignOut, onGoPublic }: AdminPanelProps)
               </div>
               {!isCollapsed && (
                 <>
-                  <span className="flex-1 text-left">Inbox</span>
+                  <span className="flex-1 text-left">Citas de hoy</span>
                   <span
                     className={`rounded-full px-2 py-0.2 text-[0.65rem] font-bold ${
                       tab === 'today'
@@ -636,34 +636,40 @@ export function AdminPanel({ userRole, onSignOut, onGoPublic }: AdminPanelProps)
         {/* =========================================================================
             BOTTOM FOOTER PROFILE ITEM (Con Selector de Barbero Integrado)
             ========================================================================= */}
-        <div className="relative border-t border-white/5 p-2.5 bg-zinc-950/70">
+        <div className="relative border-t border-white/10 p-2.5 sm:p-3 bg-zinc-950/85 shrink-0">
           <button
             onClick={() => setShowProfileMenu((prev) => !prev)}
             title={isCollapsed ? `${profileDisplayName} (${profileFilterSubtitle})` : undefined}
-            className={`group flex w-full items-center gap-3 rounded-2xl p-2 transition-all duration-200 ${
+            className={`group flex w-full items-center gap-3.5 rounded-2xl p-2.5 transition-all duration-200 ${
               showProfileMenu
                 ? 'bg-white/10 ring-1 ring-gold/40 text-white'
                 : tab === 'profile'
                 ? 'bg-gold/15 text-gold border border-gold/30'
-                : 'hover:bg-white/5 text-zinc-300'
+                : 'hover:bg-white/5 text-zinc-200'
             } ${isCollapsed ? 'justify-center p-1.5' : ''}`}
           >
-            {/* User Avatar - Larger size h-10 w-10 */}
+            {/* User Avatar - Larger size h-12 w-12 */}
             <div className="relative shrink-0">
               {currentProfileBarber?.photo_url ? (
                 <img
                   src={currentProfileBarber.photo_url}
                   alt={profileDisplayName}
-                  className="h-10 w-10 rounded-full object-cover ring-2 ring-gold/30 shadow-md"
+                  className={`${
+                    isCollapsed ? 'h-11 w-11' : 'h-12 w-12 sm:h-13 sm:w-13'
+                  } rounded-full object-cover ring-2 ring-gold/40 shadow-lg shadow-black/40`}
                 />
               ) : (
-                <div className="flex h-10 w-10 items-center justify-center rounded-full gold-gradient font-display text-xs font-bold text-black shadow-md">
+                <div
+                  className={`flex ${
+                    isCollapsed ? 'h-11 w-11' : 'h-12 w-12 sm:h-13 sm:w-13'
+                  } items-center justify-center rounded-full gold-gradient font-display text-sm font-black text-black shadow-lg shadow-black/40`}
+                >
                   {currentProfileBarber?.initials || 'AM'}
                 </div>
               )}
               {selectedBarber !== 'all' && (
-                <span className="absolute -bottom-0.5 -right-0.5 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-gold ring-2 ring-zinc-950">
-                  <Scissors className="h-2 w-2 text-black" />
+                <span className="absolute -bottom-0.5 -right-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-gold ring-2 ring-zinc-950 shadow-sm">
+                  <Scissors className="h-2.5 w-2.5 text-black" />
                 </span>
               )}
             </div>
@@ -672,15 +678,15 @@ export function AdminPanel({ userRole, onSignOut, onGoPublic }: AdminPanelProps)
             {!isCollapsed && (
               <>
                 <div className="min-w-0 flex-1 text-left">
-                  <p className="text-sm font-bold text-white truncate leading-tight group-hover:text-gold transition-colors">
+                  <p className="text-[15px] font-bold text-white truncate leading-tight group-hover:text-gold transition-colors tracking-tight">
                     {profileDisplayName}
                   </p>
-                  <p className="text-[11px] text-zinc-400 font-medium truncate leading-tight mt-0.5">
+                  <p className="text-xs text-zinc-400 font-medium truncate leading-tight mt-1">
                     {profileFilterSubtitle}
                   </p>
                 </div>
-                <div className="flex h-7 w-7 items-center justify-center rounded-xl bg-white/5 text-zinc-400 group-hover:text-gold group-hover:bg-gold/10 transition-colors shrink-0">
-                  <ChevronsUpDown className="h-4 w-4" />
+                <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-white/5 text-zinc-400 group-hover:text-gold group-hover:bg-gold/10 transition-colors shrink-0">
+                  <ChevronsUpDown className="h-4.5 w-4.5" />
                 </div>
               </>
             )}
@@ -842,7 +848,7 @@ export function AdminPanel({ userRole, onSignOut, onGoPublic }: AdminPanelProps)
                   }`}
                 >
                   <Inbox className="h-4 w-4" />
-                  <span className="flex-1 text-left">Inbox (Citas de Hoy)</span>
+                  <span className="flex-1 text-left">Citas de hoy</span>
                   <span className="rounded-full bg-white/10 px-2 py-0.2 text-[0.65rem] font-bold">
                     {todayCount}
                   </span>
@@ -925,12 +931,12 @@ export function AdminPanel({ userRole, onSignOut, onGoPublic }: AdminPanelProps)
             <div className="relative border-t border-white/10 p-2.5 pb-[max(0.75rem,env(safe-area-inset-bottom))] bg-zinc-950/95 shrink-0">
               <button
                 onClick={() => setShowMobileProfileMenu((prev) => !prev)}
-                className={`group flex w-full items-center gap-3 rounded-2xl p-2 transition-all duration-200 ${
+                className={`group flex w-full items-center gap-3.5 rounded-2xl p-2.5 transition-all duration-200 ${
                   showMobileProfileMenu
                     ? 'bg-white/10 ring-1 ring-gold/40 text-white'
                     : tab === 'profile'
                     ? 'bg-gold/15 text-gold border border-gold/30'
-                    : 'text-zinc-300 hover:bg-white/5'
+                    : 'text-zinc-200 hover:bg-white/5'
                 }`}
               >
                 <div className="relative shrink-0">
@@ -938,29 +944,29 @@ export function AdminPanel({ userRole, onSignOut, onGoPublic }: AdminPanelProps)
                     <img
                       src={currentProfileBarber.photo_url}
                       alt=""
-                      className="h-10 w-10 rounded-full object-cover ring-2 ring-gold/30 shadow-md"
+                      className="h-12 w-12 sm:h-13 sm:w-13 rounded-full object-cover ring-2 ring-gold/40 shadow-lg shadow-black/40"
                     />
                   ) : (
-                    <div className="flex h-10 w-10 items-center justify-center rounded-full gold-gradient font-display text-xs font-bold text-black shadow-md">
+                    <div className="flex h-12 w-12 sm:h-13 sm:w-13 items-center justify-center rounded-full gold-gradient font-display text-sm font-black text-black shadow-lg shadow-black/40">
                       {currentProfileBarber?.initials || 'AM'}
                     </div>
                   )}
                   {selectedBarber !== 'all' && (
-                    <span className="absolute -bottom-0.5 -right-0.5 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-gold ring-2 ring-zinc-950">
-                      <Scissors className="h-2 w-2 text-black" />
+                    <span className="absolute -bottom-0.5 -right-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-gold ring-2 ring-zinc-950 shadow-sm">
+                      <Scissors className="h-2.5 w-2.5 text-black" />
                     </span>
                   )}
                 </div>
                 <div className="min-w-0 flex-1 text-left">
-                  <p className="text-sm font-bold text-white truncate leading-tight group-hover:text-gold transition-colors">
+                  <p className="text-[15px] font-bold text-white truncate leading-tight group-hover:text-gold transition-colors tracking-tight">
                     {profileDisplayName}
                   </p>
-                  <p className="text-[11px] text-zinc-400 font-medium truncate leading-tight mt-0.5">
+                  <p className="text-xs text-zinc-400 font-medium truncate leading-tight mt-1">
                     {profileFilterSubtitle}
                   </p>
                 </div>
-                <div className="flex h-7 w-7 items-center justify-center rounded-xl bg-white/5 text-zinc-400 group-hover:text-gold group-hover:bg-gold/10 transition-colors shrink-0">
-                  <ChevronsUpDown className="h-4 w-4" />
+                <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-white/5 text-zinc-400 group-hover:text-gold group-hover:bg-gold/10 transition-colors shrink-0">
+                  <ChevronsUpDown className="h-4.5 w-4.5" />
                 </div>
               </button>
 

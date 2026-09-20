@@ -173,7 +173,10 @@ export function AdminPanel({ userRole, onSignOut, onGoPublic }: AdminPanelProps)
       .select('*')
       .order('booking_date', { ascending: true })
       .order('booking_time', { ascending: true });
-    if (selectedBarber !== 'all') query = query.eq('barber', selectedBarber);
+    // If not admin, restrict to their assigned barber
+    if (!isAdmin && userRole.barber_id) {
+      query = query.eq('barber', userRole.barber_id);
+    }
     const { data } = await query;
     const rawList = (data as SavedBooking[]) ?? [];
     const filtered = rawList.filter((b) => {
@@ -182,14 +185,16 @@ export function AdminPanel({ userRole, onSignOut, onGoPublic }: AdminPanelProps)
     });
 
     setBookings(filtered);
-  }, [selectedBarber]);
+  }, [isAdmin, userRole.barber_id]);
 
   const fetchBlocks = useCallback(async () => {
     let query = supabase
       .from('barber_blocks')
       .select('*')
       .order('created_at', { ascending: false });
-    if (selectedBarber !== 'all') query = query.eq('barber', selectedBarber);
+    if (!isAdmin && userRole.barber_id) {
+      query = query.eq('barber', userRole.barber_id);
+    }
     const { data } = await query;
     const rawBlocks = (data as BarberBlock[]) ?? [];
 
@@ -204,7 +209,7 @@ export function AdminPanel({ userRole, onSignOut, onGoPublic }: AdminPanelProps)
     }
 
     setBlocks(rawBlocks.filter((b) => !isBlockExpired(b, curIso, curTime)));
-  }, [selectedBarber]);
+  }, [isAdmin, userRole.barber_id]);
 
   const fetchCustomers = useCallback(async () => {
     const { data } = await supabase
@@ -225,15 +230,15 @@ export function AdminPanel({ userRole, onSignOut, onGoPublic }: AdminPanelProps)
         .from('booking_notifications')
         .select('id', { count: 'exact', head: true })
         .eq('read', false);
-      if (selectedBarber !== 'all') {
-        q = q.eq('barber', selectedBarber);
+      if (!isAdmin && userRole.barber_id) {
+        q = q.eq('barber', userRole.barber_id);
       }
       const { count } = await q;
       setUnreadNotifsCount(count ?? 0);
     } catch {
       // ignore
     }
-  }, [selectedBarber]);
+  }, [isAdmin, userRole.barber_id]);
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -1085,7 +1090,14 @@ export function AdminPanel({ userRole, onSignOut, onGoPublic }: AdminPanelProps)
             <Menu className="h-5 w-5" />
           </button>
           <div className="flex-1 min-w-0">
-            <p className="text-[0.6rem] uppercase tracking-[0.2em] text-gold">{panelTitle}</p>
+            <div className="flex items-center gap-1.5">
+              <p className="text-[0.6rem] uppercase tracking-[0.2em] text-gold">{panelTitle}</p>
+              {selectedBarber !== 'all' && (
+                <span className="inline-flex items-center gap-1 rounded-full bg-gold/15 text-gold border border-gold/30 px-1.5 py-0.2 text-[0.6rem] font-bold">
+                  {barbers.find((b) => b.id === selectedBarber)?.name || 'Barbero'}
+                </span>
+              )}
+            </div>
             <h2 className="font-display text-base font-bold text-white truncate">
               {tab === 'today'
                 ? 'Citas de Hoy'
@@ -1191,6 +1203,8 @@ export function AdminPanel({ userRole, onSignOut, onGoPublic }: AdminPanelProps)
                 onRefresh={refresh}
                 currentBarber={currentProfileBarber}
                 selectedBarber={selectedBarber}
+                onSelectBarber={handleSelectBarber}
+                userRole={userRole}
               />
             )}
 
@@ -1198,6 +1212,7 @@ export function AdminPanel({ userRole, onSignOut, onGoPublic }: AdminPanelProps)
               <AdminNotifications
                 barbers={barbers}
                 selectedBarber={selectedBarber}
+                onSelectBarber={handleSelectBarber}
                 onRefreshBookings={refresh}
                 onNavigateToAgenda={(date) => {
                   handleNav('agenda');

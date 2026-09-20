@@ -115,6 +115,7 @@ export interface UserRole {
   status: StaffStatus | null;
   barber_id: string | null;
   email: string | null;
+  full_name?: string | null;
 }
 
 export interface StoreCategory {

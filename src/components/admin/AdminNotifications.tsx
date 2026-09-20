@@ -13,6 +13,7 @@ import {
   Phone,
   MessageCircle,
   User,
+  Users,
   Scissors,
   ArrowRight,
   Filter,
@@ -27,6 +28,7 @@ import { notify } from '@/lib/notify';
 interface AdminNotificationsProps {
   barbers: Barber[];
   selectedBarber: string;
+  onSelectBarber?: (barberId: string) => void;
   onRefreshBookings?: () => void;
   onNavigateToAgenda?: (date: string) => void;
 }
@@ -83,19 +85,23 @@ export function AdminNotifications({
   const [clearingAll, setClearingAll] = useState(false);
   const [showClearConfirmModal, setShowClearConfirmModal] = useState(false);
 
+  const [selectedBarberFilter, setSelectedBarberFilter] = useState<string>(selectedBarber || 'all');
+
+  // Keep in sync if prop changes
+  useEffect(() => {
+    if (selectedBarber) {
+      setSelectedBarberFilter(selectedBarber);
+    }
+  }, [selectedBarber]);
+
   const fetchNotifications = useCallback(async () => {
     try {
-      let query = supabase
+      const { data, error } = await supabase
         .from('booking_notifications')
         .select('*')
         .order('created_at', { ascending: false })
-        .limit(100);
+        .limit(150);
 
-      if (selectedBarber !== 'all') {
-        query = query.eq('barber', selectedBarber);
-      }
-
-      const { data, error } = await query;
       if (error) throw error;
       setNotifications((data as BookingNotification[]) || []);
     } catch (err) {
@@ -103,7 +109,7 @@ export function AdminNotifications({
     } finally {
       setLoading(false);
     }
-  }, [selectedBarber]);
+  }, []);
 
   useEffect(() => {
     fetchNotifications();
@@ -117,7 +123,7 @@ export function AdminNotifications({
         (payload) => {
           if (payload.eventType === 'INSERT') {
             const newNotif = payload.new as BookingNotification;
-            setNotifications((prev) => [newNotif, ...prev]);
+            setNotifications((prev) => [newNotif, ...prev.filter((n) => n.id !== newNotif.id)]);
             notify.info('Nueva Notificación', newNotif.title + ': ' + newNotif.client_name);
           } else if (payload.eventType === 'UPDATE') {
             const updated = payload.new as BookingNotification;
@@ -129,6 +135,7 @@ export function AdminNotifications({
             if (deletedId) {
               setNotifications((prev) => prev.filter((n) => n.id !== deletedId));
             } else {
+              // Bulk delete or missing replica identity: refetch to ensure 100% sync
               fetchNotifications();
             }
           } else {
@@ -205,21 +212,17 @@ export function AdminNotifications({
     setNotifications([]);
 
     try {
-      let query = supabase.from('booking_notifications').delete();
-      if (selectedBarber !== 'all') {
-        query = query.eq('barber', selectedBarber);
-      } else {
-        query = query.neq('id', '00000000-0000-0000-0000-000000000000');
-      }
+      // Clear all notifications across all barbers from the database unconditionally
+      const { error } = await supabase
+        .from('booking_notifications')
+        .delete()
+        .neq('id', '00000000-0000-0000-0000-000000000000');
 
-      const { error } = await query;
       if (error) throw error;
 
       notify.success(
         'Bandeja vaciada',
-        selectedBarber !== 'all'
-          ? `Se han eliminado las notificaciones del barbero seleccionado.`
-          : 'Todas las notificaciones se han eliminado correctamente.'
+        'Se han eliminado todas las notificaciones del historial del salón en todos los dispositivos.'
       );
     } catch (err: any) {
       console.error('Error clearing all notifications:', err);
@@ -232,6 +235,9 @@ export function AdminNotifications({
 
   const filteredNotifications = useMemo(() => {
     return notifications.filter((n) => {
+      // Barber filter
+      if (selectedBarberFilter !== 'all' && n.barber !== selectedBarberFilter) return false;
+
       // Type filter
       if (filter !== 'all' && n.type !== filter) return false;
 
@@ -250,7 +256,7 @@ export function AdminNotifications({
 
       return true;
     });
-  }, [notifications, filter, search]);
+  }, [notifications, selectedBarberFilter, filter, search]);
 
   const unreadCount = useMemo(() => {
     return notifications.filter((n) => !n.read).length;
@@ -418,6 +424,65 @@ export function AdminNotifications({
           />
         </div>
       </div>
+
+      {/* Barber Filter Row */}
+      {barbers.length > 1 && (
+        <div className="flex flex-wrap items-center gap-1.5 pt-1 pb-1">
+          <span className="text-[0.65rem] font-bold uppercase tracking-wider text-zinc-500 flex items-center gap-1 mr-1">
+            <Filter className="h-3 w-3 text-gold" />
+            Barbero:
+          </span>
+
+          <button
+            onClick={() => {
+              setSelectedBarberFilter('all');
+              onSelectBarber?.('all');
+            }}
+            className={`inline-flex items-center gap-1.5 rounded-xl px-2.5 py-1 text-xs font-semibold transition-all ${
+              selectedBarberFilter === 'all'
+                ? 'bg-gold/20 text-gold border border-gold/40 shadow-sm'
+                : 'bg-white/5 text-zinc-400 border border-white/5 hover:text-white'
+            }`}
+          >
+            <Users className="h-3 w-3" />
+            <span>Todos</span>
+            <span className="rounded-full bg-black/40 px-1.5 py-0.2 text-[0.6rem] font-bold">
+              {notifications.length}
+            </span>
+          </button>
+
+          {barbers.map((b) => {
+            const barberCount = notifications.filter((n) => n.barber === b.id).length;
+            const isSelected = selectedBarberFilter === b.id;
+            return (
+              <button
+                key={b.id}
+                onClick={() => {
+                  setSelectedBarberFilter(b.id);
+                  onSelectBarber?.(b.id);
+                }}
+                className={`inline-flex items-center gap-1.5 rounded-xl px-2.5 py-1 text-xs font-semibold transition-all ${
+                  isSelected
+                    ? 'bg-gold/20 text-gold border border-gold/40 shadow-sm'
+                    : 'bg-white/5 text-zinc-400 border border-white/5 hover:text-white'
+                }`}
+              >
+                {b.photo_url ? (
+                  <img src={b.photo_url} alt="" className="h-3.5 w-3.5 rounded-full object-cover" />
+                ) : (
+                  <Scissors className="h-3 w-3" />
+                )}
+                <span>{b.name}</span>
+                {barberCount > 0 && (
+                  <span className="rounded-full bg-black/40 px-1.5 py-0.2 text-[0.6rem] font-bold">
+                    {barberCount}
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+      )}
 
       {/* Notifications list */}
       <div className="flex-1 overflow-y-auto space-y-2.5 pr-1 min-h-[350px]">
@@ -634,12 +699,9 @@ export function AdminNotifications({
             </div>
 
             <p className="text-sm text-zinc-300 leading-relaxed">
-              Se eliminarán de forma permanente las{' '}
+              Se eliminarán de forma permanente todas las{' '}
               <strong className="text-white font-semibold">{notifications.length}</strong>{' '}
-              notificaciones actuales del registro
-              {selectedBarber !== 'all' ? (
-                <> para el barbero <strong className="text-gold font-semibold">{getBarberName(selectedBarber)}</strong></>
-              ) : ''}.
+              notificaciones del historial del salón en la base de datos para todos los barberos y dispositivos.
             </p>
 
             <div className="flex items-center justify-end gap-2.5 pt-2 border-t border-white/5">

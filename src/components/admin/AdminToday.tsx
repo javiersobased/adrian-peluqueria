@@ -1,7 +1,24 @@
-import { CalendarDays, CalendarClock, Clock, Scissors, Phone, X, ChevronDown, ChevronUp, History, CheckCircle2, Trash2, PhoneCall, User, XCircle } from 'lucide-react';
+import {
+  CalendarDays,
+  CalendarClock,
+  Clock,
+  Scissors,
+  Phone,
+  X,
+  ChevronDown,
+  ChevronUp,
+  History,
+  CheckCircle2,
+  Trash2,
+  PhoneCall,
+  User,
+  Users,
+  Filter,
+  XCircle,
+} from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { fetchAllBarbers } from '@/data/services';
-import type { SavedBooking, Barber } from '@/types';
+import type { SavedBooking, Barber, UserRole } from '@/types';
 import { MONTH_SHORT, WEEKDAY_SHORT, toISO } from '@/lib/schedule';
 import { useEffect, useState, useMemo } from 'react';
 import { notify } from '@/lib/notify';
@@ -19,6 +36,8 @@ interface AdminTodayProps {
   onRefresh: () => void;
   currentBarber?: Barber | null;
   selectedBarber?: string;
+  onSelectBarber?: (barberId: string) => void;
+  userRole?: UserRole | null;
 }
 
 export function AdminToday({
@@ -27,6 +46,8 @@ export function AdminToday({
   onRefresh,
   currentBarber,
   selectedBarber = 'all',
+  onSelectBarber,
+  userRole,
 }: AdminTodayProps) {
   const [barbers, setBarbers] = useState<Barber[]>([]);
   const [showPastBookings, setShowPastBookings] = useState(false);
@@ -99,6 +120,21 @@ export function AdminToday({
     selectedBarber === 'all'
       ? 'Salón Activo · Todo el salón'
       : `Vista: ${activeBarberProfile?.name || 'Barbero'}`;
+
+  // Today's total bookings across all barbers in the salon
+  const totalSalonTodayCount = useMemo(() => {
+    return bookings.filter(
+      (b) => b.booking_date === todayISO && b.status !== 'cancelled'
+    ).length;
+  }, [bookings, todayISO]);
+
+  const welcomeName = useMemo(() => {
+    if (userRole?.full_name) return userRole.full_name;
+    if (selectedBarber !== 'all' && activeBarberProfile?.name) {
+      return activeBarberProfile.name.split(' ')[0];
+    }
+    return activeBarberFirstName;
+  }, [userRole, selectedBarber, activeBarberProfile, activeBarberFirstName]);
 
   // All active bookings for today
   const allTodayBookings = bookings
@@ -183,6 +219,73 @@ export function AdminToday({
 
   return (
     <div className="mx-auto max-w-6xl w-full min-w-0 space-y-3 sm:space-y-4">
+      {/* Barber Scope Selector Bar */}
+      {barbers.length > 0 && (
+        <div className="flex flex-wrap items-center justify-between gap-2 p-2 rounded-2xl bg-zinc-900/60 border border-white/5 shadow-sm">
+          <div className="flex flex-wrap items-center gap-1.5">
+            <span className="text-[0.68rem] font-bold uppercase tracking-wider text-zinc-400 px-1.5 flex items-center gap-1.5">
+              <Filter className="h-3 w-3 text-gold" />
+              Filtrar citas:
+            </span>
+
+            <button
+              type="button"
+              onClick={() => onSelectBarber?.('all')}
+              className={`inline-flex items-center gap-1.5 rounded-xl px-2.5 py-1.5 text-xs font-semibold transition-all ${
+                selectedBarber === 'all'
+                  ? 'bg-gold/20 text-gold border border-gold/40 shadow-sm'
+                  : 'text-zinc-400 hover:text-white hover:bg-white/5 border border-transparent'
+              }`}
+            >
+              <Users className="h-3.5 w-3.5" />
+              <span>Todo el salón</span>
+              <span className="rounded-full bg-black/40 px-1.5 py-0.2 text-[0.65rem] font-bold">
+                {totalSalonTodayCount}
+              </span>
+            </button>
+
+            {barbers.map((b) => {
+              const count = bookings.filter(
+                (x) => x.booking_date === todayISO && x.status !== 'cancelled' && x.barber === b.id
+              ).length;
+              const isSelected = selectedBarber === b.id;
+              return (
+                <button
+                  key={b.id}
+                  type="button"
+                  onClick={() => onSelectBarber?.(b.id)}
+                  className={`inline-flex items-center gap-1.5 rounded-xl px-2.5 py-1.5 text-xs font-semibold transition-all ${
+                    isSelected
+                      ? 'bg-gold/20 text-gold border border-gold/40 shadow-sm'
+                      : 'text-zinc-400 hover:text-white hover:bg-white/5 border border-transparent'
+                  }`}
+                >
+                  {b.photo_url ? (
+                    <img src={b.photo_url} alt="" className="h-3.5 w-3.5 rounded-full object-cover" />
+                  ) : (
+                    <Scissors className="h-3 w-3" />
+                  )}
+                  <span>{b.name}</span>
+                  <span className="rounded-full bg-black/40 px-1.5 py-0.2 text-[0.65rem] font-bold">
+                    {count}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Active scope indicator badge */}
+          <div className="hidden md:flex items-center gap-1.5 text-[0.7rem] text-zinc-400 font-medium px-2.5 py-1 rounded-xl bg-black/30 border border-white/5">
+            <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
+            <span>
+              {selectedBarber === 'all'
+                ? 'Viendo citas de todo el salón'
+                : `Viendo solo citas de ${barbers.find((b) => b.id === selectedBarber)?.name || selectedBarber}`}
+            </span>
+          </div>
+        </div>
+      )}
+
       {/* Stats cards: Profile on Left, Citas hoy in Middle, Próxima cita on Right */}
       <div className="grid grid-cols-2 gap-2.5 sm:gap-3 md:grid-cols-3">
         {/* Card 1 (Left): Vista del perfil de barbero activo con bienvenida */}
@@ -209,7 +312,7 @@ export function AdminToday({
               Sesión activa
             </p>
             <h4 className="font-display text-base sm:text-lg font-bold text-white tracking-tight truncate leading-tight mt-0.5">
-              ¡Bienvenido, {activeBarberFirstName}!
+              ¡Bienvenido, {welcomeName}!
             </h4>
             <p className="text-[0.68rem] text-zinc-400 font-medium truncate mt-0.5">
               {activeBarberSubtitle}
@@ -234,12 +337,20 @@ export function AdminToday({
       </div>
 
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5">
+        <div className="flex flex-wrap items-center gap-2">
           <CalendarDays className="h-4 w-4 sm:h-5 sm:w-5 text-gold" />
-          <h3 className="font-display text-lg sm:text-xl font-bold text-white">Citas de hoy · {dateLabel}</h3>
+          <h3 className="font-display text-lg sm:text-xl font-bold text-white">
+            Citas de hoy · {dateLabel}
+          </h3>
+          <span className="text-xs text-zinc-400 font-medium">
+            ({allTodayBookings.length} {allTodayBookings.length === 1 ? 'cita' : 'citas'}
+            {selectedBarber !== 'all'
+              ? ` · ${barbers.find((b) => b.id === selectedBarber)?.name || ''}`
+              : ' en el salón'})
+          </span>
         </div>
-        <span className="text-xs font-mono text-zinc-500 bg-zinc-900/80 px-2.5 py-1 rounded-full border border-white/5">
+        <span className="text-xs font-mono text-zinc-500 bg-zinc-900/80 px-2.5 py-1 rounded-full border border-white/5 self-start sm:self-auto">
           {currentTimeStr} h
         </span>
       </div>

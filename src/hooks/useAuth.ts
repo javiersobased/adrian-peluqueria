@@ -23,7 +23,14 @@ export function useAuth() {
     ];
 
     if (MASTER_ADMINS.includes(cleanEmail)) {
-      setRole({ role: 'admin', status: 'verified', barber_id: 'adrian', email: cleanEmail });
+      const isLoren = cleanEmail === 'franciscojavierfarinapadilla@gmail.com';
+      setRole({
+        role: 'admin',
+        status: 'verified',
+        barber_id: 'adrian',
+        email: cleanEmail,
+        full_name: isLoren ? 'Loren' : 'Adrián',
+      });
       return;
     }
 
@@ -31,7 +38,7 @@ export function useAuth() {
     try {
       const { data: staffMember } = await supabase
         .from('staff')
-        .select('role, status, barber_id, email')
+        .select('role, status, barber_id, email, full_name')
         .ilike('email', cleanEmail)
         .maybeSingle();
 
@@ -41,6 +48,7 @@ export function useAuth() {
           status: 'verified',
           barber_id: staffMember.role === 'admin' ? (staffMember.barber_id || 'adrian') : staffMember.barber_id,
           email: cleanEmail,
+          full_name: staffMember.full_name,
         });
         return;
       }

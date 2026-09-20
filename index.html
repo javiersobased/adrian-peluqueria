@@ -12,30 +12,19 @@
         }
       } catch (e) {}
     </script>
-    <!-- Automatic recovery for stale deployments or chunk loading failures -->
+    <!-- Single-shot automatic recovery for stale deployments across releases -->
     <script>
       (function() {
-        var key = 'amm_chunk_reload_ts';
+        var key = 'amm_chunk_recovered_v1';
         window.addEventListener('vite:preloadError', function(e) {
           e.preventDefault();
-          var last = sessionStorage.getItem(key);
-          var now = Date.now();
-          if (!last || (now - parseInt(last, 10)) > 10000) {
-            sessionStorage.setItem(key, String(now));
-            window.location.reload();
-          }
-        });
-        window.addEventListener('error', function(e) {
-          var target = e.target;
-          if (target && (target.tagName === 'SCRIPT' || target.tagName === 'LINK')) {
-            var last = sessionStorage.getItem(key);
-            var now = Date.now();
-            if (!last || (now - parseInt(last, 10)) > 10000) {
-              sessionStorage.setItem(key, String(now));
+          try {
+            if (!sessionStorage.getItem(key)) {
+              sessionStorage.setItem(key, '1');
               window.location.reload();
             }
-          }
-        }, true);
+          } catch (err) {}
+        });
       })();
     </script>
     <meta http-equiv="content-language" content="es" />

@@ -18,11 +18,13 @@ import { supabase } from '@/lib/supabase';
 import { ScreenLoader } from '@/components/ui/LoadingSpinner';
 import { hasAcceptedTerms, acceptUserTerms } from '@/lib/terms';
 import { initOneSignal, syncOneSignalUser } from '@/lib/onesignal';
+import { lazyWithRetry } from '@/lib/lazyWithRetry';
+import { AdminErrorBoundary } from '@/components/AdminErrorBoundary';
 
-const AdminPanel = lazy(() => import('@/components/AdminPanel').then(m => ({ default: m.AdminPanel })));
-const Catalog = lazy(() => import('@/components/Catalog').then(m => ({ default: m.Catalog })));
-const Gallery = lazy(() => import('@/components/Gallery').then(m => ({ default: m.Gallery })));
-const MyBookings = lazy(() => import('@/components/MyBookings').then(m => ({ default: m.MyBookings })));
+const AdminPanel = lazyWithRetry(() => import('@/components/AdminPanel').then(m => ({ default: m.AdminPanel })), 'AdminPanel');
+const Catalog = lazyWithRetry(() => import('@/components/Catalog').then(m => ({ default: m.Catalog })), 'Catalog');
+const Gallery = lazyWithRetry(() => import('@/components/Gallery').then(m => ({ default: m.Gallery })), 'Gallery');
+const MyBookings = lazyWithRetry(() => import('@/components/MyBookings').then(m => ({ default: m.MyBookings })), 'MyBookings');
 
 type View = 'public' | 'admin' | 'my-bookings' | 'catalog' | 'gallery';
 
@@ -293,13 +295,15 @@ function App() {
   // Admin panel is full-screen, no width constraint
   if (view === 'admin' && isVerifiedStaff) {
     return (
-      <Suspense fallback={<ScreenLoader message="Cargando panel de gestión..." />}>
-        <AdminPanel
-          userRole={auth.role!}
-          onSignOut={async () => { await auth.signOut(); setView('public'); }}
-          onGoPublic={goPublic}
-        />
-      </Suspense>
+      <AdminErrorBoundary onGoPublic={goPublic}>
+        <Suspense fallback={<ScreenLoader message="Cargando panel de gestión..." />}>
+          <AdminPanel
+            userRole={auth.role!}
+            onSignOut={async () => { await auth.signOut(); setView('public'); }}
+            onGoPublic={goPublic}
+          />
+        </Suspense>
+      </AdminErrorBoundary>
     );
   }
 

@@ -167,16 +167,6 @@ export function AdminPanel({ userRole, onSignOut, onGoPublic }: AdminPanelProps)
   }, [isAdmin, userRole.barber_id]);
 
   const fetchBookings = useCallback(async () => {
-    if (isAdmin) {
-      try {
-        for (const email of TEST_EMAILS) {
-          await supabase.from('bookings').delete().ilike('email', email);
-        }
-      } catch (err) {
-        console.warn('Error purgando citas de prueba:', err);
-      }
-    }
-
     let query = supabase
       .from('bookings')
       .select('*')
@@ -191,7 +181,7 @@ export function AdminPanel({ userRole, onSignOut, onGoPublic }: AdminPanelProps)
     });
 
     setBookings(filtered);
-  }, [selectedBarber, isAdmin]);
+  }, [selectedBarber]);
 
   const fetchBlocks = useCallback(async () => {
     let query = supabase
@@ -216,15 +206,6 @@ export function AdminPanel({ userRole, onSignOut, onGoPublic }: AdminPanelProps)
   }, [selectedBarber]);
 
   const fetchCustomers = useCallback(async () => {
-    if (isAdmin) {
-      try {
-        for (const email of TEST_EMAILS) {
-          await supabase.from('customers').delete().ilike('email', email);
-        }
-      } catch (err) {
-        console.warn('Error purgando clientes de prueba:', err);
-      }
-    }
     const { data } = await supabase
       .from('customers')
       .select('*')
@@ -235,7 +216,7 @@ export function AdminPanel({ userRole, onSignOut, onGoPublic }: AdminPanelProps)
         (c) => !c.email || !TEST_EMAILS.includes(c.email.toLowerCase().trim())
       )
     );
-  }, [isAdmin]);
+  }, []);
 
   const fetchUnreadNotifs = useCallback(async () => {
     try {

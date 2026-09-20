@@ -8,11 +8,11 @@
       }
       try {
         var savedTheme = localStorage.getItem('adrian_theme');
-        if (savedTheme !== 'dark') {
+        if (savedTheme === 'light') {
           document.documentElement.classList.add('light-mode');
         }
       } catch (e) {
-        document.documentElement.classList.add('light-mode');
+        // default dark — no class needed
       }
     </script>
     <!-- Anti-cache meta headers for HTML document -->

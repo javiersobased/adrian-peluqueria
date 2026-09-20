@@ -117,7 +117,7 @@ export function AdminPanel({ userRole, onSignOut, onGoPublic }: AdminPanelProps)
   });
 
   const [showProfileMenu, setShowProfileMenu] = useState(false);
-  const [showBarberSelector, setShowBarberSelector] = useState(false);
+  const [showMobileProfileMenu, setShowMobileProfileMenu] = useState(false);
 
   const isAdmin = userRole.role === 'admin' && userRole.status === 'verified';
 
@@ -149,6 +149,7 @@ export function AdminPanel({ userRole, onSignOut, onGoPublic }: AdminPanelProps)
   const closeSidebar = useCallback(() => {
     setSidebarOpen(false);
     setShowProfileMenu(false);
+    setShowMobileProfileMenu(false);
   }, []);
 
   const reloadBarbers = useCallback(async () => {
@@ -347,7 +348,8 @@ export function AdminPanel({ userRole, onSignOut, onGoPublic }: AdminPanelProps)
     try {
       sessionStorage.setItem('admin_selected_barber', id);
     } catch {}
-    setShowBarberSelector(false);
+    setShowProfileMenu(false);
+    setShowMobileProfileMenu(false);
   }, []);
 
   const panelTitle = isAdmin ? 'Panel de Administración' : 'Panel de Barbero';
@@ -367,6 +369,11 @@ export function AdminPanel({ userRole, onSignOut, onGoPublic }: AdminPanelProps)
 
   const profileDisplayName = currentProfileBarber?.name || (isAdmin ? 'Adrián Millán' : 'Mi Perfil');
   const profileRoleSubtitle = isAdmin ? 'Administrador' : currentProfileBarber?.role || 'Barbero';
+  const profileFilterSubtitle = isAdmin
+    ? selectedBarber === 'all'
+      ? 'Administrador · Todo el salón'
+      : `Vista: ${activeBarber?.name || 'Barbero'}`
+    : 'Barbero en servicio';
 
   return (
     <div
@@ -574,51 +581,6 @@ export function AdminPanel({ userRole, onSignOut, onGoPublic }: AdminPanelProps)
 
           {/* Secondary Utilities List */}
           <div className="pt-2 border-t border-white/5 space-y-0.5">
-            {/* Filter by Barber */}
-            <div className="relative">
-              <button
-                onClick={() => setShowBarberSelector((prev) => !prev)}
-                title={isCollapsed ? `Filtro: ${activeBarber?.name || 'Todos'}` : undefined}
-                className={`flex w-full items-center gap-3 rounded-xl px-2.5 py-1.5 text-xs text-zinc-400 hover:bg-white/5 hover:text-zinc-200 transition-colors ${
-                  isCollapsed ? 'justify-center px-0' : ''
-                }`}
-              >
-                <SlidersHorizontal className="h-4 w-4 shrink-0" />
-                {!isCollapsed && (
-                  <span className="flex-1 text-left truncate">
-                    {selectedBarber === 'all' ? 'Todos los barberos' : activeBarber?.name || 'Barbero'}
-                  </span>
-                )}
-              </button>
-
-              {/* Barber selector popup */}
-              {showBarberSelector && !isCollapsed && (
-                <div className="mt-1 mb-2 rounded-xl border border-white/10 bg-zinc-900/95 p-1.5 shadow-xl backdrop-blur-xl">
-                  <button
-                    onClick={() => handleSelectBarber('all')}
-                    className={`w-full text-left px-2 py-1 text-xs rounded-lg flex items-center justify-between ${
-                      selectedBarber === 'all' ? 'bg-gold/15 text-gold font-bold' : 'text-zinc-300 hover:bg-white/5'
-                    }`}
-                  >
-                    <span>Todos los barberos</span>
-                    {selectedBarber === 'all' && <Check className="h-3 w-3" />}
-                  </button>
-                  {barbers.map((b) => (
-                    <button
-                      key={b.id}
-                      onClick={() => handleSelectBarber(b.id)}
-                      className={`w-full text-left px-2 py-1 text-xs rounded-lg flex items-center justify-between ${
-                        selectedBarber === b.id ? 'bg-gold/15 text-gold font-bold' : 'text-zinc-300 hover:bg-white/5'
-                      }`}
-                    >
-                      <span>{b.name}</span>
-                      {selectedBarber === b.id && <Check className="h-3 w-3" />}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-
             {/* Dark mode / Light mode toggle */}
             <button
               onClick={toggleTheme}
@@ -667,75 +629,160 @@ export function AdminPanel({ userRole, onSignOut, onGoPublic }: AdminPanelProps)
         </div>
 
         {/* =========================================================================
-            BOTTOM FOOTER PROFILE ITEM (Mi Perfil de Barbero - Incluido para Adrián)
+            BOTTOM FOOTER PROFILE ITEM (Con Selector de Barbero Integrado)
             ========================================================================= */}
-        <div className="relative border-t border-white/5 p-2 bg-zinc-950/40">
+        <div className="relative border-t border-white/5 p-2.5 bg-zinc-950/70">
           <button
-            onClick={() => handleNav('profile')}
-            title={isCollapsed ? `${profileDisplayName} (${profileRoleSubtitle})` : undefined}
-            className={`flex w-full items-center gap-2.5 rounded-xl p-2 transition-all duration-200 ${
-              tab === 'profile'
+            onClick={() => setShowProfileMenu((prev) => !prev)}
+            title={isCollapsed ? `${profileDisplayName} (${profileFilterSubtitle})` : undefined}
+            className={`group flex w-full items-center gap-3 rounded-2xl p-2 transition-all duration-200 ${
+              showProfileMenu
+                ? 'bg-white/10 ring-1 ring-gold/40 text-white'
+                : tab === 'profile'
                 ? 'bg-gold/15 text-gold border border-gold/30'
                 : 'hover:bg-white/5 text-zinc-300'
-            } ${isCollapsed ? 'justify-center p-1' : ''}`}
+            } ${isCollapsed ? 'justify-center p-1.5' : ''}`}
           >
-            {/* User Avatar */}
-            {currentProfileBarber?.photo_url ? (
-              <img
-                src={currentProfileBarber.photo_url}
-                alt={profileDisplayName}
-                className="h-8 w-8 rounded-full object-cover ring-1 ring-gold/30 shrink-0"
-              />
-            ) : (
-              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full gold-gradient font-display text-[0.65rem] font-bold text-black shadow-sm">
-                {currentProfileBarber?.initials || 'AM'}
-              </div>
-            )}
+            {/* User Avatar - Larger size h-10 w-10 */}
+            <div className="relative shrink-0">
+              {currentProfileBarber?.photo_url ? (
+                <img
+                  src={currentProfileBarber.photo_url}
+                  alt={profileDisplayName}
+                  className="h-10 w-10 rounded-full object-cover ring-2 ring-gold/30 shadow-md"
+                />
+              ) : (
+                <div className="flex h-10 w-10 items-center justify-center rounded-full gold-gradient font-display text-xs font-bold text-black shadow-md">
+                  {currentProfileBarber?.initials || 'AM'}
+                </div>
+              )}
+              {selectedBarber !== 'all' && (
+                <span className="absolute -bottom-0.5 -right-0.5 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-gold ring-2 ring-zinc-950">
+                  <Scissors className="h-2 w-2 text-black" />
+                </span>
+              )}
+            </div>
 
-            {/* Name + Role Subtitle */}
+            {/* Name + Role / Active Filter Subtitle */}
             {!isCollapsed && (
               <>
                 <div className="min-w-0 flex-1 text-left">
-                  <p className="text-xs font-bold text-white truncate">{profileDisplayName}</p>
-                  <p className="text-[10px] text-zinc-400 truncate">{profileRoleSubtitle}</p>
+                  <p className="text-sm font-bold text-white truncate leading-tight group-hover:text-gold transition-colors">
+                    {profileDisplayName}
+                  </p>
+                  <p className="text-[11px] text-zinc-400 font-medium truncate leading-tight mt-0.5">
+                    {profileFilterSubtitle}
+                  </p>
                 </div>
-                <div
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setShowProfileMenu((prev) => !prev);
-                  }}
-                  className="flex h-6 w-6 items-center justify-center rounded-lg hover:bg-white/10 text-zinc-400 transition-colors"
-                >
-                  <ChevronsUpDown className="h-3.5 w-3.5 shrink-0" />
+                <div className="flex h-7 w-7 items-center justify-center rounded-xl bg-white/5 text-zinc-400 group-hover:text-gold group-hover:bg-gold/10 transition-colors shrink-0">
+                  <ChevronsUpDown className="h-4 w-4" />
                 </div>
               </>
             )}
           </button>
 
-          {/* Profile options popover */}
-          {showProfileMenu && !isCollapsed && (
-            <div className="absolute bottom-16 left-2 right-2 rounded-2xl border border-white/10 bg-zinc-900/95 p-1.5 shadow-2xl backdrop-blur-xl animate-scale-in">
-              <button
-                onClick={() => {
-                  setShowProfileMenu(false);
-                  handleNav('profile');
-                }}
-                className="w-full rounded-xl px-3 py-2 text-left text-xs font-semibold text-zinc-200 hover:bg-white/5 hover:text-gold flex items-center gap-2 transition-colors"
+          {/* Profile & Barber Selector Popover */}
+          {showProfileMenu && (
+            <>
+              {/* Click-outside backdrop */}
+              <div
+                className="fixed inset-0 z-40"
+                onClick={() => setShowProfileMenu(false)}
+              />
+
+              <div
+                className={`absolute bottom-full mb-2 z-50 rounded-2xl border border-white/10 bg-zinc-900/98 p-2 shadow-2xl backdrop-blur-2xl animate-scale-in ${
+                  isCollapsed ? 'left-16 w-64' : 'left-2.5 right-2.5'
+                }`}
               >
-                <Scissors className="h-3.5 w-3.5" />
-                <span>Mi Perfil de Barbero</span>
-              </button>
-              <button
-                onClick={() => {
-                  setShowProfileMenu(false);
-                  onSignOut();
-                }}
-                className="w-full rounded-xl px-3 py-2 text-left text-xs font-semibold text-red-400 hover:bg-red-500/10 flex items-center gap-2 transition-colors border-t border-white/5 mt-1 pt-1"
-              >
-                <LogOut className="h-3.5 w-3.5" />
-                <span>Cerrar sesión</span>
-              </button>
-            </div>
+                {/* Section: Barber Selector */}
+                {isAdmin && (
+                  <div className="mb-2">
+                    <p className="px-2.5 py-1 text-[0.65rem] font-bold uppercase tracking-wider text-zinc-400">
+                      Filtrar por Barbero
+                    </p>
+                    <div className="space-y-0.5">
+                      <button
+                        onClick={() => handleSelectBarber('all')}
+                        className={`w-full rounded-xl px-2.5 py-2 text-xs font-semibold flex items-center justify-between transition-colors ${
+                          selectedBarber === 'all'
+                            ? 'bg-gold/15 text-gold border border-gold/30'
+                            : 'text-zinc-300 hover:bg-white/5 hover:text-white'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2.5">
+                          <Users className="h-4 w-4 text-zinc-400 shrink-0" />
+                          <span>Todos los barberos</span>
+                        </div>
+                        {selectedBarber === 'all' && <Check className="h-3.5 w-3.5 text-gold shrink-0" />}
+                      </button>
+
+                      {barbers.map((b) => {
+                        const isSelected = selectedBarber === b.id;
+                        return (
+                          <button
+                            key={b.id}
+                            onClick={() => handleSelectBarber(b.id)}
+                            className={`w-full rounded-xl px-2.5 py-2 text-xs font-semibold flex items-center justify-between transition-colors ${
+                              isSelected
+                                ? 'bg-gold/15 text-gold border border-gold/30'
+                                : 'text-zinc-300 hover:bg-white/5 hover:text-white'
+                            }`}
+                          >
+                            <div className="flex items-center gap-2.5 min-w-0">
+                              {b.photo_url ? (
+                                <img
+                                  src={b.photo_url}
+                                  alt=""
+                                  className="h-5 w-5 rounded-full object-cover ring-1 ring-gold/30 shrink-0"
+                                />
+                              ) : (
+                                <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full gold-gradient text-[0.55rem] font-bold text-black">
+                                  {b.initials}
+                                </div>
+                              )}
+                              <span className="truncate">{b.name}</span>
+                            </div>
+                            {isSelected && <Check className="h-3.5 w-3.5 text-gold shrink-0" />}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {isAdmin && <div className="my-1.5 border-t border-white/5" />}
+
+                {/* Section: Profile & Sign Out */}
+                <div className="space-y-0.5">
+                  <button
+                    onClick={() => {
+                      setShowProfileMenu(false);
+                      handleNav('profile');
+                    }}
+                    className={`w-full rounded-xl px-2.5 py-2 text-xs font-semibold flex items-center gap-2.5 transition-colors ${
+                      tab === 'profile'
+                        ? 'bg-gold/15 text-gold border border-gold/30'
+                        : 'text-zinc-300 hover:bg-white/5 hover:text-gold'
+                    }`}
+                  >
+                    <Scissors className="h-4 w-4 shrink-0 text-gold" />
+                    <span>Mi Perfil de Barbero</span>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      setShowProfileMenu(false);
+                      onSignOut();
+                    }}
+                    className="w-full rounded-xl px-2.5 py-2 text-xs font-semibold text-red-400 hover:bg-red-500/10 flex items-center gap-2.5 transition-colors"
+                  >
+                    <LogOut className="h-4 w-4 shrink-0" />
+                    <span>Cerrar sesión</span>
+                  </button>
+                </div>
+              </div>
+            </>
           )}
         </div>
       </aside>
@@ -838,37 +885,130 @@ export function AdminPanel({ userRole, onSignOut, onGoPublic }: AdminPanelProps)
             </div>
 
             {/* Mobile Footer Profile */}
-            <div className="border-t border-white/5 p-3 bg-zinc-950/50">
+            <div className="border-t border-white/5 p-3 bg-zinc-950/70">
               <button
-                onClick={() => handleNav('profile')}
-                className={`flex w-full items-center gap-3 rounded-xl p-2 ${
-                  tab === 'profile' ? 'bg-gold/15 text-gold' : 'text-zinc-300 hover:bg-white/5'
+                onClick={() => setShowMobileProfileMenu((prev) => !prev)}
+                className={`flex w-full items-center gap-3 rounded-2xl p-2.5 transition-all ${
+                  showMobileProfileMenu
+                    ? 'bg-white/10 ring-1 ring-gold/40 text-white'
+                    : tab === 'profile'
+                    ? 'bg-gold/15 text-gold border border-gold/30'
+                    : 'text-zinc-300 hover:bg-white/5'
                 }`}
               >
-                {currentProfileBarber?.photo_url ? (
-                  <img
-                    src={currentProfileBarber.photo_url}
-                    alt=""
-                    className="h-8 w-8 rounded-full object-cover"
-                  />
-                ) : (
-                  <div className="flex h-8 w-8 items-center justify-center rounded-full gold-gradient font-display text-[0.65rem] font-bold text-black">
-                    {currentProfileBarber?.initials || 'AM'}
-                  </div>
-                )}
-                <div className="min-w-0 flex-1 text-left">
-                  <p className="text-xs font-bold text-white truncate">{profileDisplayName}</p>
-                  <p className="text-[10px] text-zinc-400">Mi Perfil de Barbero</p>
+                <div className="relative shrink-0">
+                  {currentProfileBarber?.photo_url ? (
+                    <img
+                      src={currentProfileBarber.photo_url}
+                      alt=""
+                      className="h-10 w-10 rounded-full object-cover ring-2 ring-gold/30 shadow-md"
+                    />
+                  ) : (
+                    <div className="flex h-10 w-10 items-center justify-center rounded-full gold-gradient font-display text-xs font-bold text-black shadow-md">
+                      {currentProfileBarber?.initials || 'AM'}
+                    </div>
+                  )}
+                  {selectedBarber !== 'all' && (
+                    <span className="absolute -bottom-0.5 -right-0.5 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-gold ring-2 ring-zinc-950">
+                      <Scissors className="h-2 w-2 text-black" />
+                    </span>
+                  )}
                 </div>
-                <ChevronsUpDown className="h-3.5 w-3.5 text-zinc-400" />
+                <div className="min-w-0 flex-1 text-left">
+                  <p className="text-sm font-bold text-white truncate leading-tight">{profileDisplayName}</p>
+                  <p className="text-[11px] text-zinc-400 font-medium truncate leading-tight mt-0.5">
+                    {profileFilterSubtitle}
+                  </p>
+                </div>
+                <div className="flex h-7 w-7 items-center justify-center rounded-xl bg-white/5 text-zinc-400 shrink-0">
+                  <ChevronsUpDown className="h-4 w-4" />
+                </div>
               </button>
-              <button
-                onClick={onSignOut}
-                className="mt-2 flex w-full items-center gap-2 rounded-xl px-3 py-2 text-xs text-red-400 hover:bg-red-500/10"
-              >
-                <LogOut className="h-3.5 w-3.5" />
-                <span>Cerrar sesión</span>
-              </button>
+
+              {/* Mobile Profile & Barber Selector menu */}
+              {showMobileProfileMenu && (
+                <div className="mt-2 rounded-2xl border border-white/10 bg-zinc-900/98 p-2 shadow-2xl animate-scale-in">
+                  {isAdmin && (
+                    <div className="mb-2">
+                      <p className="px-2.5 py-1 text-[0.65rem] font-bold uppercase tracking-wider text-zinc-400">
+                        Filtrar por Barbero
+                      </p>
+                      <div className="space-y-0.5">
+                        <button
+                          onClick={() => {
+                            handleSelectBarber('all');
+                            setShowMobileProfileMenu(false);
+                            closeSidebar();
+                          }}
+                          className={`w-full rounded-xl px-2.5 py-2 text-xs font-semibold flex items-center justify-between ${
+                            selectedBarber === 'all'
+                              ? 'bg-gold/15 text-gold border border-gold/30'
+                              : 'text-zinc-300 hover:bg-white/5'
+                          }`}
+                        >
+                          <div className="flex items-center gap-2.5">
+                            <Users className="h-4 w-4 text-zinc-400" />
+                            <span>Todos los barberos</span>
+                          </div>
+                          {selectedBarber === 'all' && <Check className="h-3.5 w-3.5 text-gold" />}
+                        </button>
+                        {barbers.map((b) => (
+                          <button
+                            key={b.id}
+                            onClick={() => {
+                              handleSelectBarber(b.id);
+                              setShowMobileProfileMenu(false);
+                              closeSidebar();
+                            }}
+                            className={`w-full rounded-xl px-2.5 py-2 text-xs font-semibold flex items-center justify-between ${
+                              selectedBarber === b.id
+                                ? 'bg-gold/15 text-gold border border-gold/30'
+                                : 'text-zinc-300 hover:bg-white/5'
+                            }`}
+                          >
+                            <div className="flex items-center gap-2.5 min-w-0">
+                              {b.photo_url ? (
+                                <img src={b.photo_url} alt="" className="h-5 w-5 rounded-full object-cover ring-1 ring-gold/30" />
+                              ) : (
+                                <div className="flex h-5 w-5 items-center justify-center rounded-full gold-gradient text-[0.55rem] font-bold text-black">
+                                  {b.initials}
+                                </div>
+                              )}
+                              <span className="truncate">{b.name}</span>
+                            </div>
+                            {selectedBarber === b.id && <Check className="h-3.5 w-3.5 text-gold" />}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {isAdmin && <div className="my-1.5 border-t border-white/5" />}
+                  <button
+                    onClick={() => {
+                      setShowMobileProfileMenu(false);
+                      handleNav('profile');
+                    }}
+                    className={`w-full rounded-xl px-2.5 py-2 text-left text-xs font-semibold flex items-center gap-2.5 ${
+                      tab === 'profile'
+                        ? 'bg-gold/15 text-gold border border-gold/30'
+                        : 'text-zinc-200 hover:bg-white/5 hover:text-gold'
+                    }`}
+                  >
+                    <Scissors className="h-4 w-4 text-gold" />
+                    <span>Mi Perfil de Barbero</span>
+                  </button>
+                  <button
+                    onClick={() => {
+                      setShowMobileProfileMenu(false);
+                      onSignOut();
+                    }}
+                    className="w-full rounded-xl px-2.5 py-2 text-left text-xs font-semibold text-red-400 hover:bg-red-500/10 flex items-center gap-2.5 mt-1"
+                  >
+                    <LogOut className="h-4 w-4" />
+                    <span>Cerrar sesión</span>
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         </div>

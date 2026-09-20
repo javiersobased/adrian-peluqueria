@@ -5,9 +5,10 @@ export function ThemeToggle() {
   const [theme, setTheme] = useState<'dark' | 'light'>(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('adrian_theme');
-      if (saved === 'light' || saved === 'dark') return saved;
+      if (saved === 'dark') return 'dark';
+      return 'light';
     }
-    return 'dark';
+    return 'light';
   });
 
   useEffect(() => {

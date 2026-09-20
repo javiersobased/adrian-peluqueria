@@ -384,15 +384,26 @@ html.light-mode .backdrop-overlay {
 html.light-mode .hero-gradient-overlay {
   background: linear-gradient(
     to bottom,
-    rgba(255, 255, 255, 0.88) 0%,
-    rgba(248, 250, 252, 0.92) 50%,
-    rgba(248, 250, 252, 1) 100%
+    rgba(240, 245, 255, 0.30) 0%,
+    rgba(240, 245, 255, 0.45) 55%,
+    rgba(248, 250, 252, 0.78) 100%
   ) !important;
 }
 
 html.light-mode .bg-ink {
   background-color: #f8fafc !important;
 }
+
+/* Hero text legibility in light mode — keep white text readable over photo */
+html.light-mode header h2,
+html.light-mode header .font-display {
+  text-shadow: 0 2px 12px rgba(0,0,0,0.55), 0 1px 4px rgba(0,0,0,0.45) !important;
+}
+html.light-mode header p,
+html.light-mode header span {
+  text-shadow: 0 1px 6px rgba(0,0,0,0.50) !important;
+}
+
 
 /* Glass Surfaces in Light Mode */
 html.light-mode .glass-panel {
@@ -774,5 +785,41 @@ html.light-mode aside .border-gold\/20 {
   background: #f8fafc !important;
 }
 
+/* ==========================================================================
+   BARBER ICON DUAL-STYLE SYSTEM
+   Dark mode  → filled/solid icons (bold, high-contrast)
+   Light mode → outline/stroke icons (clean, Lucide-style thin lines)
+   ========================================================================== */
 
+/* ── Dark mode: show filled layer, hide outline layer ── */
+.barber-icon-svg .icon-filled {
+  display: inherit;
+  fill: currentColor;
+  stroke: currentColor;
+  stroke-width: 0;
+}
+.barber-icon-svg .icon-outline {
+  display: none;
+}
+
+/* ── Light mode: hide filled layer, show outline layer ── */
+html.light-mode .barber-icon-svg .icon-filled {
+  display: none;
+}
+html.light-mode .barber-icon-svg .icon-outline {
+  display: inherit;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8px;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* Preserve fill="none" overrides on individual paths inside filled group */
+.barber-icon-svg .icon-filled path[fill="none"],
+.barber-icon-svg .icon-filled line[fill="none"] {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: inherit;
+}
 

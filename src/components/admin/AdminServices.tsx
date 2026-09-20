@@ -97,7 +97,7 @@ export function AdminServices() {
             >
               {/* Luxury Vector Icon Badge */}
               <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-gold/20 via-gold/5 to-black/40 border border-gold/25 text-gold shadow-md shadow-gold/5">
-                <BarberServiceIcon name={s.icon} className="h-6 w-6 text-gold" />
+                <BarberServiceIcon name={s.icon} serviceName={s.name} className="h-6 w-6 text-gold" />
               </div>
 
               <div className="flex-1 min-w-0">

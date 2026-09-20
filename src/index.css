@@ -339,122 +339,146 @@
 }
 
 /* ==========================================================================
-   LIGHT MODE REIMAGINING (White Canvas, Dark Wood, Espresso & Black Accents)
+   MODERN HIGH-CONTRAST LIGHT MODE (Pure White, Crisp Slate, Deep Black Accents)
+   Completely free of brown/wood or misplaced gold - Accessible & High Contrast
    ========================================================================== */
 html.light-mode {
-  --ink: #faf8f5;
+  --ink: #f8fafc;
   --ink-soft: #ffffff;
-  --ink-muted: #f3efe6;
-  --gold: #3e2415;
-  --gold-light: #52311d;
-  --gold-dark: #27160c;
-  --marble: #1c1917;
+  --ink-muted: #f1f5f9;
+  --gold: #09090b; /* Crisp black accent replacing gold in light mode */
+  --gold-light: #27272a;
+  --gold-dark: #000000;
+  --marble: #09090b;
   color-scheme: light;
 }
 
 html.light-mode body {
-  background-color: #faf8f5;
-  color: #1c1917;
+  background-color: #f8fafc;
+  color: #09090b;
 }
 
 /* Theme Toggle Button in Light Mode */
 html.light-mode .theme-toggle-btn {
-  background-color: rgba(255, 255, 255, 0.94);
-  border-color: rgba(62, 36, 21, 0.18);
-  box-shadow: 0 4px 16px rgba(43, 24, 16, 0.12);
-  color: #1c1917;
+  background-color: #ffffff;
+  border-color: #cbd5e1;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+  color: #09090b;
 }
 html.light-mode .theme-toggle-btn:hover {
-  border-color: rgba(62, 36, 21, 0.45);
-  background-color: #ffffff;
+  border-color: #09090b;
+  background-color: #f8fafc;
 }
 html.light-mode .theme-toggle-tooltip {
-  background-color: rgba(255, 255, 255, 0.98);
-  color: #1c1917;
-  border: 1px solid rgba(62, 36, 21, 0.18);
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.08);
+  background-color: #09090b;
+  color: #ffffff;
+  border: 1px solid #27272a;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.12);
 }
 
 /* Background Overlays */
 html.light-mode .backdrop-overlay {
-  background-color: rgba(250, 248, 245, 0.93) !important;
+  background-color: rgba(248, 250, 252, 0.95) !important;
 }
 
 html.light-mode .hero-gradient-overlay {
   background: linear-gradient(
     to bottom,
-    rgba(255, 255, 255, 0.85) 0%,
-    rgba(250, 248, 245, 0.88) 50%,
-    rgba(250, 248, 245, 0.98) 100%
+    rgba(255, 255, 255, 0.88) 0%,
+    rgba(248, 250, 252, 0.92) 50%,
+    rgba(248, 250, 252, 1) 100%
   ) !important;
 }
 
 html.light-mode .bg-ink {
-  background-color: #faf8f5 !important;
+  background-color: #f8fafc !important;
 }
 
 /* Glass Surfaces in Light Mode */
 html.light-mode .glass-panel {
-  background: rgba(255, 255, 255, 0.94) !important;
+  background: rgba(255, 255, 255, 0.96) !important;
   backdrop-filter: blur(20px) saturate(150%) !important;
   -webkit-backdrop-filter: blur(20px) saturate(150%) !important;
-  border: 1px solid rgba(62, 36, 21, 0.1) !important;
-  box-shadow: 0 8px 30px rgba(43, 24, 16, 0.06) !important;
+  border: 1px solid #e2e8f0 !important;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.05) !important;
 }
 
 html.light-mode .glass-card {
-  background: rgba(255, 255, 255, 0.9) !important;
-  backdrop-filter: blur(16px) saturate(140%) !important;
-  -webkit-backdrop-filter: blur(16px) saturate(140%) !important;
-  border: 1px solid rgba(62, 36, 21, 0.1) !important;
-  box-shadow: 0 4px 20px rgba(43, 24, 16, 0.04) !important;
+  background: #ffffff !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  border: 1px solid #e2e8f0 !important;
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.04), 0 1px 2px -1px rgba(0, 0, 0, 0.04) !important;
+}
+
+html.light-mode .glass-card:hover {
+  border-color: #cbd5e1 !important;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.06) !important;
 }
 
 html.light-mode .glass-light {
-  background: rgba(62, 36, 21, 0.03) !important;
-  border: 1px solid rgba(62, 36, 21, 0.08) !important;
+  background: #f1f5f9 !important;
+  border: 1px solid #e2e8f0 !important;
 }
 
 /* Dark Cards & Backgrounds to Crisp Light Surfaces */
 html.light-mode .bg-zinc-900,
 html.light-mode .bg-zinc-900\/70,
 html.light-mode .bg-zinc-900\/80,
-html.light-mode .bg-zinc-900\/90 {
-  background-color: rgba(255, 255, 255, 0.94) !important;
-  border-color: rgba(62, 36, 21, 0.12) !important;
+html.light-mode .bg-zinc-900\/90,
+html.light-mode .bg-zinc-900\/95 {
+  background-color: #ffffff !important;
+  border-color: #e2e8f0 !important;
 }
 
 html.light-mode .bg-zinc-950,
-html.light-mode .bg-zinc-950\/40 {
-  background-color: rgba(245, 242, 235, 0.9) !important;
-  border-color: rgba(62, 36, 21, 0.08) !important;
+html.light-mode .bg-zinc-950\/40,
+html.light-mode .bg-zinc-950\/80,
+html.light-mode .bg-zinc-950\/85,
+html.light-mode .bg-zinc-950\/90,
+html.light-mode .bg-zinc-950\/95,
+html.light-mode .bg-zinc-950\/98 {
+  background-color: #f8fafc !important;
+  border-color: #e2e8f0 !important;
 }
 
-html.light-mode .bg-zinc-850\/80 {
-  background-color: rgba(255, 255, 255, 0.96) !important;
+html.light-mode .bg-zinc-850\/80,
+html.light-mode .bg-zinc-800,
+html.light-mode .bg-zinc-800\/60 {
+  background-color: #f1f5f9 !important;
+  border-color: #e2e8f0 !important;
 }
 
 html.light-mode .bg-black\/40,
 html.light-mode .bg-black\/50,
-html.light-mode .bg-black\/60 {
-  background-color: rgba(242, 238, 230, 0.85) !important;
+html.light-mode .bg-black\/60,
+html.light-mode .bg-black\/70 {
+  background-color: #ffffff !important;
+  border-color: #e2e8f0 !important;
 }
 
 /* Translucent borders in light mode */
 html.light-mode .border-white\/5,
 html.light-mode .border-white\/10,
 html.light-mode .border-white\/15,
-html.light-mode .border-white\/20 {
-  border-color: rgba(62, 36, 21, 0.1) !important;
+html.light-mode .border-white\/20,
+html.light-mode .border-white\/30 {
+  border-color: #e2e8f0 !important;
 }
 
 /* ==========================================================================
-   REPLACING GOLD WITH DARK WOOD, ESPRESSO, AND BLACK
+   PRIMARY ACTION BUTTONS & ACCENTS (Deep Luxury Black with Crisp White Text)
    ========================================================================== */
 html.light-mode .gold-gradient {
-  background: linear-gradient(135deg, #2b1810 0%, #3e2415 50%, #1c1917 100%) !important;
+  background: #09090b !important;
   color: #ffffff !important;
-  box-shadow: 0 4px 16px rgba(43, 24, 16, 0.25) !important;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.14) !important;
+  border: 1px solid #09090b !important;
+}
+
+html.light-mode .gold-gradient:hover {
+  background: #18181b !important;
+  color: #ffffff !important;
 }
 
 html.light-mode .gold-gradient * {
@@ -463,103 +487,130 @@ html.light-mode .gold-gradient * {
 
 html.light-mode .gold-text,
 html.light-mode .gold-gradient-text {
-  background: linear-gradient(135deg, #3e2415 0%, #2b1810 100%) !important;
-  -webkit-background-clip: text !important;
-  background-clip: text !important;
-  -webkit-text-fill-color: transparent !important;
+  background: none !important;
+  -webkit-background-clip: unset !important;
+  background-clip: unset !important;
+  -webkit-text-fill-color: #09090b !important;
+  color: #09090b !important;
 }
 
 html.light-mode .gold-glow {
-  box-shadow: 0 4px 20px rgba(43, 24, 16, 0.2), 0 0 35px rgba(43, 24, 16, 0.1) !important;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08) !important;
 }
 
 html.light-mode .text-gold {
-  color: #3e2415 !important;
+  color: #09090b !important;
 }
 
-html.light-mode .border-gold,
-html.light-mode .border-gold\/20,
-html.light-mode .border-gold\/30,
+html.light-mode .border-gold {
+  border-color: #09090b !important;
+}
+
 html.light-mode .border-gold\/40,
 html.light-mode .border-gold\/50 {
-  border-color: rgba(62, 36, 21, 0.28) !important;
+  border-color: #cbd5e1 !important;
 }
 
-html.light-mode .bg-gold\/5 {
-  background-color: rgba(62, 36, 21, 0.05) !important;
+html.light-mode .border-gold\/15,
+html.light-mode .border-gold\/20,
+html.light-mode .border-gold\/25,
+html.light-mode .border-gold\/30 {
+  border-color: #e2e8f0 !important;
 }
-html.light-mode .bg-gold\/10 {
-  background-color: rgba(62, 36, 21, 0.09) !important;
+
+html.light-mode .bg-gold\/5,
+html.light-mode .bg-gold\/10,
+html.light-mode .bg-gold\/15,
+html.light-mode .bg-gold\/20,
+html.light-mode .bg-gold\/25 {
+  background-color: #f1f5f9 !important;
+  color: #09090b !important;
 }
-html.light-mode .bg-gold\/15 {
-  background-color: rgba(62, 36, 21, 0.14) !important;
+
+/* Service icon badges and gradient containers in light mode */
+html.light-mode .bg-gradient-to-br:not(.gold-gradient) {
+  background-image: none !important;
+  background-color: #f1f5f9 !important;
+  border-color: #e2e8f0 !important;
+  color: #09090b !important;
 }
-html.light-mode .bg-gold\/20 {
-  background-color: rgba(62, 36, 21, 0.18) !important;
+
+html.light-mode .bg-gradient-to-r:not(.gold-gradient) {
+  background-image: none !important;
+  background-color: #f8fafc !important;
+  border-color: #e2e8f0 !important;
+}
+
+html.light-mode .ring-gold,
+html.light-mode .ring-gold\/30,
+html.light-mode .ring-gold\/40,
+html.light-mode .ring-gold\/60 {
+  --tw-ring-color: #09090b !important;
 }
 
 /* ==========================================================================
-   TYPOGRAPHY CONTRAST IN LIGHT MODE
+   MAXIMUM TYPOGRAPHY CONTRAST IN LIGHT MODE (WCAG AAA)
    ========================================================================== */
-html.light-mode .text-white:not(.gold-gradient *):not(.badge-white *):not(.dock-item-highlight-text):not(#cortes .drop-shadow) {
-  color: #1c1917 !important;
+html.light-mode .text-white:not(.gold-gradient *):not(.bg-red-500 *):not(.bg-emerald-500 *):not(.bg-blue-600 *):not(.bg-black *):not(.badge-white *):not(.dock-item-highlight-text):not(#cortes .drop-shadow) {
+  color: #09090b !important;
 }
 
+html.light-mode .text-zinc-100,
 html.light-mode .text-zinc-200 {
-  color: #292524 !important;
+  color: #18181b !important;
 }
 
 html.light-mode .text-zinc-300 {
-  color: #3f3b37 !important;
+  color: #27272a !important;
 }
 
 html.light-mode .text-zinc-400 {
-  color: #57534e !important;
+  color: #475569 !important;
 }
 
 html.light-mode .text-zinc-500 {
-  color: #78716c !important;
+  color: #64748b !important;
 }
 
 html.light-mode .text-zinc-600 {
-  color: #a8a29e !important;
+  color: #94a3b8 !important;
 }
 
 /* Accent decorative lines */
 html.light-mode .bg-gold\/60 {
-  background-color: rgba(62, 36, 21, 0.5) !important;
+  background-color: #09090b !important;
 }
 
 /* ==========================================================================
-   DOCK IN LIGHT MODE
+   DOCK NAVIGATION IN LIGHT MODE
    ========================================================================== */
 html.light-mode .dock-panel {
-  background-color: rgba(255, 255, 255, 0.92) !important;
-  border: 1px solid rgba(62, 36, 21, 0.14) !important;
-  box-shadow: 0 10px 36px rgba(43, 24, 16, 0.1) !important;
+  background-color: rgba(255, 255, 255, 0.95) !important;
+  border: 1px solid #e2e8f0 !important;
+  box-shadow: 0 10px 36px rgba(0, 0, 0, 0.08) !important;
 }
 
 html.light-mode .dock-item {
-  background-color: rgba(255, 255, 255, 0.95) !important;
-  border: 1px solid rgba(62, 36, 21, 0.1) !important;
-  color: #292524 !important;
+  background-color: #ffffff !important;
+  border: 1px solid #e2e8f0 !important;
+  color: #09090b !important;
 }
 
 html.light-mode .dock-item:hover {
-  border-color: rgba(62, 36, 21, 0.35) !important;
-  background-color: rgba(62, 36, 21, 0.08) !important;
+  border-color: #09090b !important;
+  background-color: #f1f5f9 !important;
 }
 
 html.light-mode .dock-label {
-  background-color: rgba(255, 255, 255, 0.98) !important;
-  border: 1px solid rgba(62, 36, 21, 0.18) !important;
-  color: #2b1810 !important;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08) !important;
+  background-color: #09090b !important;
+  border: 1px solid #27272a !important;
+  color: #ffffff !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12) !important;
 }
 
 html.light-mode .dock-item-highlight {
-  background: linear-gradient(135deg, #2b1810 0%, #3e2415 50%, #1c1917 100%) !important;
-  box-shadow: 0 4px 14px rgba(43, 24, 16, 0.35) !important;
+  background: #09090b !important;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.18) !important;
 }
 
 html.light-mode .dock-item-highlight-text {
@@ -570,67 +621,68 @@ html.light-mode .dock-item-highlight-text {
    BOOKSY COMPONENT IN LIGHT MODE
    ========================================================================== */
 html.light-mode .booksy-container {
-  background-color: rgba(255, 255, 255, 0.92) !important;
-  border-color: rgba(62, 36, 21, 0.12) !important;
-  box-shadow: 0 10px 40px rgba(43, 24, 16, 0.05) !important;
+  background-color: #ffffff !important;
+  border-color: #e2e8f0 !important;
+  box-shadow: 0 10px 36px rgba(0, 0, 0, 0.04) !important;
 }
 
 html.light-mode .booksy-header-border {
-  border-color: rgba(62, 36, 21, 0.1) !important;
+  border-color: #e2e8f0 !important;
 }
 
 html.light-mode .booksy-tag {
-  color: #4a2e1b !important;
+  color: #09090b !important;
 }
 
 html.light-mode .booksy-count-pill {
-  background-color: rgba(62, 36, 21, 0.08) !important;
-  color: #3e2415 !important;
+  background-color: #f1f5f9 !important;
+  color: #09090b !important;
 }
 
 html.light-mode .booksy-title {
-  color: #1c1917 !important;
+  color: #09090b !important;
 }
 
 html.light-mode .booksy-search-input {
-  background-color: #faf8f5 !important;
-  border-color: rgba(62, 36, 21, 0.16) !important;
-  color: #1c1917 !important;
+  background-color: #ffffff !important;
+  border-color: #cbd5e1 !important;
+  color: #09090b !important;
 }
 
 html.light-mode .booksy-search-input:focus {
-  border-color: #3e2415 !important;
-  box-shadow: 0 0 0 1px rgba(62, 36, 21, 0.3) !important;
+  border-color: #09090b !important;
+  box-shadow: 0 0 0 1px #09090b !important;
 }
 
 html.light-mode .booksy-divide > * + * {
-  border-color: rgba(62, 36, 21, 0.08) !important;
+  border-color: #f1f5f9 !important;
 }
 
 html.light-mode .booksy-row:hover {
-  background-color: rgba(62, 36, 21, 0.03) !important;
+  background-color: #f8fafc !important;
 }
 
 html.light-mode .booksy-item-name {
-  color: #1c1917 !important;
+  color: #09090b !important;
 }
 
 html.light-mode .booksy-row:hover .booksy-item-name {
-  color: #3e2415 !important;
+  color: #09090b !important;
 }
 
 html.light-mode .booksy-item-sub {
-  color: #57534e !important;
+  color: #475569 !important;
 }
 
 html.light-mode .booksy-item-price {
-  color: #1c1917 !important;
+  color: #09090b !important;
 }
 
 html.light-mode .booksy-btn-reservar {
-  background: linear-gradient(135deg, #2b1810 0%, #3e2415 50%, #1c1917 100%) !important;
+  background: #09090b !important;
   color: #ffffff !important;
-  box-shadow: 0 4px 14px rgba(43, 24, 16, 0.25) !important;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.12) !important;
+  border: 1px solid #09090b !important;
 }
 
 html.light-mode .booksy-btn-reservar * {
@@ -641,36 +693,86 @@ html.light-mode .booksy-btn-reservar * {
    FAQ SECTION IN LIGHT MODE
    ========================================================================== */
 html.light-mode #faq .glass-card {
-  background-color: rgba(255, 255, 255, 0.9) !important;
+  background-color: #ffffff !important;
 }
 
 html.light-mode #faq button[aria-expanded="true"] {
-  background-color: rgba(62, 36, 21, 0.03) !important;
+  background-color: #f8fafc !important;
 }
 
 html.light-mode #faq button[aria-expanded="true"] .rotate-180 {
-  background-color: rgba(62, 36, 21, 0.12) !important;
-  border-color: rgba(62, 36, 21, 0.25) !important;
-  color: #3e2415 !important;
+  background-color: #f1f5f9 !important;
+  border-color: #cbd5e1 !important;
+  color: #09090b !important;
 }
 
 /* ==========================================================================
    BOOKING STEPS & MODALS IN LIGHT MODE
    ========================================================================== */
 html.light-mode input:not([type="checkbox"]):not([type="radio"]),
-html.light-mode textarea {
-  color: #1c1917 !important;
+html.light-mode textarea,
+html.light-mode select {
+  background-color: #ffffff !important;
+  color: #09090b !important;
+  border-color: #cbd5e1 !important;
+}
+
+html.light-mode input:focus,
+html.light-mode textarea:focus,
+html.light-mode select:focus {
+  border-color: #09090b !important;
+  box-shadow: 0 0 0 1px #09090b !important;
 }
 
 html.light-mode input::placeholder,
 html.light-mode textarea::placeholder {
-  color: #78716c !important;
+  color: #94a3b8 !important;
 }
 
 html.light-mode .admin-embed {
-  background: rgba(255, 255, 255, 0.94) !important;
-  border: 1px solid rgba(62, 36, 21, 0.14) !important;
-  box-shadow: 0 8px 32px rgba(43, 24, 16, 0.08) !important;
+  background: #ffffff !important;
+  border: 1px solid #e2e8f0 !important;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.06) !important;
 }
+
+/* ==========================================================================
+   ADMIN PANEL EN MODO CLARO (Máxima nitidez y accesibilidad)
+   ========================================================================== */
+html.light-mode aside {
+  background-color: #ffffff !important;
+  border-color: #e2e8f0 !important;
+}
+
+html.light-mode header {
+  background-color: rgba(255, 255, 255, 0.95) !important;
+  border-color: #e2e8f0 !important;
+}
+
+html.light-mode main {
+  background-color: #f8fafc !important;
+}
+
+/* Sidebar Navigation Items in Light Mode */
+html.light-mode aside button:hover:not(.gold-gradient) {
+  background-color: #f1f5f9 !important;
+  color: #09090b !important;
+}
+
+html.light-mode aside .bg-gold\/15 {
+  background-color: #09090b !important;
+  color: #ffffff !important;
+  border-color: #09090b !important;
+}
+
+html.light-mode aside .bg-gold\/15 * {
+  color: #ffffff !important;
+}
+
+/* Callout embed in sidebar */
+html.light-mode aside .border-gold\/20 {
+  border-color: #e2e8f0 !important;
+  background: #f8fafc !important;
+}
+
 
 

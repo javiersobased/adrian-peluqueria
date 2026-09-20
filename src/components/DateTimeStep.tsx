@@ -630,7 +630,7 @@ export function DateTimeStep({ barber, service, onBack, onContinue }: DateTimeSt
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex items-center gap-3 min-w-0">
                     <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-gold/20 via-gold/5 to-black/40 border border-gold/20 text-gold shadow-sm">
-                      <BarberServiceIcon name={currentServiceObj?.icon} className="h-5 w-5 text-gold" />
+                      <BarberServiceIcon name={currentServiceObj?.icon} serviceName={currentServiceObj?.name} className="h-5 w-5 text-gold" />
                     </div>
                     <div className="min-w-0">
                       <p className="font-display text-sm sm:text-base font-bold text-white truncate">

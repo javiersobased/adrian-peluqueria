@@ -147,15 +147,16 @@ export async function getBarberAvailableSlots(
     };
   }
 
-  // Si no hay horario y es domingo, por defecto cerrado
-  if (!daySchedule && targetWeekday === 0) {
+  // e) Sin horario registrado para este día de la semana → no disponible
+  //    (no asumir horario genérico; cada barbero debe tener su horario configurado)
+  if (!daySchedule) {
     return {
       availableSlots: [],
       morningSlots: [],
       afternoonSlots: [],
       occupiedTimes: new Set(),
       isDayUnavailable: true,
-      unavailableReason: 'El salón permanece cerrado los domingos.',
+      unavailableReason: 'El barbero no tiene horario registrado para este día de la semana.',
     };
   }
 

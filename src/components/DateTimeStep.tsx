@@ -22,6 +22,7 @@ import {
 } from '@/lib/schedule';
 
 import { BarberServiceIcon } from '@/components/icons/BarberServiceIcons';
+import { CalendarPickerModal, CalendarOpenButton } from '@/components/ui/CalendarPickerModal';
 
 interface DateTimeStepProps {
   barber: Barber;
@@ -42,6 +43,7 @@ export function DateTimeStep({ barber, service, onBack, onContinue }: DateTimeSt
   const [selected, setSelected] = useState<Date | null>(null);
   const [selectedTime, setSelectedTime] = useState<string>('');
   const [period, setPeriod] = useState<'morning' | 'afternoon'>('morning');
+  const [showCalendar, setShowCalendar] = useState(false);
   const [schedules, setSchedules] = useState<BarberSchedule[]>([]);
   const [blocks, setBlocks] = useState<BarberBlock[]>([]);
   const [vacations, setVacations] = useState<BarberVacation[]>([]);
@@ -507,6 +509,25 @@ export function DateTimeStep({ barber, service, onBack, onContinue }: DateTimeSt
                   <ChevronRightIcon className="h-4 w-4" />
                 </button>
               </div>
+
+              {/* "Ver más fechas" opens full calendar modal */}
+              <div className="flex justify-end mb-1">
+                <CalendarOpenButton onClick={() => setShowCalendar(true)} />
+              </div>
+
+              {/* Full calendar modal */}
+              {showCalendar && (
+                <CalendarPickerModal
+                  selected={selected ? toISO(selected) : null}
+                  minDate={toISO(today)}
+                  availabilityMap={dayAvailabilityMap}
+                  onSelect={(iso) => {
+                    const d = new Date(iso + 'T12:00:00');
+                    handleSelectDay(d);
+                  }}
+                  onClose={() => setShowCalendar(false)}
+                />
+              )}
 
               {/* Centered Period Dock (Mañana / Tarde) */}
               <div className="flex justify-center my-3 sm:my-3.5">

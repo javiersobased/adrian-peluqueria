@@ -20,6 +20,7 @@ import { toISO, WEEKDAY_SHORT, MONTH_SHORT, getServiceDurationMinutes } from '@/
 import { notify } from '@/lib/notify';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import { getBarberAvailableSlots, type BarberAvailableSlotsResult } from '@/lib/barberAvailability';
+import { CalendarPickerModal, CalendarOpenButton } from '@/components/ui/CalendarPickerModal';
 
 interface AdminManualBookingProps {
   onCreated: () => void;
@@ -41,6 +42,7 @@ export function AdminManualBooking({ onCreated }: AdminManualBookingProps) {
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const [showCalendar, setShowCalendar] = useState(false);
   const [loadingSlots, setLoadingSlots] = useState(false);
   const [slotResult, setSlotResult] = useState<BarberAvailableSlotsResult | null>(null);
 
@@ -253,19 +255,40 @@ export function AdminManualBooking({ onCreated }: AdminManualBookingProps) {
             {/* Selector de fecha */}
             <div>
               <label className="mb-1 block text-xs text-zinc-400 font-medium">Fecha de la cita</label>
-              <div className="flex items-center gap-2 rounded-xl glass-card px-3 py-2.5 border border-white/5">
-                <Calendar className="h-4 w-4 text-gold shrink-0" />
-                <input
-                  type="date"
-                  min={todayISO}
-                  value={date}
-                  onChange={(e) => setDate(e.target.value)}
-                  className="w-full bg-transparent text-sm text-white focus:outline-none [color-scheme:dark]"
+              <div className="flex items-center gap-2">
+                {/* Visual date display — clicking opens the calendar picker */}
+                <button
+                  type="button"
+                  onClick={() => setShowCalendar(true)}
+                  className="flex flex-1 items-center gap-2 rounded-xl glass-card px-3 py-2.5 border border-white/5 hover:border-gold/30 transition-all text-left cursor-pointer"
+                >
+                  <Calendar className="h-4 w-4 text-gold shrink-0" />
+                  <span className="flex-1 text-sm text-white font-medium">
+                    {date}
+                  </span>
+                  <span className="text-xs text-zinc-400 font-medium shrink-0">
+                    {formatDateLabel(date)}
+                  </span>
+                </button>
+                <CalendarOpenButton
+                  label="Abrir"
+                  onClick={() => setShowCalendar(true)}
+                  className="shrink-0"
                 />
-                <span className="text-xs text-zinc-400 font-medium shrink-0">
-                  {formatDateLabel(date)}
-                </span>
               </div>
+
+              {/* Calendar modal */}
+              {showCalendar && (
+                <CalendarPickerModal
+                  selected={date}
+                  minDate={todayISO}
+                  onSelect={(iso) => {
+                    setDate(iso);
+                    setTime('');
+                  }}
+                  onClose={() => setShowCalendar(false)}
+                />
+              )}
             </div>
 
             {/* Aviso si el día no está disponible por vacaciones o bloqueo */}

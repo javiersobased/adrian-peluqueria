@@ -22,7 +22,6 @@ import {
 } from '@/lib/schedule';
 
 import { BarberServiceIcon } from '@/components/icons/BarberServiceIcons';
-import { CalendarPickerModal, CalendarOpenButton } from '@/components/ui/CalendarPickerModal';
 
 interface DateTimeStepProps {
   barber: Barber;
@@ -43,7 +42,10 @@ export function DateTimeStep({ barber, service, onBack, onContinue }: DateTimeSt
   const [selected, setSelected] = useState<Date | null>(null);
   const [selectedTime, setSelectedTime] = useState<string>('');
   const [period, setPeriod] = useState<'morning' | 'afternoon'>('morning');
-  const [showCalendar, setShowCalendar] = useState(false);
+  // Inline calendar expansion
+  const [expanded, setExpanded] = useState(false);
+  const [calYear, setCalYear] = useState(() => new Date().getFullYear());
+  const [calMonth, setCalMonth] = useState(() => new Date().getMonth());
   const [schedules, setSchedules] = useState<BarberSchedule[]>([]);
   const [blocks, setBlocks] = useState<BarberBlock[]>([]);
   const [vacations, setVacations] = useState<BarberVacation[]>([]);
@@ -259,6 +261,130 @@ export function DateTimeStep({ barber, service, onBack, onContinue }: DateTimeSt
     return map;
   }, [dayPills, schedules, blocks, vacations, allBookingsByDate, currentServiceDuration, today]);
 
+  // Helper: compute availability status for any date using cached data
+  const getDayAvailStatus = useCallback((d: Date): 'green' | 'yellow' | 'red' | 'none' | 'loading' => {
+    const iso = toISO(d);
+    // First check the pre-computed map for pill dates
+    if (iso in dayAvailabilityMap) return dayAvailabilityMap[iso];
+
+    const targetWeekday = d.getDay();
+    const daySchedule = schedules.find(
+      (s) => s.weekday === targetWeekday || Number(s.day_of_week) === targetWeekday || Number(s.weekday) === targetWeekday
+    );
+    const available = isDayAvailable(d, today, daySchedule, blocks, vacations);
+    if (!available) return 'none';
+    if (!(iso in allBookingsByDate)) return 'loading';
+
+    const daySlots = generateSlotsForDay(daySchedule);
+    const mEnd = daySchedule?.morning_end ?? '13:30';
+    const aEnd = daySchedule?.afternoon_end ?? '20:30';
+    const daySlotBlocks = getSlotBlocksForDate(d, blocks);
+    const dayTimeRangeBlocks = getTimeRangeBlocksForDate(d, blocks);
+    const dayIntervals = allBookingsByDate[iso] || [];
+    const now = new Date();
+
+    const mAvail = daySlots.morning.filter((s) =>
+      isSlotAvailable(s, dayIntervals, daySlotBlocks, dayTimeRangeBlocks, d, now, currentServiceDuration, mEnd)
+    );
+    const aAvail = daySlots.afternoon.filter((s) =>
+      isSlotAvailable(s, dayIntervals, daySlotBlocks, dayTimeRangeBlocks, d, now, currentServiceDuration, aEnd)
+    );
+    const total = daySlots.morning.length + daySlots.afternoon.length;
+    const avail = mAvail.length + aAvail.length;
+    if (avail === 0) return 'none';
+    if (avail <= 3 || avail / total < 0.25) return 'red';
+    if (avail / total < 0.6) return 'yellow';
+    return 'green';
+  }, [dayAvailabilityMap, schedules, blocks, vacations, allBookingsByDate, currentServiceDuration, today]);
+
+  // When calendar is expanded or the displayed month changes, load availability for visible dates
+  useEffect(() => {
+    if (!expanded || loading) return;
+    const firstDay = new Date(calYear, calMonth, 1);
+    const lastDay = new Date(calYear, calMonth + 1, 0);
+    const todayIso = toISO(today);
+    const datesToLoad: string[] = [];
+    for (let day = 1; day <= lastDay.getDate(); day++) {
+      const d = new Date(calYear, calMonth, day);
+      const iso = toISO(d);
+      if (iso < todayIso) continue;
+      const targetWeekday = d.getDay();
+      const daySchedule = schedules.find(
+        (s) => s.weekday === targetWeekday || Number(s.day_of_week) === targetWeekday || Number(s.weekday) === targetWeekday
+      );
+      if (!isDayAvailable(d, today, daySchedule, blocks, vacations)) continue;
+      if (iso in allBookingsByDate) continue;
+      datesToLoad.push(iso);
+    }
+    if (datesToLoad.length === 0) return;
+
+    let active = true;
+    (async () => {
+      try {
+        const results = await Promise.all(
+          datesToLoad.map(async (iso) => {
+            try {
+              const { data, error } = await supabase.rpc('get_booked_intervals', { p_barber: barber.id, p_date: iso });
+              if (!error && Array.isArray(data)) {
+                const intervals = data.map((item: any) => {
+                  const sName = (item.service || '').trim().toLowerCase();
+                  const sFound = allServices.find((s) => s.name.trim().toLowerCase() === sName || s.id === item.service);
+                  const dur = item.duration_minutes && item.duration_minutes > 0
+                    ? item.duration_minutes
+                    : (sFound ? getServiceDurationMinutes(sFound) : 30);
+                  return { start: item.booking_time, duration: dur };
+                });
+                return { iso, intervals };
+              }
+            } catch { /* ignore */ }
+            return { iso, intervals: [] };
+          })
+        );
+        if (!active) return;
+        const map: Record<string, { start: string; duration: number }[]> = {};
+        results.forEach(({ iso, intervals }) => { map[iso] = intervals; });
+        setAllBookingsByDate((prev) => ({ ...prev, ...map }));
+      } catch { /* ignore */ }
+    })();
+    return () => { active = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [expanded, calYear, calMonth, loading]);
+
+  // Sync calYear/calMonth with selected date when expanding
+  useEffect(() => {
+    if (expanded) {
+      const ref = selected ?? today;
+      setCalYear(ref.getFullYear());
+      setCalMonth(ref.getMonth());
+    }
+  }, [expanded]); // intentionally only when expanded changes
+
+  // Calendar grid cells for the expanded view
+  const calendarCells = useMemo<(Date | null)[]>(() => {
+    const firstDay = new Date(calYear, calMonth, 1);
+    const startPad = (firstDay.getDay() + 6) % 7; // Monday = 0
+    const daysInMonth = new Date(calYear, calMonth + 1, 0).getDate();
+    const cells: (Date | null)[] = [];
+    for (let i = 0; i < startPad; i++) cells.push(null);
+    for (let d = 1; d <= daysInMonth; d++) cells.push(new Date(calYear, calMonth, d));
+    while (cells.length % 7 !== 0) cells.push(null);
+    return cells;
+  }, [calYear, calMonth]);
+
+  const calPrevMonth = () => {
+    if (calMonth === 0) { setCalYear(y => y - 1); setCalMonth(11); }
+    else setCalMonth(m => m - 1);
+  };
+  const calNextMonth = () => {
+    if (calMonth === 11) { setCalYear(y => y + 1); setCalMonth(0); }
+    else setCalMonth(m => m + 1);
+  };
+
+  // Min/max for calendar navigation
+  const todayIso = toISO(today);
+  const canCalPrev = !(calYear === today.getFullYear() && calMonth <= today.getMonth());
+  const canCalNext = !(calYear === today.getFullYear() + 1 && calMonth >= today.getMonth());
+
   const scheduleForSelected = useMemo(() => {
     if (!selected) return undefined;
     const targetWeekday = selected.getDay();
@@ -411,123 +537,199 @@ export function DateTimeStep({ barber, service, onBack, onContinue }: DateTimeSt
             </div>
           ) : (
             <>
-              {/* Day selection row flanked by left and right arrow buttons */}
-              <div className="flex items-center gap-1.5 sm:gap-2 mb-2">
-                <button
-                  type="button"
-                  onClick={() => scrollDays('left')}
-                  aria-label="Días anteriores"
-                  className="flex h-12 w-8 sm:w-9 shrink-0 items-center justify-center rounded-xl glass-card text-zinc-400 hover:text-white hover:border-gold/30 active:scale-95 transition-all cursor-pointer"
-                >
-                  <ChevronLeftIcon className="h-4 w-4" />
-                </button>
 
-                <div
-                  ref={daysScrollRef}
-                  data-lenis-prevent
-                  className="no-scrollbar flex flex-1 items-center gap-1.5 sm:gap-2 overflow-x-auto py-1 scroll-smooth"
-                  style={{ WebkitOverflowScrolling: 'touch' }}
-                >
-                  {dayPills.map((d) => {
-                    const targetWeekday = d.getDay();
-                    const daySchedule = schedules.find(
-                      (s) => s.weekday === targetWeekday || Number(s.day_of_week) === targetWeekday || Number(s.weekday) === targetWeekday
-                    );
-                    const disabled = !isDayAvailable(d, today, daySchedule, blocks, vacations);
-                    const isSel = selected && toISO(d) === toISO(selected);
-                    const avail = dayAvailabilityMap[toISO(d)] ?? (disabled ? 'none' : 'green');
+              {/* ── Day-selector: strip (collapsed) or inline grid (expanded) ── */}
+              <div className="mb-2">
+                {!expanded ? (
+                  /* STRIP MODE: horizontal scroll with left/right arrows */
+                  <div className="flex items-center gap-1.5 sm:gap-2">
+                    <button
+                      type="button"
+                      onClick={() => scrollDays('left')}
+                      aria-label="Días anteriores"
+                      className="flex h-12 w-8 sm:w-9 shrink-0 items-center justify-center rounded-xl glass-card text-zinc-400 hover:text-white hover:border-gold/30 active:scale-95 transition-all cursor-pointer"
+                    >
+                      <ChevronLeftIcon className="h-4 w-4" />
+                    </button>
 
-                    return (
-                      <button
-                        key={toISO(d)}
-                        onClick={() => handleSelectDay(d)}
-                        disabled={disabled}
-                        className={`flex-1 min-w-[50px] sm:min-w-[62px] flex shrink-0 flex-col items-center justify-center gap-0.5 rounded-2xl py-2 sm:py-2.5 transition-all duration-200 cursor-pointer ${
-                          isSel
-                            ? 'gold-gradient text-black gold-glow scale-[1.03] font-bold shadow-md'
-                            : disabled
-                            ? 'bg-zinc-900/30 text-zinc-600 cursor-not-allowed border border-transparent'
-                            : 'glass-card text-zinc-300 hover:border-gold/30 hover:text-white active:scale-95'
-                        }`}
-                      >
-                        <span className="text-[0.65rem] font-semibold opacity-85">
-                          {DAY_LABELS[(d.getDay() + 6) % 7]}.
-                        </span>
-                        <span className="font-display text-base sm:text-lg font-bold leading-none my-0.5">
-                          {d.getDate()}
-                        </span>
+                    <div
+                      ref={daysScrollRef}
+                      data-lenis-prevent
+                      className="no-scrollbar flex flex-1 items-center gap-1.5 sm:gap-2 overflow-x-auto py-1 scroll-smooth"
+                      style={{ WebkitOverflowScrolling: 'touch' }}
+                    >
+                      {dayPills.map((d) => {
+                        const targetWeekday = d.getDay();
+                        const daySchedule = schedules.find(
+                          (s) => s.weekday === targetWeekday || Number(s.day_of_week) === targetWeekday || Number(s.weekday) === targetWeekday
+                        );
+                        const disabled = !isDayAvailable(d, today, daySchedule, blocks, vacations);
+                        const isSel = selected && toISO(d) === toISO(selected);
+                        const avail = dayAvailabilityMap[toISO(d)] ?? (disabled ? 'none' : 'green');
 
-                        {/* Barrita alargada de disponibilidad */}
-                        <div className="mt-0.5 flex h-2 items-center justify-center">
-                          {avail === 'green' && (
-                            <span
-                              className={`h-1 w-4 sm:w-5 rounded-full bg-emerald-500 ${
-                                isSel ? 'bg-black/80' : 'shadow-sm shadow-emerald-500/50'
-                              }`}
-                              title="Mayoría de citas disponibles"
-                            />
-                          )}
-                          {avail === 'yellow' && (
-                            <span
-                              className={`h-1 w-4 sm:w-5 rounded-full bg-amber-400 ${
-                                isSel ? 'bg-black/80' : 'shadow-sm shadow-amber-400/50'
-                              }`}
-                              title="Disponibilidad media"
-                            />
-                          )}
-                          {avail === 'red' && (
-                            <span
-                              className={`h-1 w-4 sm:w-5 rounded-full bg-rose-500 ${
-                                isSel ? 'bg-black/80' : 'shadow-sm shadow-rose-500/50'
-                              }`}
-                              title="Pocas citas disponibles"
-                            />
-                          )}
-                          {avail === 'none' && (
-                            <div
-                              className={`flex items-center gap-0.5 ${
-                                isSel ? 'text-black' : 'text-rose-500'
-                              }`}
-                              title="Sin citas disponibles"
-                            >
-                              <span className={`h-1 w-2.5 rounded-full ${isSel ? 'bg-black/80' : 'bg-rose-500/80'}`} />
-                              <X className="h-2 w-2 stroke-[3]" />
+                        return (
+                          <button
+                            key={toISO(d)}
+                            onClick={() => handleSelectDay(d)}
+                            disabled={disabled}
+                            className={`flex-1 min-w-[50px] sm:min-w-[62px] flex shrink-0 flex-col items-center justify-center gap-0.5 rounded-2xl py-2 sm:py-2.5 transition-all duration-200 cursor-pointer ${
+                              isSel
+                                ? 'gold-gradient text-black gold-glow scale-[1.03] font-bold shadow-md'
+                                : disabled
+                                ? 'bg-zinc-900/30 text-zinc-600 cursor-not-allowed border border-transparent'
+                                : 'glass-card text-zinc-300 hover:border-gold/30 hover:text-white active:scale-95'
+                            }`}
+                          >
+                            <span className="text-[0.65rem] font-semibold opacity-85">
+                              {DAY_LABELS[(d.getDay() + 6) % 7]}.
+                            </span>
+                            <span className="font-display text-base sm:text-lg font-bold leading-none my-0.5">
+                              {d.getDate()}
+                            </span>
+                            <div className="mt-0.5 flex h-2 items-center justify-center">
+                              {avail === 'green' && <span className={`h-1 w-4 sm:w-5 rounded-full bg-emerald-500 ${isSel ? 'bg-black/80' : 'shadow-sm shadow-emerald-500/50'}`} />}
+                              {avail === 'yellow' && <span className={`h-1 w-4 sm:w-5 rounded-full bg-amber-400 ${isSel ? 'bg-black/80' : 'shadow-sm shadow-amber-400/50'}`} />}
+                              {avail === 'red' && <span className={`h-1 w-4 sm:w-5 rounded-full bg-rose-500 ${isSel ? 'bg-black/80' : 'shadow-sm shadow-rose-500/50'}`} />}
+                              {avail === 'none' && (
+                                <div className={`flex items-center gap-0.5 ${isSel ? 'text-black' : 'text-rose-500'}`}>
+                                  <span className={`h-1 w-2.5 rounded-full ${isSel ? 'bg-black/80' : 'bg-rose-500/80'}`} />
+                                  <X className="h-2 w-2 stroke-[3]" />
+                                </div>
+                              )}
                             </div>
-                          )}
-                        </div>
-                      </button>
-                    );
-                  })}
-                </div>
+                          </button>
+                        );
+                      })}
+                    </div>
 
+                    <button
+                      type="button"
+                      onClick={() => scrollDays('right')}
+                      aria-label="Días siguientes"
+                      className="flex h-12 w-8 sm:w-9 shrink-0 items-center justify-center rounded-xl glass-card text-zinc-400 hover:text-white hover:border-gold/30 active:scale-95 transition-all cursor-pointer"
+                    >
+                      <ChevronRightIcon className="h-4 w-4" />
+                    </button>
+                  </div>
+                ) : (
+                  /* EXPANDED MODE: full month grid with month navigation */
+                  <div>
+                    {/* Month header + navigation */}
+                    <div className="flex items-center justify-between mb-2 px-0.5">
+                      <button
+                        type="button"
+                        onClick={calPrevMonth}
+                        disabled={!canCalPrev}
+                        className="flex h-8 w-8 items-center justify-center rounded-xl glass-card text-zinc-400 hover:text-white hover:border-gold/30 active:scale-95 transition-all cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
+                      >
+                        <ChevronLeftIcon className="h-4 w-4" />
+                      </button>
+                      <span className="font-display text-sm font-bold text-white capitalize tracking-tight">
+                        {MONTH_NAMES[calMonth]} {calYear}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={calNextMonth}
+                        disabled={!canCalNext}
+                        className="flex h-8 w-8 items-center justify-center rounded-xl glass-card text-zinc-400 hover:text-white hover:border-gold/30 active:scale-95 transition-all cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
+                      >
+                        <ChevronRightIcon className="h-4 w-4" />
+                      </button>
+                    </div>
+
+                    {/* Day-of-week headers */}
+                    <div className="grid grid-cols-7 mb-1">
+                      {['Lu','Ma','Mi','Ju','Vi','Sá','Do'].map((l) => (
+                        <div key={l} className="text-center text-[0.58rem] font-bold uppercase tracking-wider text-zinc-500 pb-0.5">
+                          {l}
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Day cells */}
+                    <div className="grid grid-cols-7 gap-y-0.5">
+                      {calendarCells.map((d, i) => {
+                        if (!d) return <div key={`pad-${i}`} />;
+                        const iso = toISO(d);
+                        const isPast = iso < todayIso;
+                        const targetWeekday = d.getDay();
+                        const daySchedule = schedules.find(
+                          (s) => s.weekday === targetWeekday || Number(s.day_of_week) === targetWeekday || Number(s.weekday) === targetWeekday
+                        );
+                        const isUnavailable = isPast || !isDayAvailable(d, today, daySchedule, blocks, vacations);
+                        const isSel = selected && iso === toISO(selected);
+                        const isToday = iso === todayIso;
+                        const avail = isUnavailable ? 'none' : getDayAvailStatus(d);
+
+                        return (
+                          <button
+                            key={iso}
+                            type="button"
+                            disabled={isUnavailable}
+                            onClick={() => { handleSelectDay(d); }}
+                            className={`flex flex-col items-center justify-center rounded-xl py-1.5 gap-0.5 transition-all duration-150 cursor-pointer ${
+                              isSel
+                                ? 'gold-gradient text-black font-bold shadow-md gold-glow scale-[1.03]'
+                                : isUnavailable
+                                ? 'text-zinc-700 cursor-not-allowed'
+                                : isToday
+                                ? 'ring-1 ring-gold/40 text-gold hover:bg-white/8 active:scale-95'
+                                : 'text-zinc-300 hover:bg-white/8 hover:text-white active:scale-95'
+                            }`}
+                          >
+                            <span className="text-xs font-semibold leading-none">{d.getDate()}</span>
+                            {/* Availability dot */}
+                            <div className="flex h-1.5 items-center justify-center">
+                              {!isUnavailable && !isSel && (
+                                <>
+                                  {avail === 'green' && <span className="h-1 w-3 rounded-full bg-emerald-500 shadow-sm shadow-emerald-500/40" />}
+                                  {avail === 'yellow' && <span className="h-1 w-3 rounded-full bg-amber-400 shadow-sm shadow-amber-400/40" />}
+                                  {avail === 'red' && <span className="h-1 w-3 rounded-full bg-rose-500 shadow-sm shadow-rose-500/40" />}
+                                  {avail === 'loading' && <span className="h-1 w-3 rounded-full bg-zinc-600 animate-pulse" />}
+                                </>
+                              )}
+                              {isSel && <span className="h-1 w-3 rounded-full bg-black/50" />}
+                              {!isSel && isUnavailable && avail === 'none' && !isPast && (
+                                <div className="flex items-center gap-0.5 text-rose-600/60">
+                                  <span className="h-0.5 w-2 rounded-full bg-rose-600/60" />
+                                  <X className="h-1.5 w-1.5 stroke-[3]" />
+                                </div>
+                              )}
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    {/* Legend */}
+                    <div className="flex items-center justify-center gap-3.5 mt-2 pt-2 border-t border-white/5">
+                      {[
+                        { color: 'bg-emerald-500', label: 'Alta' },
+                        { color: 'bg-amber-400', label: 'Media' },
+                        { color: 'bg-rose-500', label: 'Poca' },
+                      ].map(({ color, label }) => (
+                        <span key={label} className="flex items-center gap-1 text-[0.58rem] text-zinc-500">
+                          <span className={`h-1 w-3 rounded-full ${color}`} />
+                          {label}
+                        </span>
+                      ))}
+                      <span className="flex items-center gap-1 text-[0.58rem] text-zinc-500">
+                        <X className="h-2 w-2 text-rose-500 stroke-[3]" />
+                        Lleno
+                      </span>
+                    </div>
+                  </div>
+                )}
+
+                {/* Toggle text — subtle, right-aligned */}
                 <button
                   type="button"
-                  onClick={() => scrollDays('right')}
-                  aria-label="Días siguientes"
-                  className="flex h-12 w-8 sm:w-9 shrink-0 items-center justify-center rounded-xl glass-card text-zinc-400 hover:text-white hover:border-gold/30 active:scale-95 transition-all cursor-pointer"
+                  onClick={() => setExpanded((v) => !v)}
+                  className="mt-1.5 block ml-auto text-[0.65rem] text-zinc-500 hover:text-zinc-300 transition-colors cursor-pointer underline underline-offset-2 decoration-dashed"
                 >
-                  <ChevronRightIcon className="h-4 w-4" />
+                  {expanded ? '↑ Ver menos fechas' : '↓ Ver más fechas'}
                 </button>
               </div>
-
-              {/* "Ver más fechas" opens full calendar modal */}
-              <div className="flex justify-end mb-1">
-                <CalendarOpenButton onClick={() => setShowCalendar(true)} />
-              </div>
-
-              {/* Full calendar modal */}
-              {showCalendar && (
-                <CalendarPickerModal
-                  selected={selected ? toISO(selected) : null}
-                  minDate={toISO(today)}
-                  availabilityMap={dayAvailabilityMap}
-                  onSelect={(iso) => {
-                    const d = new Date(iso + 'T12:00:00');
-                    handleSelectDay(d);
-                  }}
-                  onClose={() => setShowCalendar(false)}
-                />
-              )}
 
               {/* Centered Period Dock (Mañana / Tarde) */}
               <div className="flex justify-center my-3 sm:my-3.5">

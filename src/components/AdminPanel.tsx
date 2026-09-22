@@ -557,40 +557,6 @@ export function AdminPanel({ userRole, onSignOut, onGoPublic }: AdminPanelProps)
             BOTTOM ACTIONS & UTILITIES (Directamente encima del perfil)
             ========================================================================= */}
         <div className="shrink-0 p-2 space-y-2 border-t border-white/5 bg-zinc-950/40">
-          {/* Callout Card / Embed Nueva Cita Manual */}
-          {!isCollapsed ? (
-            <div className="rounded-2xl border border-gold/20 bg-gradient-to-br from-gold/10 via-white/[0.02] to-transparent p-2.5 shadow-md">
-              <div className="flex items-center gap-2 mb-1">
-                <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg gold-gradient text-black">
-                  <Sparkles className="h-3.5 w-3.5" />
-                </div>
-                <div className="min-w-0">
-                  <p className="text-[0.65rem] font-bold text-gold uppercase tracking-wider">Adrián Millán</p>
-                  <p className="text-xs font-bold text-white truncate">Salón Activo</p>
-                </div>
-              </div>
-              <p className="text-[0.7rem] text-zinc-400 leading-snug">
-                {todayCount} citas programadas para hoy.
-              </p>
-              <button
-                onClick={() => handleNav('manual')}
-                className="mt-2 flex w-full items-center justify-center gap-1.5 rounded-xl gold-gradient py-1.5 text-xs font-bold text-black transition-all hover:brightness-110 active:scale-95 shadow-sm"
-              >
-                <Plus className="h-3.5 w-3.5" />
-                <span>Nueva Cita Manual</span>
-              </button>
-            </div>
-          ) : (
-            <div className="flex justify-center pb-0.5">
-              <button
-                onClick={() => handleNav('manual')}
-                title="Nueva Cita Manual"
-                className="flex h-9 w-9 items-center justify-center rounded-xl gold-gradient text-black shadow-md transition-all hover:scale-105 active:scale-95"
-              >
-                <Plus className="h-4 w-4" />
-              </button>
-            </div>
-          )}
 
           {/* Secondary Utilities List */}
           <div className="pt-1 border-t border-white/5 space-y-0.5">

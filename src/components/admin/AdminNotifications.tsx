@@ -62,7 +62,11 @@ function formatRelativeTime(dateStr: string): string {
       const timeStr = d.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
       return `Ayer a las ${timeStr}`;
     }
-    return d.toLocaleDateString('es-ES', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
+    const day = String(d.getDate()).padStart(2, '0');
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const yy = String(d.getFullYear()).slice(-2);
+    const timeStr = d.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+    return `${day}/${month}/${yy} a las ${timeStr}`;
   } catch {
     return dateStr;
   }
@@ -71,8 +75,28 @@ function formatRelativeTime(dateStr: string): string {
 function formatDate(dateStr: string | null): string {
   if (!dateStr) return '';
   try {
-    const [y, m, d] = dateStr.split('-');
-    return `${d}/${m}/${y}`;
+    const clean = dateStr.trim();
+    if (clean.includes('-')) {
+      const parts = clean.split('-');
+      if (parts.length === 3) {
+        const y = parts[0];
+        const m = parts[1];
+        const d = parts[2].split('T')[0];
+        const yy = y.length === 4 ? y.slice(2) : y;
+        return `${d.padStart(2, '0')}/${m.padStart(2, '0')}/${yy}`;
+      }
+    }
+    if (clean.includes('/')) {
+      const parts = clean.split('/');
+      if (parts.length === 3) {
+        const d = parts[0];
+        const m = parts[1];
+        const y = parts[2].split(' ')[0];
+        const yy = y.length === 4 ? y.slice(2) : y;
+        return `${d.padStart(2, '0')}/${m.padStart(2, '0')}/${yy}`;
+      }
+    }
+    return dateStr;
   } catch {
     return dateStr;
   }
@@ -384,6 +408,47 @@ export function AdminNotifications({
     return id;
   };
 
+  const getNotificationMessage = useCallback(
+    (notif: BookingNotification, isManual: boolean) => {
+      const dateFormatted = formatDate(notif.booking_date);
+      const barberName = getBarberName(notif.barber);
+      const cleanTime = notif.booking_time ? notif.booking_time.replace(/\s*h$/i, '') : '';
+      const timeStr = cleanTime ? ` a las ${cleanTime}h` : '';
+
+      if (notif.type === 'created') {
+        if (isManual) {
+          return `${barberName} ha reservado una cita para ${notif.client_name} para el ${dateFormatted}${timeStr}`;
+        }
+        return `${notif.client_name} ha reservado cita para el ${dateFormatted}${timeStr}`;
+      }
+
+      if (notif.type === 'cancelled') {
+        const cancelDate = formatDate(notif.booking_date || notif.old_date);
+        const cancelRawTime = notif.booking_time || notif.old_time;
+        const cancelCleanTime = cancelRawTime ? cancelRawTime.replace(/\s*h$/i, '') : '';
+        const cancelTimeStr = cancelCleanTime ? ` a las ${cancelCleanTime}h` : '';
+        return `${notif.client_name} ha cancelado su cita del ${cancelDate}${cancelTimeStr}`;
+      }
+
+      if (notif.type === 'rescheduled') {
+        const oldD = formatDate(notif.old_date);
+        const oldT = notif.old_time ? notif.old_time.replace(/\s*h$/i, '') : '';
+        const oldTimeStr = oldT ? ` a las ${oldT}h` : '';
+        const newD = formatDate(notif.booking_date);
+        const newT = notif.booking_time ? notif.booking_time.replace(/\s*h$/i, '') : '';
+        const newTimeStr = newT ? ` a las ${newT}h` : '';
+        const reassignText =
+          notif.old_barber && notif.old_barber !== notif.barber
+            ? ` (Reasignada a ${getBarberName(notif.barber)})`
+            : '';
+        return `Cita de ${notif.client_name} cambiada del ${oldD}${oldTimeStr} al ${newD}${newTimeStr}${reassignText}`;
+      }
+
+      return notif.message;
+    },
+    [barbers]
+  );
+
   return (
     <div className="flex flex-col h-full w-full min-w-0 space-y-4">
       {/* Compact Controls Header (Space-saving, no repeated title) */}
@@ -657,13 +722,15 @@ export function AdminNotifications({
                   <div
                     className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${
                       isCreated
-                        ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/25'
+                        ? isManual
+                          ? 'bg-blue-500/15 text-blue-400 border border-blue-500/25'
+                          : 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/25'
                         : isCancelled
                         ? 'bg-red-500/15 text-red-400 border border-red-500/25'
                         : 'bg-amber-500/15 text-amber-400 border border-amber-500/25'
                     }`}
                   >
-                    {isCreated && <CalendarCheck className="h-5 w-5" />}
+                    {isCreated && (isManual ? <CalendarPlus className="h-5 w-5" /> : <CalendarCheck className="h-5 w-5" />)}
                     {isCancelled && <CalendarX className="h-5 w-5" />}
                     {isRescheduled && <RotateCcw className="h-5 w-5" />}
                   </div>
@@ -672,26 +739,20 @@ export function AdminNotifications({
                   <div className="flex-1 min-w-0">
                     <div className="flex flex-wrap items-center gap-2 mb-1">
                       <span
-                        className={`text-[0.65rem] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full ${
+                        className={`text-[0.65rem] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full ${
                           isCreated
-                            ? 'bg-emerald-500/20 text-emerald-300'
+                            ? isManual
+                              ? 'bg-blue-500/20 text-blue-300 border border-blue-500/30'
+                              : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
                             : isCancelled
-                            ? 'bg-red-500/20 text-red-300'
-                            : 'bg-amber-500/20 text-amber-300'
+                            ? 'bg-red-500/20 text-red-300 border border-red-500/30'
+                            : 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
                         }`}
                       >
-                        {isCreated && 'Nueva Cita'}
+                        {isCreated && (isManual ? 'Nueva Cita Manual' : 'Nueva Cita')}
                         {isCancelled && 'Cita Cancelada'}
                         {isRescheduled && 'Cita Modificada'}
                       </span>
-
-                      {/* Manual badge if staff created appointment, online bookings stay untouched */}
-                      {isManual && (
-                        <span className="inline-flex items-center gap-1 rounded-full bg-blue-500/15 px-2 py-0.5 text-[0.65rem] font-semibold text-blue-400 border border-blue-500/20">
-                          <CalendarPlus className="h-2.5 w-2.5" />
-                          Manual
-                        </span>
-                      )}
 
                       <span className="text-[0.7rem] text-zinc-500 flex items-center gap-1">
                         <Clock className="h-3 w-3" />
@@ -705,7 +766,7 @@ export function AdminNotifications({
                         {notif.client_name}
                       </h4>
                       <p className="text-xs text-zinc-300 mt-0.5 leading-relaxed">
-                        {notif.message}
+                        {getNotificationMessage(notif, isManual)}
                       </p>
                     </div>
 
@@ -713,16 +774,16 @@ export function AdminNotifications({
                     {isRescheduled && notif.old_date && notif.old_time && (
                       <div className="mt-2 flex flex-wrap items-center gap-2 text-xs bg-white/5 rounded-xl px-3 py-1.5 border border-white/5 w-fit">
                         <span className="text-zinc-500 line-through">
-                          {formatDate(notif.old_date)} · {notif.old_time}h
+                          {formatDate(notif.old_date)} · {notif.old_time.replace(/\s*h$/i, '')}h
                         </span>
                         <ArrowRight className="h-3 w-3 text-amber-400" />
                         <span className="font-semibold text-amber-300 font-mono">
-                          {formatDate(notif.booking_date)} · {notif.booking_time}h
+                          {formatDate(notif.booking_date)} · {notif.booking_time ? `${notif.booking_time.replace(/\s*h$/i, '')}h` : ''}
                         </span>
                       </div>
                     )}
 
-                    {/* Details row: Barber, Service, Price */}
+                    {/* Details row: Barber, Service without price, Date */}
                     <div className="mt-2.5 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-zinc-400">
                       <div className="flex items-center gap-1.5">
                         <User className="h-3.5 w-3.5 text-zinc-500" />
@@ -738,7 +799,6 @@ export function AdminNotifications({
                           <span>Servicio:</span>
                           <span className="text-zinc-200 font-medium">
                             {notif.service}
-                            {notif.service_price ? ` (${notif.service_price} €)` : ''}
                           </span>
                         </div>
                       )}
@@ -748,7 +808,7 @@ export function AdminNotifications({
                           <Clock className="h-3.5 w-3.5 text-zinc-500" />
                           <span>Fecha:</span>
                           <span className="text-zinc-200 font-medium">
-                            {formatDate(notif.booking_date)} a las {notif.booking_time}h
+                            {formatDate(notif.booking_date)} a las {notif.booking_time ? `${notif.booking_time.replace(/\s*h$/i, '')}h` : ''}
                           </span>
                         </div>
                       )}
@@ -895,36 +955,39 @@ export function AdminNotifications({
                   <div
                     className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl ${
                       selectedNotif.type === 'created'
-                        ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30'
+                        ? isManualNotification(selectedNotif)
+                          ? 'bg-blue-500/15 text-blue-400 border border-blue-500/30'
+                          : 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30'
                         : selectedNotif.type === 'cancelled'
                         ? 'bg-red-500/15 text-red-400 border border-red-500/30'
                         : 'bg-amber-500/15 text-amber-400 border border-amber-500/30'
                     }`}
                   >
-                    {selectedNotif.type === 'created' && <CalendarCheck className="h-5 w-5" />}
+                    {selectedNotif.type === 'created' && (
+                      isManualNotification(selectedNotif) ? <CalendarPlus className="h-5 w-5" /> : <CalendarCheck className="h-5 w-5" />
+                    )}
                     {selectedNotif.type === 'cancelled' && <CalendarX className="h-5 w-5" />}
                     {selectedNotif.type === 'rescheduled' && <RotateCcw className="h-5 w-5" />}
                   </div>
                   <div>
                     <div className="flex flex-wrap items-center gap-1.5">
                       <span
-                        className={`text-[0.65rem] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full ${
+                        className={`text-[0.65rem] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full ${
                           selectedNotif.type === 'created'
-                            ? 'bg-emerald-500/20 text-emerald-300'
+                            ? isManualNotification(selectedNotif)
+                              ? 'bg-blue-500/20 text-blue-300 border border-blue-500/30'
+                              : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
                             : selectedNotif.type === 'cancelled'
-                            ? 'bg-red-500/20 text-red-300'
-                            : 'bg-amber-500/20 text-amber-300'
+                            ? 'bg-red-500/20 text-red-300 border border-red-500/30'
+                            : 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
                         }`}
                       >
-                        {selectedNotif.type === 'created' && 'Nueva Cita'}
+                        {selectedNotif.type === 'created' && (
+                          isManualNotification(selectedNotif) ? 'Nueva Cita Manual' : 'Nueva Cita'
+                        )}
                         {selectedNotif.type === 'cancelled' && 'Cita Cancelada'}
                         {selectedNotif.type === 'rescheduled' && 'Cita Modificada'}
                       </span>
-                      {isManualNotification(selectedNotif) && (
-                        <span className="inline-flex items-center gap-1 rounded-full bg-blue-500/15 px-2 py-0.5 text-[0.65rem] font-semibold text-blue-400 border border-blue-500/20">
-                          <CalendarPlus className="h-2.5 w-2.5" /> Manual
-                        </span>
-                      )}
                     </div>
                     <h3 className="font-display text-lg font-bold text-white mt-1">
                       Detalle de Cita
@@ -1003,16 +1066,30 @@ export function AdminNotifications({
 
                 {/* Created banner */}
                 {selectedNotif.type === 'created' && (
-                  <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-3.5 flex items-start gap-3">
-                    <CalendarCheck className="h-5 w-5 text-emerald-400 shrink-0 mt-0.5" />
+                  <div
+                    className={`rounded-2xl border p-3.5 flex items-start gap-3 ${
+                      isManualNotification(selectedNotif)
+                        ? 'border-blue-500/30 bg-blue-500/10'
+                        : 'border-emerald-500/30 bg-emerald-500/10'
+                    }`}
+                  >
+                    {isManualNotification(selectedNotif) ? (
+                      <CalendarPlus className="h-5 w-5 text-blue-400 shrink-0 mt-0.5" />
+                    ) : (
+                      <CalendarCheck className="h-5 w-5 text-emerald-400 shrink-0 mt-0.5" />
+                    )}
                     <div>
-                      <p className="font-bold text-emerald-300 text-sm">
-                        {isManualNotification(selectedNotif) ? 'Cita Manual Registrada' : 'Cita Reservada Online'}
+                      <p
+                        className={`font-bold text-sm ${
+                          isManualNotification(selectedNotif) ? 'text-blue-300' : 'text-emerald-300'
+                        }`}
+                      >
+                        {isManualNotification(selectedNotif) ? 'Nueva Cita Manual' : 'Nueva Cita Reservada'}
                       </p>
                       <p className="text-zinc-300 mt-0.5 leading-relaxed">
                         Programada para el{' '}
                         <strong className="text-white">{formatDate(selectedNotif.booking_date)}</strong>{' '}
-                        a las <strong className="text-white">{selectedNotif.booking_time} h</strong>.
+                        a las <strong className="text-white">{selectedNotif.booking_time ? `${selectedNotif.booking_time.replace(/\s*h$/i, '')}h` : ''}</strong>.
                       </p>
                     </div>
                   </div>
@@ -1127,7 +1204,9 @@ export function AdminNotifications({
                       {formatRelativeTime(selectedNotif.created_at)}
                     </span>
                   </div>
-                  <p className="text-zinc-300 leading-relaxed">{selectedNotif.message}</p>
+                  <p className="text-zinc-300 leading-relaxed">
+                    {getNotificationMessage(selectedNotif, isManualNotification(selectedNotif))}
+                  </p>
                 </div>
               </div>
 

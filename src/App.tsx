@@ -113,6 +113,9 @@ function App() {
         setView('my-bookings');
       } else if (h === '#inicio' || h === '' || h === '#') {
         setView('public');
+        if (path !== '/reserva' && path !== '/reservas' && path !== '/reservar') {
+          booking.reset();
+        }
       }
     };
 
@@ -123,7 +126,7 @@ function App() {
       window.removeEventListener('hashchange', handleNavigation);
       window.removeEventListener('popstate', handleNavigation);
     };
-  }, [auth.loading, auth.user, booking.startBooking]);
+  }, [auth.loading, auth.user, booking.startBooking, booking.reset]);
 
   // If loading finishes and user is on #admin but not logged in, prompt login
   useEffect(() => {
@@ -284,6 +287,16 @@ function App() {
     window.location.hash = '#reservas';
     setView('public');
     booking.startBooking();
+  }, [booking]);
+
+  const handleServiceBack = useCallback(() => {
+    // Limpiar el hash #reservas o ruta /reservas al volver a la landing
+    if (window.location.hash && (window.location.hash.toLowerCase().includes('reserva') || window.location.hash === '#reservas')) {
+      history.pushState(null, '', window.location.pathname.replace(/\/reservas?/, '') || '/');
+    } else if (window.location.pathname.toLowerCase().includes('/reserva')) {
+      history.pushState(null, '', '/');
+    }
+    booking.goBack();
   }, [booking]);
 
   const goAdmin = useCallback(() => {
@@ -451,7 +464,7 @@ function App() {
       <div className="relative z-10 mx-auto w-full max-w-7xl">
         {booking.step === 'landing' && (
           <Landing
-            onBook={booking.startBooking}
+            onBook={goBooking}
             onSignIn={handleGeneralLogin}
             onGoToPanel={goAdmin}
             user={auth.user}
@@ -460,7 +473,10 @@ function App() {
             onGoToMyBookings={auth.user ? goMyBookings : undefined}
             onGoToCatalog={goCatalog}
             onGoToGallery={goGallery}
-            onSelectService={booking.selectService}
+            onSelectService={(service) => {
+              window.location.hash = '#reservas';
+              booking.selectService(service);
+            }}
           />
         )}
 
@@ -469,7 +485,7 @@ function App() {
         )}
 
         {booking.step === 'service' && (
-          <ServiceStep onBack={booking.goBack} onSelect={booking.selectService} />
+          <ServiceStep onBack={handleServiceBack} onSelect={booking.selectService} />
         )}
 
         {booking.step === 'datetime' && booking.barber && (
@@ -486,7 +502,15 @@ function App() {
         )}
 
         {booking.step === 'success' && booking.confirmation && (
-          <SuccessStep booking={booking.confirmation} onHome={booking.reset} />
+          <SuccessStep
+            booking={booking.confirmation}
+            onHome={() => {
+              if (window.location.hash && window.location.hash.toLowerCase().includes('reserva')) {
+                history.pushState(null, '', window.location.pathname.replace(/\/reservas?/, '') || '/');
+              }
+              booking.reset();
+            }}
+          />
         )}
       </div>
 

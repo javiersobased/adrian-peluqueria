@@ -44,6 +44,7 @@ import {
 } from 'lucide-react';
 import { InstallAppButton } from '@/components/InstallAppButton';
 import { setActivePwaContext } from '@/lib/pwaContext';
+import { useBusiness } from '@/context/BusinessContext';
 import { toISO, isBlockExpired } from '@/lib/schedule';
 import { isDeveloper, getDeveloperProfile, isSuperAdminEmail, isMasterAdminEmail } from '@/lib/auth';
 
@@ -124,11 +125,12 @@ export function AdminPanel({ userRole, onSignOut, onGoPublic }: AdminPanelProps)
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [showMobileProfileMenu, setShowMobileProfileMenu] = useState(false);
 
+  const business = useBusiness();
   const isAdmin = userRole.role === 'admin' && userRole.status === 'verified';
 
   useEffect(() => {
-    setActivePwaContext('admin');
-  }, []);
+    setActivePwaContext('admin', business);
+  }, [business]);
 
   const toggleCollapsed = useCallback(() => {
     setIsCollapsed((prev) => {

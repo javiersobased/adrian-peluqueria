@@ -1,13 +1,17 @@
 import { useState, useEffect, useCallback, useRef, lazy, Suspense } from 'react';
 import { useBooking } from '@/hooks/useBooking';
 import { useAuth } from '@/hooks/useAuth';
-import { Landing } from '@/components/Landing';
+import { LANDING_LAYOUTS } from '@/layouts/registry';
+import { useBusiness } from '@/context/BusinessContext';
+import { isLegacyBusiness } from '@/lib/business';
+import { pageTitle, type PageKey } from '@/lib/documentHead';
 import { BarberStep } from '@/components/BarberStep';
 import { ServiceStep } from '@/components/ServiceStep';
 import { DateTimeStep } from '@/components/DateTimeStep';
 import { DetailsStep } from '@/components/DetailsStep';
 import { SuccessStep } from '@/components/SuccessStep';
 import { FloatingButtons } from '@/components/FloatingButtons';
+import { AppBackdrop } from '@/components/AppBackdrop';
 import { LoginModal } from '@/components/LoginModal';
 import { TermsModal } from '@/components/TermsModal';
 import type { SavedBooking } from '@/types';
@@ -29,6 +33,9 @@ const MyBookings = lazyWithRetry(() => import('@/components/MyBookings').then(m 
 type View = 'public' | 'admin' | 'my-bookings' | 'catalog' | 'gallery';
 
 function App() {
+  const business = useBusiness();
+  const isLegacy = isLegacyBusiness(business);
+  const LandingLayout = LANDING_LAYOUTS[business.layoutKey];
   const booking = useBooking();
   const auth = useAuth();
   const [view, setView] = useState<View>('public');
@@ -42,16 +49,17 @@ function App() {
   const [savingTerms, setSavingTerms] = useState(false);
 
   // Initialize OneSignal on mount
+  // El app id de OneSignal pertenece al tenant heredado; otros negocios no reutilizan su canal push.
   useEffect(() => {
-    initOneSignal();
-  }, []);
+    if (isLegacy) initOneSignal();
+  }, [isLegacy]);
 
   // Sync OneSignal user identity and tags (role, barber_id, marketing_accepted)
   useEffect(() => {
-    if (!auth.loading) {
+    if (isLegacy && !auth.loading) {
       syncOneSignalUser(auth.user, auth.role);
     }
-  }, [auth.user, auth.role, auth.loading]);
+  }, [isLegacy, auth.user, auth.role, auth.loading]);
 
   // Detect hash, path, and subdomain changes for direct linking (#admin, #mis-citas, citas.adrianmillan.es)
   useEffect(() => {
@@ -140,39 +148,14 @@ function App() {
 
   // Dynamic document.title for SEO and UX
   useEffect(() => {
-    let title = 'Peluquería y Barbería Adrián Millán | Huelva';
-    if (view === 'admin') {
-      title = 'Panel de Gestión | Adrián Millán Peluquería';
-    } else if (view === 'catalog') {
-      title = 'Tienda y Productos | Adrián Millán Peluquería Huelva';
-    } else if (view === 'gallery') {
-      title = 'Galería de Cortes y Estilos | Adrián Millán Peluquería Huelva';
-    } else if (view === 'my-bookings') {
-      title = 'Mis Citas | Adrián Millán Peluquería Huelva';
-    } else if (view === 'public') {
-      switch (booking.step) {
-        case 'barber':
-          title = 'Seleccionar Barbero | Adrián Millán Peluquería Huelva';
-          break;
-        case 'service':
-          title = 'Seleccionar Servicio | Adrián Millán Peluquería Huelva';
-          break;
-        case 'datetime':
-          title = 'Elegir Fecha y Hora | Adrián Millán Peluquería Huelva';
-          break;
-        case 'details':
-          title = 'Tus Datos de Contacto | Adrián Millán Peluquería Huelva';
-          break;
-        case 'success':
-          title = '¡Cita Confirmada! | Adrián Millán Peluquería Huelva';
-          break;
-        default:
-          title = 'Peluquería y Barbería Adrián Millán | Huelva';
-          break;
-      }
+    let page: PageKey = 'home';
+    if (view === 'admin' || view === 'catalog' || view === 'gallery' || view === 'my-bookings') {
+      page = view;
+    } else if (booking.step !== 'landing') {
+      page = booking.step;
     }
-    document.title = title;
-  }, [view, booking.step]);
+    document.title = pageTitle(business, page);
+  }, [business, view, booking.step]);
 
   useEffect(() => {
     if (auth.loading || roleCheckedRef.current) return;
@@ -366,16 +349,7 @@ function App() {
   if (view === 'catalog') {
     return (
       <div className="relative min-h-screen bg-ink text-zinc-200">
-        <div className="fixed inset-0 -z-20">
-          <img
-            src="/images/hero-bg.jpg"
-            alt=""
-            aria-hidden="true"
-            className="h-full w-full object-cover"
-          />
-          <div className="absolute inset-0 bg-black/85 backdrop-overlay transition-colors duration-300" />
-          <div className="absolute inset-0 backdrop-blur-xl" />
-        </div>
+        <AppBackdrop />
         <div className="relative z-10 mx-auto w-full max-w-5xl">
           <Suspense fallback={<ScreenLoader message="Cargando catálogo..." />}>
             <Catalog onBack={goPublic} userRole={auth.role} />
@@ -389,16 +363,7 @@ function App() {
   if (view === 'my-bookings') {
     return (
       <div className="relative min-h-screen bg-ink text-zinc-200">
-        <div className="fixed inset-0 -z-20">
-          <img
-            src="/images/hero-bg.jpg"
-            alt=""
-            aria-hidden="true"
-            className="h-full w-full object-cover"
-          />
-          <div className="absolute inset-0 bg-black/85 backdrop-overlay transition-colors duration-300" />
-          <div className="absolute inset-0 backdrop-blur-xl" />
-        </div>
+        <AppBackdrop />
         <div className="relative z-10">
           <Suspense fallback={<ScreenLoader message="Cargando tus citas..." />}>
             <MyBookings
@@ -421,16 +386,7 @@ function App() {
   if (view === 'gallery') {
     return (
       <div className="relative min-h-screen bg-ink text-zinc-200">
-        <div className="fixed inset-0 -z-20">
-          <img
-            src="/images/hero-bg.jpg"
-            alt=""
-            aria-hidden="true"
-            className="h-full w-full object-cover"
-          />
-          <div className="absolute inset-0 bg-black/85 backdrop-overlay transition-colors duration-300" />
-          <div className="absolute inset-0 backdrop-blur-xl" />
-        </div>
+        <AppBackdrop />
         <div className="relative z-10">
           <Suspense fallback={<ScreenLoader message="Cargando galería..." />}>
             <Gallery
@@ -450,34 +406,28 @@ function App() {
 
   return (
     <div className="relative min-h-screen bg-ink text-zinc-200">
-      <div className="fixed inset-0 -z-20">
-        <img
-          src="/images/hero-bg.jpg"
-          alt=""
-          aria-hidden="true"
-          className="h-full w-full object-cover"
-        />
-        <div className="absolute inset-0 bg-black/85 backdrop-overlay transition-colors duration-300" />
-        <div className="absolute inset-0 backdrop-blur-xl" />
-      </div>
+      <AppBackdrop />
 
       <div className="relative z-10 mx-auto w-full max-w-7xl">
         {booking.step === 'landing' && (
-          <Landing
-            onBook={goBooking}
-            onSignIn={handleGeneralLogin}
-            onGoToPanel={goAdmin}
-            user={auth.user}
-            role={auth.role}
-            onSignOut={auth.signOut}
-            onGoToMyBookings={auth.user ? goMyBookings : undefined}
-            onGoToCatalog={goCatalog}
-            onGoToGallery={goGallery}
-            onSelectService={(service) => {
-              window.location.hash = '#reservas';
-              booking.selectService(service);
-            }}
-          />
+          <Suspense fallback={<ScreenLoader message="Cargando…" />}>
+            <LandingLayout
+              onBook={goBooking}
+              onSignIn={handleGeneralLogin}
+              onGoToPanel={goAdmin}
+              user={auth.user}
+              role={auth.role}
+              onSignOut={auth.signOut}
+              onGoToMyBookings={auth.user ? goMyBookings : undefined}
+              onGoToCatalog={goCatalog}
+              onGoToGallery={goGallery}
+              onSelectService={(service) => {
+                // pushState no dispara hashchange: evita que el manejador de #reservas reinicie la reserva.
+                history.pushState(null, '', '#reservas');
+                booking.selectService(service);
+              }}
+            />
+          </Suspense>
         )}
 
         {booking.step === 'barber' && (
@@ -514,7 +464,7 @@ function App() {
         )}
       </div>
 
-      {booking.step === 'landing' && view === 'public' && <FloatingButtons />}
+      {booking.step === 'landing' && view === 'public' && isLegacy && business.layoutKey === 'classic' && <FloatingButtons />}
 
 
 

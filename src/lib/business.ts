@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabase';
+import { LEGACY_CONTACT, LEGACY_PUBLIC_CONFIG } from '@/lib/legacyBusinessContent';
 
 export const LAYOUT_KEYS = ['classic', 'editorial', 'minimal'] as const;
 export type LayoutKey = (typeof LAYOUT_KEYS)[number];
@@ -26,10 +27,14 @@ export const LEGACY_BUSINESS: BusinessPublicConfig = {
   currency: 'EUR',
   layoutKey: 'classic',
   theme: {},
-  publicConfig: {},
-  contact: {},
+  publicConfig: LEGACY_PUBLIC_CONFIG,
+  contact: LEGACY_CONTACT,
   hostname: 'www.adrianmillan.es',
 };
+
+export function isLegacyBusiness(business: BusinessPublicConfig): boolean {
+  return business.id === LEGACY_BUSINESS.id;
+}
 
 export function normalizeHostname(rawHost: string): string {
   return rawHost.trim().toLowerCase().replace(/:\d+$/, '').replace(/\.$/, '');

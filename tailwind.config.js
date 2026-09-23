@@ -1,18 +1,23 @@
 /** @type {import('tailwindcss').Config} */
+
+// Los colores de marca leen tokens CSS (canales RGB) definidos en src/index.css.
+// Sus valores por defecto son los del layout "classic"; cada layout o negocio los sobrescribe.
+const token = (name) => `rgb(var(--color-${name}) / <alpha-value>)`;
+
 export default {
   content: ['./index.html', './src/**/*.{js,ts,jsx,tsx}'],
   theme: {
     extend: {
       colors: {
         marble: {
-          DEFAULT: '#f5f3f0',
-          soft: '#faf9f7',
-          dark: '#e8e5e0',
+          DEFAULT: token('marble'),
+          soft: token('marble-soft'),
+          dark: token('marble-dark'),
         },
         ink: {
-          DEFAULT: '#0a0a0a',
-          soft: '#121212',
-          muted: '#1a1a1a',
+          DEFAULT: token('surface'),
+          soft: token('surface-soft'),
+          muted: token('surface-muted'),
         },
         wood: {
           DEFAULT: '#8b6f47',
@@ -20,10 +25,20 @@ export default {
           dark: '#6b5340',
         },
         gold: {
-          DEFAULT: '#d4af37',
-          light: '#e6c84e',
-          dark: '#b8941f',
-          soft: '#d4af3740',
+          DEFAULT: token('accent'),
+          light: token('accent-light'),
+          dark: token('accent-dark'),
+          soft: 'rgb(var(--color-accent) / 0.251)',
+        },
+        accent: {
+          DEFAULT: token('accent'),
+          light: token('accent-light'),
+          dark: token('accent-dark'),
+        },
+        surface: {
+          DEFAULT: token('surface'),
+          soft: token('surface-soft'),
+          muted: token('surface-muted'),
         },
         zinc: {
           850: '#1c1c1e',
@@ -31,8 +46,8 @@ export default {
         },
       },
       fontFamily: {
-        display: ['"Plus Jakarta Sans"', 'Inter', 'system-ui', 'sans-serif'],
-        sans: ['Inter', 'system-ui', 'sans-serif'],
+        display: ['var(--font-display)'],
+        sans: ['var(--font-body)'],
       },
       maxWidth: {
         app: '480px',

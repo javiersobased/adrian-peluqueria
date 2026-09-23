@@ -18,7 +18,7 @@ import { FAQSection } from '@/components/FAQSection';
 import { BooksyServicesList } from '@/components/BooksyServicesList';
 import type { Service } from '@/types';
 
-interface LandingProps {
+export interface LandingProps {
   onBook: () => void;
   onSignIn: () => void;
   onGoToPanel: () => void;

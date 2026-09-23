@@ -1,14 +1,13 @@
+import { isLegacyBusiness, type BusinessPublicConfig } from '@/lib/business';
+import { pageTitle } from '@/lib/documentHead';
+
 export type PwaContext = 'booking' | 'admin';
 
-const CONFIG: Record<PwaContext, { manifest: string; title: string }> = {
-  booking: {
-    manifest: '/manifest-booking.json',
-    title: 'Peluquería y Barbería Adrián Millán | Huelva',
-  },
-  admin: {
-    manifest: '/manifest-admin.json',
-    title: 'Panel de Gestión | Adrián Millán Peluquería',
-  },
+// Los manifests estáticos de /public describen al tenant heredado; otros negocios no ofrecen
+// instalación hasta disponer de manifest propio.
+const LEGACY_MANIFESTS: Record<PwaContext, string> = {
+  booking: '/manifest-booking.json',
+  admin: '/manifest-admin.json',
 };
 
 /**
@@ -18,17 +17,22 @@ const CONFIG: Record<PwaContext, { manifest: string; title: string }> = {
  * the home screen (each with su propio nombre y su propia start_url), aunque
  * ambas vivan en el mismo despliegue.
  */
-export function setActivePwaContext(context: PwaContext) {
-  const { manifest, title } = CONFIG[context];
+export function setActivePwaContext(context: PwaContext, business: BusinessPublicConfig) {
+  const title = pageTitle(business, context === 'admin' ? 'admin' : 'home');
 
   let link = document.querySelector<HTMLLinkElement>('link[rel="manifest"]');
-  if (!link) {
-    link = document.createElement('link');
-    link.rel = 'manifest';
-    document.head.appendChild(link);
-  }
-  if (link.getAttribute('href') !== manifest) {
-    link.setAttribute('href', manifest);
+  if (isLegacyBusiness(business)) {
+    const manifest = LEGACY_MANIFESTS[context];
+    if (!link) {
+      link = document.createElement('link');
+      link.rel = 'manifest';
+      document.head.appendChild(link);
+    }
+    if (link.getAttribute('href') !== manifest) {
+      link.setAttribute('href', manifest);
+    }
+  } else {
+    link?.remove();
   }
 
   document.title = title;

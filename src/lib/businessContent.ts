@@ -1,4 +1,4 @@
-import type { BusinessPublicConfig } from '@/lib/business';
+import type { BusinessPublicConfig } from './businessModel';
 
 // Lectura validada de businesses.public_config / contact / theme. Los valores por defecto se derivan
 // del propio negocio; nunca se rellenan con datos de otro tenant.
@@ -117,6 +117,33 @@ export function getContent(business: BusinessPublicConfig): BusinessContent {
     about: text(cfg.about, 1200),
     heroImageUrl: url(cfg.heroImageUrl),
     hours,
+  };
+}
+
+export function monogramIcon(name: string): string {
+  const letter = (name.trim()[0] ?? '·').toUpperCase().replace(/[<>&"']/g, '');
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="14" fill="#111"/><text x="32" y="43" font-family="Georgia,serif" font-size="34" text-anchor="middle" fill="#fff">${letter}</text></svg>`;
+  return `data:image/svg+xml,${encodeURIComponent(svg)}`;
+}
+
+export function absoluteUrl(origin: string, value: string | null): string | null {
+  if (!value) return null;
+  return value.startsWith('/') ? `${origin}${value}` : value;
+}
+
+export function businessJsonLd(business: BusinessPublicConfig, origin: string): Record<string, unknown> {
+  const seo = getSeo(business);
+  const contact = getContact(business);
+  const image = absoluteUrl(origin, seo.ogImage);
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'LocalBusiness',
+    name: business.name,
+    url: `${origin}/`,
+    ...(seo.description ? { description: seo.description } : {}),
+    ...(image ? { image } : {}),
+    ...(contact.phone ? { telephone: contact.phone } : {}),
+    ...(contact.address ? { address: contact.address } : {}),
   };
 }
 

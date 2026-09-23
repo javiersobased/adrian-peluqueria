@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useMemo, useState, type ReactNode } from 'react';
 import { BusinessContext } from '@/context/BusinessContext';
-import { fetchBusinessByHost, LAYOUT_KEYS, LEGACY_BUSINESS, lookupHostFor, type BusinessPublicConfig, type LayoutKey } from '@/lib/business';
+import { fetchBusinessByHost, LEGACY_BUSINESS, lookupHostFor } from '@/lib/business';
+import { LAYOUT_KEYS, type BusinessPublicConfig, type LayoutKey } from '@/lib/businessModel';
 import { getThemeOverrides } from '@/lib/businessContent';
 import { applyBusinessHead } from '@/lib/documentHead';
 import { SAAS_MODE_ENABLED } from '@/lib/featureFlags';

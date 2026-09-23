@@ -1,5 +1,5 @@
 import { createContext, useContext } from 'react';
-import type { BusinessPublicConfig } from '@/lib/business';
+import type { BusinessPublicConfig } from '@/lib/businessModel';
 
 export const BusinessContext = createContext<BusinessPublicConfig | null>(null);
 

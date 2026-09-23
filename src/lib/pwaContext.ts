@@ -1,4 +1,5 @@
-import { isLegacyBusiness, type BusinessPublicConfig } from '@/lib/business';
+import { isLegacyBusiness } from '@/lib/business';
+import type { BusinessPublicConfig } from '@/lib/businessModel';
 import { pageTitle } from '@/lib/documentHead';
 
 export type PwaContext = 'booking' | 'admin';

@@ -1,5 +1,6 @@
-import { isLegacyBusiness, type BusinessPublicConfig } from '@/lib/business';
-import { getBrand, getContact, getSeo } from '@/lib/businessContent';
+import { isLegacyBusiness } from '@/lib/business';
+import type { BusinessPublicConfig } from '@/lib/businessModel';
+import { absoluteUrl, businessJsonLd, getBrand, getSeo, monogramIcon } from '@/lib/businessContent';
 
 export type PageKey =
   | 'home'
@@ -31,7 +32,8 @@ export function pageTitle(business: BusinessPublicConfig, page: PageKey): string
   return `${PAGE_LABELS[page]} | ${seo.titleSuffix}`;
 }
 
-// Etiquetas estáticas de index.html que solo describen al tenant heredado.
+// Etiquetas estáticas de index.html que solo describen al tenant heredado (por si el HTML no
+// pasó por el middleware, p. ej. en desarrollo o previews).
 const LEGACY_ONLY_SELECTORS = [
   'meta[name="keywords"]',
   'meta[name="author"]',
@@ -60,26 +62,14 @@ function setMeta(attr: 'name' | 'property', key: string, content: string | null)
   if (el.getAttribute('content') !== content) el.setAttribute('content', content);
 }
 
-function setLink(rel: string, href: string, attrs: Record<string, string> = {}) {
+function setLink(rel: string, href: string) {
   let el = document.head.querySelector<HTMLLinkElement>(`link[rel="${rel}"]`);
   if (!el) {
     el = document.createElement('link');
     el.rel = rel;
     document.head.appendChild(el);
   }
-  for (const [k, v] of Object.entries(attrs)) el.setAttribute(k, v);
   if (el.getAttribute('href') !== href) el.setAttribute('href', href);
-}
-
-function monogramIcon(name: string): string {
-  const letter = (name.trim()[0] ?? '·').toUpperCase().replace(/[<>&"']/g, '');
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="14" fill="#111"/><text x="32" y="43" font-family="Georgia,serif" font-size="34" text-anchor="middle" fill="#fff">${letter}</text></svg>`;
-  return `data:image/svg+xml,${encodeURIComponent(svg)}`;
-}
-
-function absolute(origin: string, value: string | null): string | null {
-  if (!value) return null;
-  return value.startsWith('/') ? `${origin}${value}` : value;
 }
 
 const LAYOUT_FONTS: Partial<Record<BusinessPublicConfig['layoutKey'], string>> = {
@@ -91,6 +81,7 @@ export function applyBusinessHead(business: BusinessPublicConfig) {
   const brand = getBrand(business);
   const legacy = isLegacyBusiness(business);
   const origin = business.hostname ? `https://${business.hostname}` : window.location.origin;
+  const image = absoluteUrl(origin, seo.ogImage);
 
   if (!legacy) {
     for (const selector of LEGACY_ONLY_SELECTORS) {
@@ -105,12 +96,12 @@ export function applyBusinessHead(business: BusinessPublicConfig) {
   setMeta('property', 'og:site_name', seo.siteName);
   setMeta('property', 'og:title', seo.ogTitle);
   setMeta('property', 'og:description', seo.ogDescription);
-  setMeta('property', 'og:image', absolute(origin, seo.ogImage));
+  setMeta('property', 'og:image', image);
   setMeta('property', 'og:locale', business.locale.replace('-', '_'));
   setMeta('name', 'twitter:url', `${origin}/`);
   setMeta('name', 'twitter:title', seo.ogTitle);
   setMeta('name', 'twitter:description', seo.twitterDescription);
-  setMeta('name', 'twitter:image', absolute(origin, seo.ogImage));
+  setMeta('name', 'twitter:image', image);
   setMeta('name', 'theme-color', brand.themeColor);
   setMeta('name', 'apple-mobile-web-app-title', seo.appTitle);
   setLink('canonical', `${origin}/`);
@@ -120,17 +111,6 @@ export function applyBusinessHead(business: BusinessPublicConfig) {
   setLink('apple-touch-icon', icon);
 
   if (!legacy) {
-    const contact = getContact(business);
-    const jsonLd = {
-      '@context': 'https://schema.org',
-      '@type': 'LocalBusiness',
-      name: business.name,
-      url: `${origin}/`,
-      ...(seo.description ? { description: seo.description } : {}),
-      ...(absolute(origin, seo.ogImage) ? { image: absolute(origin, seo.ogImage) } : {}),
-      ...(contact.phone ? { telephone: contact.phone } : {}),
-      ...(contact.address ? { address: contact.address } : {}),
-    };
     let script = document.head.querySelector<HTMLScriptElement>('script[data-business]');
     if (!script) {
       script = document.createElement('script');
@@ -138,7 +118,7 @@ export function applyBusinessHead(business: BusinessPublicConfig) {
       script.dataset.business = business.slug;
       document.head.appendChild(script);
     }
-    script.textContent = JSON.stringify(jsonLd);
+    script.textContent = JSON.stringify(businessJsonLd(business, origin));
   }
 
   const fontHref = LAYOUT_FONTS[business.layoutKey];

@@ -73,22 +73,25 @@ function App() {
         }
         return;
       }
-      if (host.startsWith('reserva.') || host.startsWith('reservar.')) {
+      if (host.startsWith('reserva.') || host.startsWith('reservar.') || host.startsWith('reservas.')) {
         setView('public');
         booking.startBooking();
         return;
       }
 
-      // 2. Direct booking link: /reserva, /reservar, #reserva, #reservar, #/reserva
+      // 2. Direct booking link: /reserva, /reservar, /reservas, #reserva, #reservar, #reservas, #/reserva
       if (
         path === '/reserva' ||
         path === '/reservar' ||
+        path === '/reservas' ||
         path === '/booking' ||
         h === '#reserva' ||
         h === '#reservar' ||
+        h === '#reservas' ||
         h === '#booking' ||
         h === '#/reserva' ||
-        h === '#/reservar'
+        h === '#/reservar' ||
+        h === '#/reservas'
       ) {
         setView('public');
         booking.startBooking();
@@ -273,6 +276,16 @@ function App() {
     setView('public');
   }, []);
 
+  const goBooking = useCallback(() => {
+    if (typeof window !== 'undefined' && window.location.hostname.startsWith('citas.')) {
+      window.location.href = 'https://www.adrianmillan.es/#reservas';
+      return;
+    }
+    window.location.hash = '#reservas';
+    setView('public');
+    booking.startBooking();
+  }, [booking]);
+
   const goAdmin = useCallback(() => {
     window.location.hash = '#admin';
     setView('admin');
@@ -377,6 +390,7 @@ function App() {
           <Suspense fallback={<ScreenLoader message="Cargando tus citas..." />}>
             <MyBookings
               onBack={goPublic}
+              onBook={goBooking}
               userEmail={auth.user?.email}
               userId={auth.user?.id}
               onSignOut={async () => {

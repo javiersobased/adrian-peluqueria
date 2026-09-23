@@ -19,7 +19,7 @@ import {
 import { toISO, WEEKDAY_SHORT, MONTH_SHORT, getServiceDurationMinutes } from '@/lib/schedule';
 import { notify } from '@/lib/notify';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
-import { getBarberAvailableSlots, type BarberAvailableSlotsResult } from '@/lib/barberAvailability';
+import { getBarberAvailableSlots, type BarberAvailableSlotsResult, type SlotDetails } from '@/lib/barberAvailability';
 import { CalendarPickerModal, CalendarOpenButton } from '@/components/ui/CalendarPickerModal';
 
 interface AdminManualBookingProps {
@@ -126,20 +126,12 @@ export function AdminManualBooking({ onCreated }: AdminManualBookingProps) {
 
     try {
       // 1. Verificación previa de colisión en tiempo real antes de insertar
-      const { data: conflict } = await supabase
-        .from('bookings')
-        .select('id, full_name, booking_time')
-        .eq('barber', barber)
-        .eq('booking_date', date)
-        .eq('booking_time', time)
-        .neq('status', 'cancelled')
-        .maybeSingle();
-
-      if (conflict) {
-        const conflictMsg = `La hora ${time}h ya está reservada por otro cliente (${conflict.full_name}). Por favor, selecciona otro turno libre.`;
+      const resCheck = await getBarberAvailableSlots(barber, date, serviceDuration);
+      if (!resCheck.availableSlots.includes(time)) {
+        const conflictMsg = `La hora ${time}h ya no está disponible (está ocupada por otra cita o bloqueo). Por favor, selecciona otro turno libre.`;
         setError(conflictMsg);
         notify.error('Horario no disponible', conflictMsg);
-        loadAvailableSlots();
+        setSlotResult(resCheck);
         setSaving(false);
         return;
       }
@@ -305,18 +297,26 @@ export function AdminManualBooking({ onCreated }: AdminManualBookingProps) {
             )}
 
             {/* Selector de horas disponibles */}
+            {/* Selector de horas disponibles y ocupadas */}
             <div className="mt-3">
               <div className="flex items-center justify-between mb-1">
                 <label className="text-xs text-zinc-400 font-medium flex items-center gap-1.5">
                   <Clock className="h-3.5 w-3.5 text-gold" />
-                  Horas libres disponibles
+                  Horas del barbero
                 </label>
                 {loadingSlots ? (
                   <span className="text-[0.68rem] text-gold animate-pulse">Comprobando agenda...</span>
                 ) : slotResult && !slotResult.isDayUnavailable ? (
-                  <span className="text-[0.68rem] font-semibold text-emerald-400">
-                    {slotResult.availableSlots.length} {slotResult.availableSlots.length === 1 ? 'turno libre' : 'turnos libres'}
-                  </span>
+                  <div className="flex items-center gap-2 text-[0.68rem]">
+                    <span className="font-semibold text-emerald-400">
+                      {slotResult.availableSlots.length} libres
+                    </span>
+                    {slotResult.occupiedTimes.size > 0 && (
+                      <span className="font-semibold text-red-400">
+                        · {slotResult.occupiedTimes.size} {slotResult.occupiedTimes.size === 1 ? 'ocupada' : 'ocupadas'}
+                      </span>
+                    )}
+                  </div>
                 ) : null}
               </div>
 
@@ -332,28 +332,88 @@ export function AdminManualBooking({ onCreated }: AdminManualBookingProps) {
                   ) : slotResult?.isDayUnavailable ? (
                     <option value="" className="bg-zinc-900">Día no disponible para este barbero</option>
                   ) : slotResult?.availableSlots.length === 0 ? (
-                    <option value="" className="bg-zinc-900">No hay horas libres para esta fecha</option>
+                    <option value="" className="bg-zinc-900">No hay horas libres para esta fecha (todas ocupadas)</option>
                   ) : (
                     <>
                       <option value="" className="bg-zinc-900">
                         Selecciona hora ({slotResult?.availableSlots.length} libres)
                       </option>
-                      {slotResult?.morningSlots && slotResult.morningSlots.length > 0 && (
+                      {slotResult?.allMorningSlots && slotResult.allMorningSlots.length > 0 && (
                         <optgroup label="Turno de Mañana" className="bg-zinc-900 text-gold font-semibold">
-                          {slotResult.morningSlots.map((s) => (
-                            <option key={s} value={s} className="bg-zinc-900 text-white font-normal">
-                              {s} h
-                            </option>
-                          ))}
+                          {slotResult.allMorningSlots.map((s) => {
+                            if (s.status === 'booked') {
+                              return (
+                                <option key={s.time} value={s.time} disabled className="bg-zinc-900 text-red-400 font-normal">
+                                  {s.time} h — 🔴 OCUPADA{s.booking?.clientName ? ` (${s.booking.clientName})` : ' (Cita)'}
+                                </option>
+                              );
+                            }
+                            if (s.status === 'past') {
+                              return (
+                                <option key={s.time} value={s.time} disabled className="bg-zinc-900 text-zinc-600 font-normal">
+                                  {s.time} h — Pasada
+                                </option>
+                              );
+                            }
+                            if (s.status === 'blocked') {
+                              return (
+                                <option key={s.time} value={s.time} disabled className="bg-zinc-900 text-zinc-500 font-normal">
+                                  {s.time} h — Bloqueada
+                                </option>
+                              );
+                            }
+                            if (s.status === 'overlap') {
+                              return (
+                                <option key={s.time} value={s.time} disabled className="bg-zinc-900 text-amber-500/70 font-normal">
+                                  {s.time} h — No disponible (solapa con cita o fin de turno)
+                                </option>
+                              );
+                            }
+                            return (
+                              <option key={s.time} value={s.time} className="bg-zinc-900 text-white font-normal">
+                                {s.time} h — Disponible
+                              </option>
+                            );
+                          })}
                         </optgroup>
                       )}
-                      {slotResult?.afternoonSlots && slotResult.afternoonSlots.length > 0 && (
+                      {slotResult?.allAfternoonSlots && slotResult.allAfternoonSlots.length > 0 && (
                         <optgroup label="Turno de Tarde" className="bg-zinc-900 text-gold font-semibold">
-                          {slotResult.afternoonSlots.map((s) => (
-                            <option key={s} value={s} className="bg-zinc-900 text-white font-normal">
-                              {s} h
-                            </option>
-                          ))}
+                          {slotResult.allAfternoonSlots.map((s) => {
+                            if (s.status === 'booked') {
+                              return (
+                                <option key={s.time} value={s.time} disabled className="bg-zinc-900 text-red-400 font-normal">
+                                  {s.time} h — 🔴 OCUPADA{s.booking?.clientName ? ` (${s.booking.clientName})` : ' (Cita)'}
+                                </option>
+                              );
+                            }
+                            if (s.status === 'past') {
+                              return (
+                                <option key={s.time} value={s.time} disabled className="bg-zinc-900 text-zinc-600 font-normal">
+                                  {s.time} h — Pasada
+                                </option>
+                              );
+                            }
+                            if (s.status === 'blocked') {
+                              return (
+                                <option key={s.time} value={s.time} disabled className="bg-zinc-900 text-zinc-500 font-normal">
+                                  {s.time} h — Bloqueada
+                                </option>
+                              );
+                            }
+                            if (s.status === 'overlap') {
+                              return (
+                                <option key={s.time} value={s.time} disabled className="bg-zinc-900 text-amber-500/70 font-normal">
+                                  {s.time} h — No disponible (solapa con cita o fin de turno)
+                                </option>
+                              );
+                            }
+                            return (
+                              <option key={s.time} value={s.time} className="bg-zinc-900 text-white font-normal">
+                                {s.time} h — Disponible
+                              </option>
+                            );
+                          })}
                         </optgroup>
                       )}
                     </>
@@ -361,27 +421,76 @@ export function AdminManualBooking({ onCreated }: AdminManualBookingProps) {
                 </select>
               </div>
 
-              {/* Malla de botones rápidos con horas libres */}
-              {!loadingSlots && slotResult && slotResult.availableSlots.length > 0 && (
-                <div className="mt-2.5 pt-2 border-t border-white/5">
-                  <p className="text-[0.65rem] uppercase tracking-wider font-semibold text-zinc-500 mb-1.5">
-                    Selección rápida de turno:
-                  </p>
-                  <div className="flex flex-wrap gap-1.5 max-h-36 overflow-y-auto pr-1">
-                    {slotResult.availableSlots.map((s) => (
-                      <button
-                        key={s}
-                        type="button"
-                        onClick={() => setTime(s)}
-                        className={`rounded-lg px-2.5 py-1 text-xs font-mono font-semibold transition-all ${
-                          time === s
-                            ? 'gold-gradient text-black font-bold shadow-md shadow-gold/20 scale-105 z-10'
-                            : 'bg-zinc-900/90 text-zinc-300 hover:bg-gold/15 hover:text-gold border border-white/5'
-                        }`}
-                      >
-                        {s}
-                      </button>
-                    ))}
+              {/* Malla de botones con turnos libres y turnos ocupados marcados en rojo/tachados */}
+              {!loadingSlots && slotResult && !slotResult.isDayUnavailable && slotResult.allSlots && slotResult.allSlots.length > 0 && (
+                <div className="mt-3 pt-2.5 border-t border-white/5 space-y-2.5">
+                  <div className="flex items-center justify-between">
+                    <p className="text-[0.65rem] uppercase tracking-wider font-semibold text-zinc-400">
+                      Cuadrícula de turnos:
+                    </p>
+                    <span className="text-[0.65rem] text-zinc-500">
+                      Toca un turno libre para seleccionarlo
+                    </span>
+                  </div>
+
+                  {/* Turno Mañana */}
+                  {slotResult.allMorningSlots.length > 0 && (
+                    <div className="space-y-1">
+                      <div className="flex items-center justify-between text-[0.62rem]">
+                        <span className="font-bold text-gold uppercase tracking-wider">Turno Mañana</span>
+                        <span className="text-zinc-500">
+                          {slotResult.allMorningSlots.filter((s) => s.available).length} libres
+                        </span>
+                      </div>
+                      <div className="grid grid-cols-4 sm:grid-cols-6 gap-1.5 max-h-36 overflow-y-auto pr-1">
+                        {slotResult.allMorningSlots.map((s) => (
+                          <SlotButton
+                            key={s.time}
+                            slot={s}
+                            selectedTime={time}
+                            onSelect={setTime}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Turno Tarde */}
+                  {slotResult.allAfternoonSlots.length > 0 && (
+                    <div className="space-y-1 pt-1">
+                      <div className="flex items-center justify-between text-[0.62rem]">
+                        <span className="font-bold text-gold uppercase tracking-wider">Turno Tarde</span>
+                        <span className="text-zinc-500">
+                          {slotResult.allAfternoonSlots.filter((s) => s.available).length} libres
+                        </span>
+                      </div>
+                      <div className="grid grid-cols-4 sm:grid-cols-6 gap-1.5 max-h-40 overflow-y-auto pr-1">
+                        {slotResult.allAfternoonSlots.map((s) => (
+                          <SlotButton
+                            key={s.time}
+                            slot={s}
+                            selectedTime={time}
+                            onSelect={setTime}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Leyenda explicativa */}
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1 pt-2 border-t border-white/5 text-[0.62rem]">
+                    <span className="flex items-center gap-1.5 text-zinc-300">
+                      <span className="h-2 w-2 rounded-full bg-emerald-400" />
+                      Disponible
+                    </span>
+                    <span className="flex items-center gap-1.5 text-red-400 font-semibold">
+                      <span className="h-2 w-2 rounded-full bg-red-500" />
+                      <span className="line-through">Tachada en rojo</span> (Ocupada por cita)
+                    </span>
+                    <span className="flex items-center gap-1.5 text-zinc-500">
+                      <span className="h-2 w-2 rounded-full bg-zinc-600" />
+                      Pasada / Bloqueo
+                    </span>
                   </div>
                 </div>
               )}
@@ -389,7 +498,7 @@ export function AdminManualBooking({ onCreated }: AdminManualBookingProps) {
               {/* Mensaje cuando no hay turnos */}
               {!loadingSlots && slotResult && !slotResult.isDayUnavailable && slotResult.availableSlots.length === 0 && (
                 <div className="mt-2.5 rounded-xl border border-red-500/20 bg-red-950/15 p-3 text-xs text-red-300">
-                  <p className="font-semibold text-red-400">Sin horas libres</p>
+                  <p className="font-semibold text-red-400">Sin turnos libres</p>
                   <p className="text-[0.7rem] text-zinc-400 mt-0.5">
                     Todos los turnos de {selectedBarberObj?.name || 'este barbero'} para el {formatDateLabel(date)} ya están ocupados por otras citas o fuera de horario.
                   </p>
@@ -527,3 +636,112 @@ function FormCard({ label, children }: { label: string; children: React.ReactNod
     </div>
   );
 }
+
+function SlotButton({
+  slot,
+  selectedTime,
+  onSelect,
+}: {
+  slot: SlotDetails;
+  selectedTime: string;
+  onSelect: (time: string) => void;
+}) {
+  const isSelected = selectedTime === slot.time;
+
+  if (slot.status === 'booked') {
+    const tooltip = slot.booking?.clientName
+      ? `Cita ocupada: ${slot.booking.clientName}${slot.booking.service ? ` (${slot.booking.service})` : ''} · Inicio ${slot.booking.startTime}h (${slot.booking.duration} min)`
+      : `Ocupada por una cita previa (${slot.time}h)`;
+
+    return (
+      <button
+        type="button"
+        disabled
+        title={tooltip}
+        aria-label={`${slot.time}h ocupada por cita`}
+        className="group relative flex flex-col items-center justify-center rounded-xl py-1.5 px-2 text-xs font-mono font-bold transition-all bg-red-500/15 text-red-400 border border-red-500/40 line-through cursor-not-allowed opacity-90 select-none shadow-sm shadow-red-950/30"
+      >
+        <span>{slot.time}</span>
+        <span className="text-[0.55rem] font-semibold text-red-400/90 leading-none mt-0.5 no-underline">
+          Cita
+        </span>
+      </button>
+    );
+  }
+
+  if (slot.status === 'past') {
+    return (
+      <button
+        type="button"
+        disabled
+        title="Hora ya pasada hoy"
+        aria-label={`${slot.time}h pasada`}
+        className="flex flex-col items-center justify-center rounded-xl py-1.5 px-2 text-xs font-mono transition-all bg-zinc-900/30 text-zinc-600 border border-white/5 line-through cursor-not-allowed opacity-40 select-none"
+      >
+        <span>{slot.time}</span>
+        <span className="text-[0.55rem] text-zinc-600 leading-none mt-0.5 no-underline">
+          Pasada
+        </span>
+      </button>
+    );
+  }
+
+  if (slot.status === 'blocked') {
+    return (
+      <button
+        type="button"
+        disabled
+        title="Horario bloqueado por el barbero"
+        aria-label={`${slot.time}h bloqueada`}
+        className="flex flex-col items-center justify-center rounded-xl py-1.5 px-2 text-xs font-mono transition-all bg-zinc-900/40 text-zinc-500 border border-zinc-800 line-through cursor-not-allowed opacity-50 select-none"
+      >
+        <span>{slot.time}</span>
+        <span className="text-[0.55rem] text-zinc-500 leading-none mt-0.5 no-underline">
+          Bloqueo
+        </span>
+      </button>
+    );
+  }
+
+  if (slot.status === 'overlap') {
+    return (
+      <button
+        type="button"
+        disabled
+        title="No disponible: la duración de este servicio choca con la siguiente cita o fin de turno"
+        aria-label={`${slot.time}h no disponible`}
+        className="flex flex-col items-center justify-center rounded-xl py-1.5 px-2 text-xs font-mono transition-all bg-amber-500/5 text-amber-400/50 border border-amber-500/20 line-through cursor-not-allowed opacity-60 select-none"
+      >
+        <span>{slot.time}</span>
+        <span className="text-[0.55rem] text-amber-500/60 leading-none mt-0.5 no-underline">
+          Solapa
+        </span>
+      </button>
+    );
+  }
+
+  // Disponible
+  return (
+    <button
+      type="button"
+      onClick={() => onSelect(slot.time)}
+      title={`Seleccionar ${slot.time}h (Disponible)`}
+      aria-label={`Seleccionar ${slot.time}h`}
+      className={`flex flex-col items-center justify-center rounded-xl py-1.5 px-2 text-xs font-mono font-semibold transition-all cursor-pointer active:scale-95 ${
+        isSelected
+          ? 'gold-gradient text-black font-bold shadow-md shadow-gold/20 scale-105 z-10'
+          : 'bg-zinc-900/90 text-zinc-200 hover:bg-gold/15 hover:text-gold hover:border-gold/40 border border-white/10'
+      }`}
+    >
+      <span>{slot.time}</span>
+      <span
+        className={`text-[0.55rem] leading-none mt-0.5 ${
+          isSelected ? 'text-black/80 font-bold' : 'text-emerald-400/80 font-medium'
+        }`}
+      >
+        Libre
+      </span>
+    </button>
+  );
+}
+

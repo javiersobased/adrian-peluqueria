@@ -28,6 +28,9 @@ interface RequestBody {
   to?: string | null;
   subject?: string | null;
   html?: string | null;
+  idempotency_key?: string | null;
+  notification_type?: string | null;
+  booking_id?: string | null;
 }
 
 Deno.serve(async (req: Request) => {
@@ -152,6 +155,27 @@ Deno.serve(async (req: Request) => {
           status: 403,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
+      }
+
+      if (body.idempotency_key && supabaseUrl && supabaseKey) {
+        try {
+          const adminSupabase = createClient(supabaseUrl, supabaseKey);
+          const { data: acquired } = await adminSupabase.rpc('acquire_notification_idempotency', {
+            p_key: body.idempotency_key,
+            p_booking_id: body.booking_id || null,
+            p_type: body.notification_type || 'direct_email',
+            p_recipient: cleanTo,
+          });
+          if (acquired === false) {
+            console.log(`[Idempotency] Duplicate email dispatch suppressed for key: ${body.idempotency_key}`);
+            return new Response(JSON.stringify({ success: true, duplicate: true, message: "Duplicate email suppressed by idempotency lock" }), {
+              status: 200,
+              headers: { ...corsHeaders, "Content-Type": "application/json" },
+            });
+          }
+        } catch (idempErr) {
+          console.warn("[Idempotency] Error checking idempotency key:", idempErr);
+        }
       }
 
       const ok = await sendResendEmail(to, subject, html);
@@ -288,55 +312,100 @@ Deno.serve(async (req: Request) => {
       `;
 
       for (const bEmail of barberEmails) {
-        const ok = await sendResendEmail(bEmail, barberSubject, barberHtml);
-        if (ok) results.barbersSent.push(bEmail);
+        let shouldSend = true;
+        if (booking.id && supabaseUrl && supabaseKey) {
+          try {
+            const adminDb = createClient(supabaseUrl, supabaseKey);
+            const barberKey = `booking-barber-${booking.id}-${bEmail}`;
+            const { data: acquired } = await adminDb.rpc('acquire_notification_idempotency', {
+              p_key: barberKey,
+              p_booking_id: booking.id,
+              p_type: 'barber_booking_email',
+              p_recipient: bEmail,
+            });
+            if (acquired === false) {
+              console.log(`[Idempotency] Duplicate barber email suppressed: ${barberKey}`);
+              shouldSend = false;
+              results.barbersSent.push(bEmail);
+            }
+          } catch (idempErr) {
+            console.warn('[Idempotency] Warning acquiring barber idempotency:', idempErr);
+          }
+        }
+        if (shouldSend) {
+          const ok = await sendResendEmail(bEmail, barberSubject, barberHtml);
+          if (ok) results.barbersSent.push(bEmail);
+        }
       }
     }
 
     // 2. Send confirmation to Customer (forzado al email de la sesión autenticada salvo que sea staff)
     const clientTargetEmail = user.email || booking.email;
     if (clientTargetEmail) {
-      const clientSubject = `Confirmación de tu cita · Peluquería Adrián Millán`;
-      const clientHtml = `
-        <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #09090b; color: #f4f4f5; border-radius: 16px; border: 1px solid #27272a;">
-          <div style="text-align: center; margin-bottom: 24px;">
-            <h1 style="color: #d4af37; font-size: 24px; margin: 0;">¡Cita Confirmada!</h1>
-            <p style="color: #a1a1aa; font-size: 14px; margin-top: 6px;">Peluquería Adrián Millán</p>
-          </div>
+      let shouldSendClient = true;
+      if (booking.id && supabaseUrl && supabaseKey) {
+        try {
+          const adminDb = createClient(supabaseUrl, supabaseKey);
+          const clientKey = `booking-client-${booking.id}-${clientTargetEmail.toLowerCase().trim()}`;
+          const { data: acquired } = await adminDb.rpc('acquire_notification_idempotency', {
+            p_key: clientKey,
+            p_booking_id: booking.id,
+            p_type: 'client_booking_email',
+            p_recipient: clientTargetEmail,
+          });
+          if (acquired === false) {
+            console.log(`[Idempotency] Duplicate client email suppressed: ${clientKey}`);
+            shouldSendClient = false;
+            results.clientSent = true;
+          }
+        } catch (idempErr) {
+          console.warn('[Idempotency] Warning acquiring client idempotency:', idempErr);
+        }
+      }
 
-          <p style="font-size: 15px; color: #e4e4e7;">Hola <strong>${booking.full_name}</strong>,</p>
-          <p style="font-size: 14px; color: #a1a1aa; line-height: 1.5;">Tu cita ha sido reservada correctamente. Aquí tienes los detalles:</p>
+      if (shouldSendClient) {
+        const clientSubject = `Confirmación de tu cita · Peluquería Adrián Millán`;
+        const clientHtml = `
+          <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #09090b; color: #f4f4f5; border-radius: 16px; border: 1px solid #27272a;">
+            <div style="text-align: center; margin-bottom: 24px;">
+              <h1 style="color: #d4af37; font-size: 24px; margin: 0;">¡Cita Confirmada!</h1>
+              <p style="color: #a1a1aa; font-size: 14px; margin-top: 6px;">Peluquería Adrián Millán</p>
+            </div>
 
-          <div style="background-color: #18181b; border-radius: 12px; padding: 20px; border: 1px solid #27272a; margin: 20px 0;">
-            <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
-              <tr style="border-bottom: 1px solid #27272a;">
-                <td style="padding: 10px 0; color: #a1a1aa;">Servicio:</td>
-                <td style="padding: 10px 0; font-weight: bold; color: #ffffff; text-align: right;">${booking.service} (${booking.service_price} €)</td>
-              </tr>
-              <tr style="border-bottom: 1px solid #27272a;">
-                <td style="padding: 10px 0; color: #a1a1aa;">Fecha:</td>
-                <td style="padding: 10px 0; font-weight: bold; color: #ffffff; text-align: right;">${booking.booking_date}</td>
-              </tr>
-              <tr style="border-bottom: 1px solid #27272a;">
-                <td style="padding: 10px 0; color: #a1a1aa;">Hora:</td>
-                <td style="padding: 10px 0; font-weight: bold; color: #d4af37; font-size: 16px; text-align: right;">${booking.booking_time} h</td>
-              </tr>
-              <tr>
-                <td style="padding: 10px 0; color: #a1a1aa;">Barbero:</td>
-                <td style="padding: 10px 0; font-weight: bold; color: #ffffff; text-align: right;">${barberDisplayName}</td>
-              </tr>
-            </table>
-          </div>
+            <p style="font-size: 15px; color: #e4e4e7;">Hola <strong>${booking.full_name}</strong>,</p>
+            <p style="font-size: 14px; color: #a1a1aa; line-height: 1.5;">Tu cita ha sido reservada correctamente. Aquí tienes los detalles:</p>
 
-          <p style="font-size: 13px; color: #a1a1aa;">Te esperamos en nuestro salón. Si necesitas cambiar tu hora o consultar tu cita, puedes hacerlo desde nuestra aplicación web.</p>
-          
-          <div style="text-align: center; margin-top: 24px; border-top: 1px solid #27272a; padding-top: 16px;">
-            <p style="color: #71717a; font-size: 12px; margin: 0;">Peluquería Adrián Millán · Huelva</p>
+            <div style="background-color: #18181b; border-radius: 12px; padding: 20px; border: 1px solid #27272a; margin: 20px 0;">
+              <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
+                <tr style="border-bottom: 1px solid #27272a;">
+                  <td style="padding: 10px 0; color: #a1a1aa;">Servicio:</td>
+                  <td style="padding: 10px 0; font-weight: bold; color: #ffffff; text-align: right;">${booking.service} (${booking.service_price} €)</td>
+                </tr>
+                <tr style="border-bottom: 1px solid #27272a;">
+                  <td style="padding: 10px 0; color: #a1a1aa;">Fecha:</td>
+                  <td style="padding: 10px 0; font-weight: bold; color: #ffffff; text-align: right;">${booking.booking_date}</td>
+                </tr>
+                <tr style="border-bottom: 1px solid #27272a;">
+                  <td style="padding: 10px 0; color: #a1a1aa;">Hora:</td>
+                  <td style="padding: 10px 0; font-weight: bold; color: #d4af37; font-size: 16px; text-align: right;">${booking.booking_time} h</td>
+                </tr>
+                <tr>
+                  <td style="padding: 10px 0; color: #a1a1aa;">Barbero:</td>
+                  <td style="padding: 10px 0; font-weight: bold; color: #ffffff; text-align: right;">${barberDisplayName}</td>
+                </tr>
+              </table>
+            </div>
+
+            <p style="font-size: 13px; color: #a1a1aa;">Te esperamos en nuestro salón. Si necesitas cambiar tu hora o consultar tu cita, puedes hacerlo desde nuestra aplicación web.</p>
+            
+            <div style="text-align: center; margin-top: 24px; border-top: 1px solid #27272a; padding-top: 16px;">
+              <p style="color: #71717a; font-size: 12px; margin: 0;">Peluquería Adrián Millán · Huelva</p>
+            </div>
           </div>
-        </div>
-      `;
-      const ok = await sendResendEmail(clientTargetEmail, clientSubject, clientHtml);
-      results.clientSent = ok;
+        `;
+        const ok = await sendResendEmail(clientTargetEmail, clientSubject, clientHtml);
+        results.clientSent = ok;
+      }
     }
 
     return new Response(JSON.stringify({ success: true, results }), {

@@ -68,6 +68,9 @@ function isTodayWithinNextHours(
  * Sends a notification payload to Supabase Edge Function to dispatch push and/or email
  */
 async function dispatchNotification(payload: {
+  idempotencyKey?: string;
+  bookingId?: string;
+  notificationType?: string;
   push?: {
     userIds?: string[];
     tags?: { key: string; relation: '=' | '!='; value: string }[];
@@ -90,6 +93,9 @@ async function dispatchNotification(payload: {
             to: payload.email.to,
             subject: payload.email.subject,
             html: payload.email.html,
+            idempotency_key: payload.idempotencyKey,
+            booking_id: payload.bookingId,
+            notification_type: payload.notificationType,
           },
         });
       } catch (emailErr) {
@@ -100,7 +106,11 @@ async function dispatchNotification(payload: {
     // 2. Send push via notificar-reserva Edge Function (OneSignal)
     if (payload.push) {
       const { error } = await supabase.functions.invoke('notificar-reserva', {
-        body: payload,
+        body: {
+          ...payload,
+          idempotency_key: payload.idempotencyKey ? `${payload.idempotencyKey}-push` : undefined,
+          booking_id: payload.bookingId,
+        },
       });
       if (error) {
         console.warn('[Notifications] Push Edge Function warning:', error.message);
@@ -181,6 +191,9 @@ export async function notifyBookingConfirmed(booking: SavedBooking, barber?: Bar
     const clientEmail = targetEmail ? getBookingConfirmationEmail(bookingWithEmail) : null;
 
     await dispatchNotification({
+      idempotencyKey: `booking-confirmed-client-${booking.id}`,
+      bookingId: booking.id,
+      notificationType: 'booking_confirmed_client',
       push: booking.user_id ? {
         userIds: [booking.user_id],
         heading: 'Cita Confirmada · Peluquería Adrián Millán',
@@ -201,6 +214,9 @@ export async function notifyBookingConfirmed(booking: SavedBooking, barber?: Bar
       const barberEmailPayload = getBarberNewBookingEmail(booking, barberName);
 
       await dispatchNotification({
+        idempotencyKey: `booking-confirmed-barber-${booking.id}-${barberGoogleEmail}`,
+        bookingId: booking.id,
+        notificationType: 'booking_confirmed_barber',
         push: isUrgentForBarber ? {
           tags: [
             { key: 'barber_id', relation: '=', value: booking.barber },
@@ -245,6 +261,9 @@ export async function notifyBookingCancelled(
     const clientEmail = targetEmail ? getBookingCancelledEmail(bookingWithEmail, barberName, reason) : null;
 
     await dispatchNotification({
+      idempotencyKey: `booking-cancelled-client-${booking.id}`,
+      bookingId: booking.id,
+      notificationType: 'booking_cancelled_client',
       push: booking.user_id ? {
         userIds: [booking.user_id],
         heading: 'Cita Cancelada · Peluquería Adrián Millán',
@@ -265,6 +284,9 @@ export async function notifyBookingCancelled(
       const barberEmailPayload = barberGoogleEmail ? getBarberUrgentTodayCancellationEmail(booking, barberName) : null;
 
       await dispatchNotification({
+        idempotencyKey: `booking-cancelled-barber-${booking.id}-${barberGoogleEmail}`,
+        bookingId: booking.id,
+        notificationType: 'booking_cancelled_barber',
         push: {
           tags: [
             { key: 'barber_id', relation: '=', value: booking.barber },
@@ -311,6 +333,9 @@ export async function notifyBookingRescheduled(
     const clientEmail = targetEmail ? getBookingRescheduledEmail(bookingWithEmail, oldDate, oldTime, reason, barberName) : null;
 
     await dispatchNotification({
+      idempotencyKey: `booking-rescheduled-client-${booking.id}-${booking.booking_date}-${booking.booking_time}`,
+      bookingId: booking.id,
+      notificationType: 'booking_rescheduled_client',
       push: booking.user_id ? {
         userIds: [booking.user_id],
         heading: 'Horario modificado · Peluquería Adrián Millán',
@@ -334,6 +359,9 @@ export async function notifyBookingRescheduled(
       const barberEmailPayload = barberGoogleEmail ? getBarberUrgentTodayRescheduledEmail(booking, barberName, oldTime) : null;
 
       await dispatchNotification({
+        idempotencyKey: `booking-rescheduled-barber-${booking.id}-${barberGoogleEmail}-${booking.booking_date}-${booking.booking_time}`,
+        bookingId: booking.id,
+        notificationType: 'booking_rescheduled_barber',
         push: {
           tags: [
             { key: 'barber_id', relation: '=', value: booking.barber },

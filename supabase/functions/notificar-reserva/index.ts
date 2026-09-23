@@ -67,6 +67,28 @@ Deno.serve(async (req: Request) => {
       }
     }
 
+    // Database idempotency lock to prevent duplicate push notifications
+    if (body.idempotency_key && supabaseUrl && supabaseKey) {
+      try {
+        const adminDb = createClient(supabaseUrl, supabaseKey);
+        const { data: acquired } = await adminDb.rpc('acquire_notification_idempotency', {
+          p_key: String(body.idempotency_key),
+          p_booking_id: body.record?.id || body.booking_id || null,
+          p_type: 'push',
+          p_recipient: body.push?.userIds?.join(',') || 'push_target',
+        });
+        if (acquired === false) {
+          console.log(`[Idempotency] Duplicate push notification suppressed: ${body.idempotency_key}`);
+          return new Response(JSON.stringify({ success: true, duplicate: true, message: "Duplicate push suppressed by idempotency lock" }), {
+            status: 200,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+      } catch (idempErr) {
+        console.warn('[Idempotency] Warning acquiring push idempotency:', idempErr);
+      }
+    }
+
     // 2. OneSignal Push Dispatch
     if (body.push) {
       const pushBody: Record<string, any> = {

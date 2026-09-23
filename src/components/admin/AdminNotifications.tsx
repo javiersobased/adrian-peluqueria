@@ -31,6 +31,7 @@ import {
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import { ModalPortal } from '@/components/ui/ModalPortal';
 import { notify } from '@/lib/notify';
+import { toISO } from '@/lib/schedule';
 
 interface AdminNotificationsProps {
   barbers: Barber[];
@@ -115,6 +116,24 @@ export function AdminNotifications({
 
   const fetchNotifications = useCallback(async () => {
     try {
+      const todayISO = toISO(new Date());
+
+      // Automatically purge from Supabase any notifications whose scheduled appointment day has passed
+      try {
+        await supabase
+          .from('booking_notifications')
+          .delete()
+          .lt('booking_date', todayISO);
+
+        await supabase
+          .from('booking_notifications')
+          .delete()
+          .is('booking_date', null)
+          .lt('old_date', todayISO);
+      } catch (delErr) {
+        console.warn('Error auto-cleaning expired notifications:', delErr);
+      }
+
       const { data, error } = await supabase
         .from('booking_notifications')
         .select('*')
@@ -122,7 +141,14 @@ export function AdminNotifications({
         .limit(150);
 
       if (error) throw error;
-      const notifs = (data as BookingNotification[]) || [];
+      const rawNotifs = (data as BookingNotification[]) || [];
+
+      // Filter in-memory to ensure past-date notifications are never shown
+      const notifs = rawNotifs.filter((n) => {
+        const appointmentDate = n.booking_date || n.old_date;
+        return !appointmentDate || appointmentDate >= todayISO;
+      });
+
       setNotifications(notifs);
 
       // Check which booking_ids correspond to manual bookings (user_id IS NULL)
@@ -172,6 +198,12 @@ export function AdminNotifications({
         (payload) => {
           if (payload.eventType === 'INSERT') {
             const newNotif = payload.new as BookingNotification;
+            const todayISO = toISO(new Date());
+            const appointmentDate = newNotif.booking_date || newNotif.old_date;
+            if (appointmentDate && appointmentDate < todayISO) {
+              return;
+            }
+
             setNotifications((prev) => [newNotif, ...prev.filter((n) => n.id !== newNotif.id)]);
             notify.info('Nueva Notificación', newNotif.title + ': ' + newNotif.client_name);
 
@@ -189,6 +221,13 @@ export function AdminNotifications({
             }
           } else if (payload.eventType === 'UPDATE') {
             const updated = payload.new as BookingNotification;
+            const todayISO = toISO(new Date());
+            const appointmentDate = updated.booking_date || updated.old_date;
+            if (appointmentDate && appointmentDate < todayISO) {
+              setNotifications((prev) => prev.filter((n) => n.id !== updated.id));
+              return;
+            }
+
             setNotifications((prev) =>
               prev.map((n) => (n.id === updated.id ? updated : n))
             );

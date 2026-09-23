@@ -230,15 +230,35 @@ export function AdminPanel({ userRole, onSignOut, onGoPublic }: AdminPanelProps)
 
   const fetchUnreadNotifs = useCallback(async () => {
     try {
+      const todayISO = toISO(new Date());
+
+      // Auto-purge past notifications whose scheduled day has passed
+      try {
+        await supabase
+          .from('booking_notifications')
+          .delete()
+          .lt('booking_date', todayISO);
+
+        await supabase
+          .from('booking_notifications')
+          .delete()
+          .is('booking_date', null)
+          .lt('old_date', todayISO);
+      } catch {}
+
       let q = supabase
         .from('booking_notifications')
-        .select('id', { count: 'exact', head: true })
+        .select('id, booking_date, old_date')
         .eq('read', false);
       if (!isAdmin && userRole.barber_id) {
         q = q.eq('barber', userRole.barber_id);
       }
-      const { count } = await q;
-      setUnreadNotifsCount(count ?? 0);
+      const { data } = await q;
+      const validCount = (data || []).filter((n: any) => {
+        const appointmentDate = n.booking_date || n.old_date;
+        return !appointmentDate || appointmentDate >= todayISO;
+      }).length;
+      setUnreadNotifsCount(validCount);
     } catch {
       // ignore
     }

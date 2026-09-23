@@ -1,4 +1,4 @@
-import type { BusinessPublicConfig } from './businessModel';
+import type { BusinessPublicConfig } from '@/lib/businessModel';
 
 // Lectura validada de businesses.public_config / contact / theme. Los valores por defecto se derivan
 // del propio negocio; nunca se rellenan con datos de otro tenant.

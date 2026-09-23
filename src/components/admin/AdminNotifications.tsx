@@ -26,6 +26,7 @@ import {
   X,
   Mail,
   CalendarDays,
+  ChevronDown,
 } from 'lucide-react';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import { ModalPortal } from '@/components/ui/ModalPortal';
@@ -94,6 +95,7 @@ export function AdminNotifications({
   const [selectedBarberFilter, setSelectedBarberFilter] = useState<string>(selectedBarber || 'all');
   const [selectedNotif, setSelectedNotif] = useState<BookingNotification | null>(null);
   const [manualBookingIds, setManualBookingIds] = useState<Set<string>>(new Set());
+  const [showBarberDropdown, setShowBarberDropdown] = useState(false);
 
   // Keep in sync if prop changes
   useEffect(() => {
@@ -101,6 +103,15 @@ export function AdminNotifications({
       setSelectedBarberFilter(selectedBarber);
     }
   }, [selectedBarber]);
+
+  const selectedBarberObj = useMemo(
+    () => barbers.find((b) => b.id === selectedBarberFilter),
+    [barbers, selectedBarberFilter]
+  );
+  const selectedBarberLabel = useMemo(
+    () => (selectedBarberFilter === 'all' ? 'Todos los barberos' : selectedBarberObj?.name || 'Barbero'),
+    [selectedBarberFilter, selectedBarberObj]
+  );
 
   const fetchNotifications = useCallback(async () => {
     try {
@@ -336,70 +347,14 @@ export function AdminNotifications({
 
   return (
     <div className="flex flex-col h-full w-full min-w-0 space-y-4">
-      {/* Header bar */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-white/5">
-        <div>
-          <div className="flex items-center gap-2">
-            <h2 className="font-display text-xl sm:text-2xl font-bold text-white tracking-tight flex items-center gap-2">
-              <Bell className="h-5 w-5 text-gold" />
-              Centro de Notificaciones
-            </h2>
-            <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-[0.65rem] font-bold text-emerald-400 border border-emerald-500/20">
-              <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
-              En directo
-            </span>
-          </div>
-          <p className="text-xs text-zinc-400 mt-0.5">
-            Historial en tiempo real de citas nuevas, cancelaciones y modificaciones de horario
-          </p>
-        </div>
-
-        <div className="flex items-center gap-2 shrink-0">
-          {unreadCount > 0 && (
-            <button
-              onClick={markAllAsRead}
-              disabled={markingAll || clearingAll}
-              className="inline-flex items-center gap-1.5 rounded-xl border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-semibold text-zinc-300 transition-all hover:bg-gold/10 hover:text-gold hover:border-gold/30 active:scale-95 disabled:opacity-50"
-            >
-              <CheckCheck className="h-3.5 w-3.5" />
-              <span className="hidden sm:inline">Marcar todas como leídas</span>
-              <span className="sm:hidden">Marcar leídas</span>
-            </button>
-          )}
-
-          {notifications.length > 0 && (
-            <button
-              onClick={() => setShowClearConfirmModal(true)}
-              disabled={clearingAll || markingAll}
-              className="inline-flex items-center gap-1.5 rounded-xl border border-red-500/20 bg-red-500/10 px-3 py-1.5 text-xs font-semibold text-red-400 transition-all hover:bg-red-500/20 hover:border-red-500/40 active:scale-95 disabled:opacity-50"
-              title="Limpiar todas las notificaciones"
-            >
-              <Trash2 className="h-3.5 w-3.5" />
-              <span className="hidden sm:inline">Limpiar todas</span>
-              <span className="sm:hidden">Limpiar</span>
-            </button>
-          )}
-
+      {/* Compact Controls Header (Space-saving, no repeated title) */}
+      <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-2.5 pb-2.5 border-b border-white/5">
+        {/* Left: Filter Pills + Barber Dropdown immediately to the right */}
+        <div className="flex flex-wrap items-center gap-1.5 min-w-0">
           <button
-            onClick={() => {
-              setLoading(true);
-              fetchNotifications();
-            }}
-            title="Refrescar notificaciones"
-            className="flex h-8 w-8 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-zinc-400 transition-colors hover:bg-white/10 hover:text-white"
-          >
-            <RefreshCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />
-          </button>
-        </div>
-      </div>
-
-      {/* Filter Tabs & Search */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
-        {/* Type pills */}
-        <div className="flex flex-wrap items-center gap-1.5">
-          <button
+            type="button"
             onClick={() => setFilter('all')}
-            className={`inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-semibold transition-all ${
+            className={`inline-flex items-center gap-1.5 rounded-xl px-2.5 py-1.5 text-xs font-semibold transition-all ${
               filter === 'all'
                 ? 'bg-gold/20 text-gold border border-gold/40 shadow-sm'
                 : 'bg-white/5 text-zinc-400 border border-white/5 hover:text-zinc-200'
@@ -412,8 +367,9 @@ export function AdminNotifications({
           </button>
 
           <button
+            type="button"
             onClick={() => setFilter('created')}
-            className={`inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-semibold transition-all ${
+            className={`inline-flex items-center gap-1.5 rounded-xl px-2.5 py-1.5 text-xs font-semibold transition-all ${
               filter === 'created'
                 ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 shadow-sm'
                 : 'bg-white/5 text-zinc-400 border border-white/5 hover:text-emerald-300'
@@ -429,8 +385,9 @@ export function AdminNotifications({
           </button>
 
           <button
+            type="button"
             onClick={() => setFilter('cancelled')}
-            className={`inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-semibold transition-all ${
+            className={`inline-flex items-center gap-1.5 rounded-xl px-2.5 py-1.5 text-xs font-semibold transition-all ${
               filter === 'cancelled'
                 ? 'bg-red-500/20 text-red-300 border border-red-500/40 shadow-sm'
                 : 'bg-white/5 text-zinc-400 border border-white/5 hover:text-red-300'
@@ -446,94 +403,172 @@ export function AdminNotifications({
           </button>
 
           <button
+            type="button"
             onClick={() => setFilter('rescheduled')}
-            className={`inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-semibold transition-all ${
+            className={`inline-flex items-center gap-1.5 rounded-xl px-2.5 py-1.5 text-xs font-semibold transition-all ${
               filter === 'rescheduled'
                 ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40 shadow-sm'
                 : 'bg-white/5 text-zinc-400 border border-white/5 hover:text-amber-300'
             }`}
           >
             <span className="h-2 w-2 rounded-full bg-amber-400" />
-            <span>Cambios de Horario</span>
+            <span>Cambios</span>
             {countRescheduled > 0 && (
               <span className="rounded-full bg-amber-950/60 px-1.5 py-0.2 text-[0.65rem] font-bold text-amber-300">
                 {countRescheduled}
               </span>
             )}
           </button>
+
+          {/* Separator divider */}
+          {barbers.length > 0 && (
+            <span className="h-4 w-px bg-white/10 mx-0.5 hidden sm:inline-block" />
+          )}
+
+          {/* Barber Dropdown (Right next to notification filters) */}
+          {barbers.length > 0 && (
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setShowBarberDropdown((prev) => !prev)}
+                className={`inline-flex items-center gap-1.5 rounded-xl px-2.5 py-1.5 text-xs font-semibold transition-all border ${
+                  selectedBarberFilter !== 'all'
+                    ? 'bg-gold/20 text-gold border border-gold/40 shadow-sm'
+                    : 'bg-white/5 text-zinc-300 border border-white/10 hover:border-white/20 hover:bg-white/10'
+                }`}
+              >
+                {selectedBarberObj?.photo_url ? (
+                  <img src={selectedBarberObj.photo_url} alt="" className="h-4 w-4 rounded-full object-cover shrink-0" />
+                ) : selectedBarberFilter !== 'all' && selectedBarberObj ? (
+                  <span className="flex h-4 w-4 items-center justify-center rounded-full gold-gradient text-[0.5rem] font-bold text-black shrink-0">
+                    {selectedBarberObj.initials}
+                  </span>
+                ) : (
+                  <Users className="h-3.5 w-3.5 text-zinc-400 shrink-0" />
+                )}
+                <span className="max-w-[120px] truncate">{selectedBarberLabel}</span>
+                <ChevronDown className={`h-3 w-3 text-zinc-400 transition-transform duration-200 ${showBarberDropdown ? 'rotate-180 text-gold' : ''}`} />
+              </button>
+
+              {showBarberDropdown && (
+                <>
+                  <div className="fixed inset-0 z-30" onClick={() => setShowBarberDropdown(false)} />
+                  <div className="absolute left-0 top-full mt-1.5 z-40 w-52 rounded-2xl border border-white/10 bg-zinc-900/98 p-1.5 shadow-2xl backdrop-blur-2xl animate-scale-in space-y-0.5">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedBarberFilter('all');
+                        onSelectBarber?.('all');
+                        setShowBarberDropdown(false);
+                      }}
+                      className={`flex w-full items-center justify-between rounded-xl px-2.5 py-2 text-xs font-semibold transition-colors ${
+                        selectedBarberFilter === 'all'
+                          ? 'bg-gold/15 text-gold border border-gold/30'
+                          : 'text-zinc-300 hover:bg-white/5 hover:text-white'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2">
+                        <Users className="h-3.5 w-3.5 text-zinc-400 shrink-0" />
+                        <span>Todos los barberos</span>
+                      </div>
+                      <span className="rounded-full bg-black/40 px-1.5 py-0.2 text-[0.6rem] font-bold text-zinc-400">
+                        {notifications.length}
+                      </span>
+                    </button>
+
+                    {barbers.map((b) => {
+                      const barberCount = notifications.filter((n) => n.barber === b.id).length;
+                      const isSelected = selectedBarberFilter === b.id;
+                      return (
+                        <button
+                          key={b.id}
+                          type="button"
+                          onClick={() => {
+                            setSelectedBarberFilter(b.id);
+                            onSelectBarber?.(b.id);
+                            setShowBarberDropdown(false);
+                          }}
+                          className={`flex w-full items-center justify-between rounded-xl px-2.5 py-2 text-xs font-semibold transition-colors ${
+                            isSelected
+                              ? 'bg-gold/15 text-gold border border-gold/30'
+                              : 'text-zinc-300 hover:bg-white/5 hover:text-white'
+                          }`}
+                        >
+                          <div className="flex items-center gap-2 min-w-0">
+                            {b.photo_url ? (
+                              <img src={b.photo_url} alt="" className="h-4 w-4 rounded-full object-cover shrink-0" />
+                            ) : (
+                              <span className="flex h-4 w-4 items-center justify-center rounded-full gold-gradient text-[0.5rem] font-bold text-black shrink-0">
+                                {b.initials}
+                              </span>
+                            )}
+                            <span className="truncate">{b.name}</span>
+                          </div>
+                          <span className={`rounded-full px-1.5 py-0.2 text-[0.6rem] font-bold ${
+                            isSelected ? 'bg-gold/30 text-gold' : 'bg-black/40 text-zinc-400'
+                          }`}>
+                            {barberCount}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </>
+              )}
+            </div>
+          )}
         </div>
 
-        {/* Search */}
-        <div className="relative w-full md:w-64">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-zinc-500 pointer-events-none" />
-          <input
-            type="text"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Buscar por cliente o teléfono..."
-            className="w-full rounded-xl border border-white/10 bg-black/30 py-1.5 pl-8 pr-3 text-xs text-white placeholder:text-zinc-500 focus:border-gold/40 focus:outline-none"
-          />
-        </div>
-      </div>
+        {/* Right: Search + Action buttons */}
+        <div className="flex items-center gap-1.5 shrink-0 self-end xl:self-auto w-full xl:w-auto justify-between xl:justify-end">
+          {/* Compact Search */}
+          <div className="relative flex-1 sm:w-56 sm:flex-none">
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-zinc-500 pointer-events-none" />
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Buscar cliente o teléfono..."
+              className="w-full rounded-xl border border-white/10 bg-black/30 py-1.5 pl-8 pr-3 text-xs text-white placeholder:text-zinc-500 focus:border-gold/40 focus:outline-none"
+            />
+          </div>
 
-      {/* Barber Filter Row */}
-      {barbers.length > 1 && (
-        <div className="flex flex-wrap items-center gap-1.5 pt-1 pb-1">
-          <span className="text-[0.65rem] font-bold uppercase tracking-wider text-zinc-500 flex items-center gap-1 mr-1">
-            <Filter className="h-3 w-3 text-gold" />
-            Barbero:
-          </span>
+          {unreadCount > 0 && (
+            <button
+              onClick={markAllAsRead}
+              disabled={markingAll || clearingAll}
+              className="inline-flex items-center gap-1 rounded-xl border border-white/10 bg-white/5 px-2.5 py-1.5 text-xs font-semibold text-zinc-300 transition-all hover:bg-gold/10 hover:text-gold hover:border-gold/30 active:scale-95 disabled:opacity-50 shrink-0"
+              title="Marcar todas como leídas"
+            >
+              <CheckCheck className="h-3.5 w-3.5 text-gold" />
+              <span className="hidden sm:inline">Marcar leídas</span>
+            </button>
+          )}
+
+          {notifications.length > 0 && (
+            <button
+              onClick={() => setShowClearConfirmModal(true)}
+              disabled={clearingAll || markingAll}
+              className="inline-flex items-center gap-1 rounded-xl border border-red-500/20 bg-red-500/10 px-2.5 py-1.5 text-xs font-semibold text-red-400 transition-all hover:bg-red-500/20 hover:border-red-500/40 active:scale-95 disabled:opacity-50 shrink-0"
+              title="Limpiar todas las notificaciones"
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">Limpiar</span>
+            </button>
+          )}
 
           <button
             onClick={() => {
-              setSelectedBarberFilter('all');
-              onSelectBarber?.('all');
+              setLoading(true);
+              fetchNotifications();
             }}
-            className={`inline-flex items-center gap-1.5 rounded-xl px-2.5 py-1 text-xs font-semibold transition-all ${
-              selectedBarberFilter === 'all'
-                ? 'bg-gold/20 text-gold border border-gold/40 shadow-sm'
-                : 'bg-white/5 text-zinc-400 border border-white/5 hover:text-white'
-            }`}
+            title="Refrescar notificaciones"
+            className="flex h-8 w-8 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-zinc-400 transition-colors hover:bg-white/10 hover:text-white shrink-0"
           >
-            <Users className="h-3 w-3" />
-            <span>Todos</span>
-            <span className="rounded-full bg-black/40 px-1.5 py-0.2 text-[0.6rem] font-bold">
-              {notifications.length}
-            </span>
+            <RefreshCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />
           </button>
-
-          {barbers.map((b) => {
-            const barberCount = notifications.filter((n) => n.barber === b.id).length;
-            const isSelected = selectedBarberFilter === b.id;
-            return (
-              <button
-                key={b.id}
-                onClick={() => {
-                  setSelectedBarberFilter(b.id);
-                  onSelectBarber?.(b.id);
-                }}
-                className={`inline-flex items-center gap-1.5 rounded-xl px-2.5 py-1 text-xs font-semibold transition-all ${
-                  isSelected
-                    ? 'bg-gold/20 text-gold border border-gold/40 shadow-sm'
-                    : 'bg-white/5 text-zinc-400 border border-white/5 hover:text-white'
-                }`}
-              >
-                {b.photo_url ? (
-                  <img src={b.photo_url} alt="" className="h-3.5 w-3.5 rounded-full object-cover" />
-                ) : (
-                  <Scissors className="h-3 w-3" />
-                )}
-                <span>{b.name}</span>
-                {barberCount > 0 && (
-                  <span className="rounded-full bg-black/40 px-1.5 py-0.2 text-[0.6rem] font-bold">
-                    {barberCount}
-                  </span>
-                )}
-              </button>
-            );
-          })}
         </div>
-      )}
+      </div>
 
       {/* Notifications list */}
       <div data-lenis-prevent className="flex-1 min-h-0 overflow-y-auto space-y-2.5 pr-1 pb-12">

@@ -12,7 +12,8 @@ import {
   CheckCircle2, 
   XCircle,
   RotateCw,
-  Trash2
+  Trash2,
+  CalendarPlus,
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { fetchAllBarbers } from '@/data/services';
@@ -245,7 +246,7 @@ export function AdminAgenda({ bookings, loading, onRefresh }: AdminAgendaProps) 
   }
 
   return (
-    <div className="mx-auto max-w-6xl w-full min-w-0 space-y-4">
+    <div className="mx-auto max-w-6xl w-full min-w-0 flex-1 min-h-0 flex flex-col space-y-4">
       <div className="mb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div className="flex items-center gap-2">
           <CalendarDays className="h-5 w-5 text-gold" />
@@ -358,7 +359,7 @@ export function AdminAgenda({ bookings, loading, onRefresh }: AdminAgendaProps) 
           )}
         </div>
       ) : (
-      <div data-lenis-prevent className="max-h-[70vh] md:max-h-[calc(100vh-210px)] space-y-5 overflow-y-auto overflow-x-hidden pr-1 sm:pr-2">
+      <div data-lenis-prevent className="flex-1 min-h-0 space-y-5 overflow-y-auto overflow-x-hidden pr-1 sm:pr-2 pb-12">
         {groupedBookings.map((group) => (
           <div key={group.date}>
             <div className="sticky top-0 z-10 mb-2 rounded-xl bg-zinc-900/80 px-4 py-2 backdrop-blur-sm">
@@ -402,17 +403,12 @@ export function AdminAgenda({ bookings, loading, onRefresh }: AdminAgendaProps) 
                           <p className="truncate text-sm font-bold text-white group-hover:text-gold transition-colors">
                             {b.full_name}
                           </p>
-                          {/* Chip de barbero en la cabecera */}
-                          <span className="inline-flex items-center gap-1 rounded-md bg-white/5 px-1.5 py-0.5 text-[0.65rem] font-medium text-zinc-300 border border-white/5">
-                            {barber?.photo_url ? (
-                              <img src={barber.photo_url} alt="" className="h-3 w-3 rounded-full object-cover shrink-0" />
-                            ) : (
-                              <span className="flex h-3 w-3 items-center justify-center rounded-full gold-gradient text-[0.45rem] font-bold text-black shrink-0">
-                                {barber?.initials || b.barber.charAt(0).toUpperCase()}
-                              </span>
-                            )}
-                            <span className="truncate max-w-[90px]">{barber?.name || b.barber}</span>
-                          </span>
+                          {/* Badge de cita manual */}
+                          {!b.user_id && (
+                            <span className="shrink-0 inline-flex items-center gap-1 rounded-full bg-blue-500/15 px-2 py-0.5 text-[0.65rem] font-semibold text-blue-400 border border-blue-500/20">
+                              <CalendarPlus className="h-2.5 w-2.5" /> Manual
+                            </span>
+                          )}
                           {isCancelled && (
                             <span className="shrink-0 inline-flex items-center gap-1 rounded-full bg-red-500/15 px-2 py-0.5 text-[0.65rem] font-semibold text-red-400 border border-red-500/20">
                               <XCircle className="h-2.5 w-2.5" /> Cancelada

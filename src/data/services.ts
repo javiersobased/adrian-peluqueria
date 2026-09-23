@@ -25,32 +25,38 @@ export async function fetchBarbers(): Promise<Barber[]> {
     .from('barbers')
     .select('id, name, role, initials, photo_url, active, sort_order')
     .eq('active', true)
+    .neq('id', 'franciscojavier')
     .order('sort_order', { ascending: true });
   if (error) return [];
   const list = (data as Barber[]) ?? [];
-  return list.map((b) => {
-    if (!b.photo_url && typeof window !== 'undefined') {
-      const cached = localStorage.getItem(`barber_photo_${b.id}`);
-      if (cached) return { ...b, photo_url: cached };
-    }
-    return b;
-  });
+  return list
+    .filter((b) => b.id !== 'franciscojavier')
+    .map((b) => {
+      if (!b.photo_url && typeof window !== 'undefined') {
+        const cached = localStorage.getItem(`barber_photo_${b.id}`);
+        if (cached) return { ...b, photo_url: cached };
+      }
+      return b;
+    });
 }
 
 export async function fetchAllBarbers(): Promise<Barber[]> {
   const { data, error } = await supabase
     .from('barbers')
     .select('*')
+    .neq('id', 'franciscojavier')
     .order('sort_order', { ascending: true });
   if (error) return [];
   const list = (data as Barber[]) ?? [];
-  return list.map((b) => {
-    if (!b.photo_url && typeof window !== 'undefined') {
-      const cached = localStorage.getItem(`barber_photo_${b.id}`);
-      if (cached) return { ...b, photo_url: cached };
-    }
-    return b;
-  });
+  return list
+    .filter((b) => b.id !== 'franciscojavier')
+    .map((b) => {
+      if (!b.photo_url && typeof window !== 'undefined') {
+        const cached = localStorage.getItem(`barber_photo_${b.id}`);
+        if (cached) return { ...b, photo_url: cached };
+      }
+      return b;
+    });
 }
 
 export function getBarberById(barbers: Barber[], id: string): Barber | undefined {

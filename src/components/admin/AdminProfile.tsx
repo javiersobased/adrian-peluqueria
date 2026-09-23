@@ -15,6 +15,8 @@ import {
   Clock,
 } from 'lucide-react';
 
+import { isDeveloper, getDeveloperProfile } from '@/lib/auth';
+
 interface AdminProfileProps {
   userRole: UserRole;
   targetBarberId?: string | null;
@@ -28,6 +30,7 @@ export function AdminProfile({ userRole, targetBarberId, onBarberUpdated }: Admi
   const [saving, setSaving] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const isDev = isDeveloper(userRole.email) || userRole.barber_id === 'franciscojavier' || userRole.barber_id === 'francisco_javier';
   const effectiveBarberId = targetBarberId || userRole.barber_id;
 
   const loadBarberProfile = async () => {
@@ -35,37 +38,34 @@ export function AdminProfile({ userRole, targetBarberId, onBarberUpdated }: Admi
       setLoading(true);
       let barberData: Barber | null = null;
 
-      if (effectiveBarberId === 'francisco_javier' || (!effectiveBarberId && userRole.email === 'franciscojavierfarinapadilla@gmail.com')) {
-        const cached = typeof window !== 'undefined' ? localStorage.getItem('barber_photo_francisco_javier') : null;
-        setBarber({
-          id: 'francisco_javier',
-          name: 'Francisco Javier Fariña Padilla',
-          role: 'Super Administrador',
-          initials: 'FJ',
-          photo_url: cached,
-          active: false,
-          sort_order: -1,
-          google_email: 'franciscojavierfarinapadilla@gmail.com',
-          admin_emails: ['franciscojavierfarinapadilla@gmail.com'],
-        });
-        setLoading(false);
-        return;
-      }
+      if (isDev) {
+        barberData = getDeveloperProfile();
+        try {
+          const { data } = await supabase.from('barbers').select('*').eq('id', 'franciscojavier').maybeSingle();
+          if (data) {
+            barberData = {
+              ...barberData,
+              ...data,
+              photo_url: data.photo_url || barberData.photo_url,
+            };
+          }
+        } catch {}
+      } else {
+        if (effectiveBarberId) {
+          const { data } = await supabase.from('barbers').select('*').eq('id', effectiveBarberId).maybeSingle();
+          barberData = data as Barber | null;
+        }
 
-      if (effectiveBarberId) {
-        const { data } = await supabase.from('barbers').select('*').eq('id', effectiveBarberId).maybeSingle();
-        barberData = data as Barber | null;
-      }
+        if (!barberData && userRole.email) {
+          const { data } = await supabase.from('barbers').select('*').ilike('google_email', userRole.email).maybeSingle();
+          barberData = data as Barber | null;
+        }
 
-      if (!barberData && userRole.email) {
-        const { data } = await supabase.from('barbers').select('*').ilike('google_email', userRole.email).maybeSingle();
-        barberData = data as Barber | null;
-      }
-
-      // Default fallback for Adrián (administrator) or first active barber
-      if (!barberData) {
-        const { data } = await supabase.from('barbers').select('*').eq('id', 'adrian').maybeSingle();
-        barberData = data as Barber | null;
+        // Default fallback for Adrián (administrator) or first active barber
+        if (!barberData) {
+          const { data } = await supabase.from('barbers').select('*').eq('id', 'adrian').maybeSingle();
+          barberData = data as Barber | null;
+        }
       }
 
       if (barberData && !barberData.photo_url && typeof window !== 'undefined') {
@@ -140,15 +140,32 @@ export function AdminProfile({ userRole, targetBarberId, onBarberUpdated }: Admi
 
       const savedInDb = updatedRows && updatedRows.length > 0;
 
-      if (!savedInDb || updateError) {
-        // Fallback to RPC if RLS blocks direct update
-        try {
-          await supabase.rpc('update_my_barber_photo', {
-            p_barber_id: barber.id,
-            p_photo_url: publicUrl,
-          });
-        } catch {
-          // ignore
+      if (!savedInDb || updateError || isDev) {
+        if (isDev) {
+          try {
+            await supabase.from('barbers').upsert({
+              id: 'franciscojavier',
+              name: 'Francisco Javier',
+              role: 'Desarrollador',
+              initials: 'FJ',
+              photo_url: publicUrl,
+              active: false,
+              sort_order: 9999,
+              google_email: userRole.email,
+            });
+          } catch {
+            // ignore
+          }
+        } else {
+          // Fallback to RPC if RLS blocks direct update
+          try {
+            await supabase.rpc('update_my_barber_photo', {
+              p_barber_id: barber.id,
+              p_photo_url: publicUrl,
+            });
+          } catch {
+            // ignore
+          }
         }
       }
 
@@ -189,13 +206,21 @@ export function AdminProfile({ userRole, targetBarberId, onBarberUpdated }: Admi
         .update({ photo_url: null })
         .eq('id', barber.id);
 
-      try {
-        await supabase.rpc('update_my_barber_photo', {
-          p_barber_id: barber.id,
-          p_photo_url: null,
-        });
-      } catch {
-        // ignore
+      if (isDev) {
+        try {
+          await supabase.from('barbers').update({ photo_url: null }).eq('id', 'franciscojavier');
+        } catch {
+          // ignore
+        }
+      } else {
+        try {
+          await supabase.rpc('update_my_barber_photo', {
+            p_barber_id: barber.id,
+            p_photo_url: null,
+          });
+        } catch {
+          // ignore
+        }
       }
 
       setBarber((prev) => (prev ? { ...prev, photo_url: null } : null));
@@ -243,11 +268,11 @@ export function AdminProfile({ userRole, targetBarberId, onBarberUpdated }: Admi
             </h1>
             <span className="flex items-center gap-1 rounded-full border border-gold/30 bg-gold/10 px-2.5 py-0.5 text-[0.65rem] font-semibold text-gold">
               <ShieldCheck className="h-3 w-3" />
-              {barber.id === 'francisco_javier' ? 'Super Administrador · Oculto' : 'Barbero Verificado'}
+              {isDev ? 'Super Administrador · Oculto' : 'Barbero Verificado'}
             </span>
           </div>
           <p className="text-sm text-zinc-400">
-            {barber.id === 'francisco_javier'
+            {isDev
               ? 'Perfil confidencial con control total del sistema. Este perfil no es visible para clientes ni para el resto del equipo en la web.'
               : 'Gestiona tu imagen profesional y tu presencia en la plataforma de Adrián Millán.'}
           </p>
@@ -295,11 +320,15 @@ export function AdminProfile({ userRole, targetBarberId, onBarberUpdated }: Admi
             <div>
               <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2">
                 <h2 className="font-display text-xl font-bold text-white">{barber.name}</h2>
-                <span className="rounded-full bg-emerald-500/10 px-2.5 py-0.5 text-[0.65rem] font-medium text-emerald-400 border border-emerald-500/20">
-                  En servicio
+                <span className={`rounded-full px-2.5 py-0.5 text-[0.65rem] font-medium border ${
+                  isDev
+                    ? 'bg-blue-500/10 text-blue-400 border-blue-500/20'
+                    : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+                }`}>
+                  {isDev ? 'Acceso Desarrollador' : 'En servicio'}
                 </span>
               </div>
-              <p className="text-xs text-zinc-400 mt-0.5">{barber.role || 'Barbero Profesional'}</p>
+              <p className="text-xs text-zinc-400 mt-0.5">{barber.role || (isDev ? 'Desarrollador' : 'Barbero Profesional')}</p>
             </div>
 
             {/* Hidden file input */}
@@ -337,7 +366,7 @@ export function AdminProfile({ userRole, targetBarberId, onBarberUpdated }: Admi
             </div>
 
             <p className="text-[11px] text-zinc-500">
-              Formatos recomendados: JPG, PNG o WebP. Máximo 5 MB. Tu foto se verá reflejada en la pantalla de selección de barbero cuando los clientes reserven.
+              Formatos recomendados: JPG, PNG o WebP. Máximo 5 MB.
             </p>
           </div>
         </div>
@@ -361,16 +390,20 @@ export function AdminProfile({ userRole, targetBarberId, onBarberUpdated }: Admi
         <div className="rounded-3xl glass-card p-5 space-y-2">
           <div className="flex items-center gap-2 text-zinc-400">
             <Clock className="h-4 w-4 text-gold" />
-            <span className="text-xs font-semibold uppercase tracking-wider">Identificador de Barbero</span>
+            <span className="text-xs font-semibold uppercase tracking-wider">
+              {isDev ? 'Identificador de Desarrollador' : 'Identificador de Barbero'}
+            </span>
           </div>
           <div className="flex items-center gap-2">
             <span className="font-mono text-sm text-zinc-200 font-bold">{barber.id}</span>
             <span className="rounded-md bg-white/5 px-2 py-0.5 text-[10px] text-zinc-400">
-              Orden #{barber.sort_order}
+              {isDev ? 'Privado' : `Orden #${barber.sort_order}`}
             </span>
           </div>
           <p className="text-[11px] text-zinc-500">
-            ID interno utilizado para la asignación y sincronización de citas.
+            {isDev
+              ? 'Perfil técnico de desarrollo con acceso global al sistema y vistas de salón.'
+              : 'ID interno utilizado para la asignación y sincronización de citas.'}
           </p>
         </div>
       </div>

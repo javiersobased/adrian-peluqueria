@@ -21,9 +21,17 @@ import {
   RefreshCw,
   Trash2,
   AlertTriangle,
+  CalendarPlus,
+  Eye,
+  X,
+  Mail,
+  CalendarDays,
+  ChevronDown,
 } from 'lucide-react';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
+import { ModalPortal } from '@/components/ui/ModalPortal';
 import { notify } from '@/lib/notify';
+import { toISO } from '@/lib/schedule';
 
 interface AdminNotificationsProps {
   barbers: Barber[];
@@ -54,7 +62,11 @@ function formatRelativeTime(dateStr: string): string {
       const timeStr = d.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
       return `Ayer a las ${timeStr}`;
     }
-    return d.toLocaleDateString('es-ES', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
+    const day = String(d.getDate()).padStart(2, '0');
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const yy = String(d.getFullYear()).slice(-2);
+    const timeStr = d.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+    return `${day}/${month}/${yy} a las ${timeStr}`;
   } catch {
     return dateStr;
   }
@@ -63,8 +75,28 @@ function formatRelativeTime(dateStr: string): string {
 function formatDate(dateStr: string | null): string {
   if (!dateStr) return '';
   try {
-    const [y, m, d] = dateStr.split('-');
-    return `${d}/${m}/${y}`;
+    const clean = dateStr.trim();
+    if (clean.includes('-')) {
+      const parts = clean.split('-');
+      if (parts.length === 3) {
+        const y = parts[0];
+        const m = parts[1];
+        const d = parts[2].split('T')[0];
+        const yy = y.length === 4 ? y.slice(2) : y;
+        return `${d.padStart(2, '0')}/${m.padStart(2, '0')}/${yy}`;
+      }
+    }
+    if (clean.includes('/')) {
+      const parts = clean.split('/');
+      if (parts.length === 3) {
+        const d = parts[0];
+        const m = parts[1];
+        const y = parts[2].split(' ')[0];
+        const yy = y.length === 4 ? y.slice(2) : y;
+        return `${d.padStart(2, '0')}/${m.padStart(2, '0')}/${yy}`;
+      }
+    }
+    return dateStr;
   } catch {
     return dateStr;
   }
@@ -86,6 +118,9 @@ export function AdminNotifications({
   const [showClearConfirmModal, setShowClearConfirmModal] = useState(false);
 
   const [selectedBarberFilter, setSelectedBarberFilter] = useState<string>(selectedBarber || 'all');
+  const [selectedNotif, setSelectedNotif] = useState<BookingNotification | null>(null);
+  const [manualBookingIds, setManualBookingIds] = useState<Set<string>>(new Set());
+  const [showBarberDropdown, setShowBarberDropdown] = useState(false);
 
   // Keep in sync if prop changes
   useEffect(() => {
@@ -94,8 +129,35 @@ export function AdminNotifications({
     }
   }, [selectedBarber]);
 
+  const selectedBarberObj = useMemo(
+    () => barbers.find((b) => b.id === selectedBarberFilter),
+    [barbers, selectedBarberFilter]
+  );
+  const selectedBarberLabel = useMemo(
+    () => (selectedBarberFilter === 'all' ? 'Todos los barberos' : selectedBarberObj?.name || 'Barbero'),
+    [selectedBarberFilter, selectedBarberObj]
+  );
+
   const fetchNotifications = useCallback(async () => {
     try {
+      const todayISO = toISO(new Date());
+
+      // Automatically purge from Supabase any notifications whose scheduled appointment day has passed
+      try {
+        await supabase
+          .from('booking_notifications')
+          .delete()
+          .lt('booking_date', todayISO);
+
+        await supabase
+          .from('booking_notifications')
+          .delete()
+          .is('booking_date', null)
+          .lt('old_date', todayISO);
+      } catch (delErr) {
+        console.warn('Error auto-cleaning expired notifications:', delErr);
+      }
+
       const { data, error } = await supabase
         .from('booking_notifications')
         .select('*')
@@ -103,13 +165,50 @@ export function AdminNotifications({
         .limit(150);
 
       if (error) throw error;
-      setNotifications((data as BookingNotification[]) || []);
+      const rawNotifs = (data as BookingNotification[]) || [];
+
+      // Filter in-memory to ensure past-date notifications are never shown
+      const notifs = rawNotifs.filter((n) => {
+        const appointmentDate = n.booking_date || n.old_date;
+        return !appointmentDate || appointmentDate >= todayISO;
+      });
+
+      setNotifications(notifs);
+
+      // Check which booking_ids correspond to manual bookings (user_id IS NULL)
+      const bIds = Array.from(
+        new Set(notifs.map((n) => n.booking_id).filter((id): id is string => Boolean(id)))
+      );
+      if (bIds.length > 0) {
+        const { data: bData } = await supabase
+          .from('bookings')
+          .select('id, user_id')
+          .in('id', bIds);
+        if (bData) {
+          const manualSet = new Set<string>();
+          bData.forEach((b) => {
+            if (!b.user_id) {
+              manualSet.add(b.id);
+            }
+          });
+          setManualBookingIds(manualSet);
+        }
+      }
     } catch (err) {
       console.warn('Error fetching booking notifications:', err);
     } finally {
       setLoading(false);
     }
   }, []);
+
+  const isManualNotification = useCallback(
+    (notif: BookingNotification) => {
+      if (notif.booking_id && manualBookingIds.has(notif.booking_id)) return true;
+      if (!notif.client_email && !notif.booking_id) return true;
+      return false;
+    },
+    [manualBookingIds]
+  );
 
   useEffect(() => {
     fetchNotifications();
@@ -123,10 +222,36 @@ export function AdminNotifications({
         (payload) => {
           if (payload.eventType === 'INSERT') {
             const newNotif = payload.new as BookingNotification;
+            const todayISO = toISO(new Date());
+            const appointmentDate = newNotif.booking_date || newNotif.old_date;
+            if (appointmentDate && appointmentDate < todayISO) {
+              return;
+            }
+
             setNotifications((prev) => [newNotif, ...prev.filter((n) => n.id !== newNotif.id)]);
             notify.info('Nueva Notificación', newNotif.title + ': ' + newNotif.client_name);
+
+            if (newNotif.booking_id) {
+              supabase
+                .from('bookings')
+                .select('id, user_id')
+                .eq('id', newNotif.booking_id)
+                .maybeSingle()
+                .then(({ data: b }) => {
+                  if (b && !b.user_id) {
+                    setManualBookingIds((prev) => new Set([...prev, b.id]));
+                  }
+                });
+            }
           } else if (payload.eventType === 'UPDATE') {
             const updated = payload.new as BookingNotification;
+            const todayISO = toISO(new Date());
+            const appointmentDate = updated.booking_date || updated.old_date;
+            if (appointmentDate && appointmentDate < todayISO) {
+              setNotifications((prev) => prev.filter((n) => n.id !== updated.id));
+              return;
+            }
+
             setNotifications((prev) =>
               prev.map((n) => (n.id === updated.id ? updated : n))
             );
@@ -283,72 +408,57 @@ export function AdminNotifications({
     return id;
   };
 
+  const getNotificationMessage = useCallback(
+    (notif: BookingNotification, isManual: boolean) => {
+      const dateFormatted = formatDate(notif.booking_date);
+      const barberName = getBarberName(notif.barber);
+      const cleanTime = notif.booking_time ? notif.booking_time.replace(/\s*h$/i, '') : '';
+      const timeStr = cleanTime ? ` a las ${cleanTime}h` : '';
+
+      if (notif.type === 'created') {
+        if (isManual) {
+          return `${barberName} ha reservado una cita para ${notif.client_name} para el ${dateFormatted}${timeStr}`;
+        }
+        return `${notif.client_name} ha reservado cita para el ${dateFormatted}${timeStr}`;
+      }
+
+      if (notif.type === 'cancelled') {
+        const cancelDate = formatDate(notif.booking_date || notif.old_date);
+        const cancelRawTime = notif.booking_time || notif.old_time;
+        const cancelCleanTime = cancelRawTime ? cancelRawTime.replace(/\s*h$/i, '') : '';
+        const cancelTimeStr = cancelCleanTime ? ` a las ${cancelCleanTime}h` : '';
+        return `${notif.client_name} ha cancelado su cita del ${cancelDate}${cancelTimeStr}`;
+      }
+
+      if (notif.type === 'rescheduled') {
+        const oldD = formatDate(notif.old_date);
+        const oldT = notif.old_time ? notif.old_time.replace(/\s*h$/i, '') : '';
+        const oldTimeStr = oldT ? ` a las ${oldT}h` : '';
+        const newD = formatDate(notif.booking_date);
+        const newT = notif.booking_time ? notif.booking_time.replace(/\s*h$/i, '') : '';
+        const newTimeStr = newT ? ` a las ${newT}h` : '';
+        const reassignText =
+          notif.old_barber && notif.old_barber !== notif.barber
+            ? ` (Reasignada a ${getBarberName(notif.barber)})`
+            : '';
+        return `Cita de ${notif.client_name} cambiada del ${oldD}${oldTimeStr} al ${newD}${newTimeStr}${reassignText}`;
+      }
+
+      return notif.message;
+    },
+    [barbers]
+  );
+
   return (
     <div className="flex flex-col h-full w-full min-w-0 space-y-4">
-      {/* Header bar */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-white/5">
-        <div>
-          <div className="flex items-center gap-2">
-            <h2 className="font-display text-xl sm:text-2xl font-bold text-white tracking-tight flex items-center gap-2">
-              <Bell className="h-5 w-5 text-gold" />
-              Centro de Notificaciones
-            </h2>
-            <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-[0.65rem] font-bold text-emerald-400 border border-emerald-500/20">
-              <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
-              En directo
-            </span>
-          </div>
-          <p className="text-xs text-zinc-400 mt-0.5">
-            Historial en tiempo real de citas nuevas, cancelaciones y modificaciones de horario
-          </p>
-        </div>
-
-        <div className="flex items-center gap-2 shrink-0">
-          {unreadCount > 0 && (
-            <button
-              onClick={markAllAsRead}
-              disabled={markingAll || clearingAll}
-              className="inline-flex items-center gap-1.5 rounded-xl border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-semibold text-zinc-300 transition-all hover:bg-gold/10 hover:text-gold hover:border-gold/30 active:scale-95 disabled:opacity-50"
-            >
-              <CheckCheck className="h-3.5 w-3.5" />
-              <span className="hidden sm:inline">Marcar todas como leídas</span>
-              <span className="sm:hidden">Marcar leídas</span>
-            </button>
-          )}
-
-          {notifications.length > 0 && (
-            <button
-              onClick={() => setShowClearConfirmModal(true)}
-              disabled={clearingAll || markingAll}
-              className="inline-flex items-center gap-1.5 rounded-xl border border-red-500/20 bg-red-500/10 px-3 py-1.5 text-xs font-semibold text-red-400 transition-all hover:bg-red-500/20 hover:border-red-500/40 active:scale-95 disabled:opacity-50"
-              title="Limpiar todas las notificaciones"
-            >
-              <Trash2 className="h-3.5 w-3.5" />
-              <span className="hidden sm:inline">Limpiar todas</span>
-              <span className="sm:hidden">Limpiar</span>
-            </button>
-          )}
-
+      {/* Compact Controls Header (Space-saving, no repeated title) */}
+      <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-2.5 pb-2.5 border-b border-white/5">
+        {/* Left: Filter Pills + Barber Dropdown immediately to the right */}
+        <div className="flex flex-wrap items-center gap-1.5 min-w-0">
           <button
-            onClick={() => {
-              setLoading(true);
-              fetchNotifications();
-            }}
-            title="Refrescar notificaciones"
-            className="flex h-8 w-8 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-zinc-400 transition-colors hover:bg-white/10 hover:text-white"
-          >
-            <RefreshCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />
-          </button>
-        </div>
-      </div>
-
-      {/* Filter Tabs & Search */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
-        {/* Type pills */}
-        <div className="flex flex-wrap items-center gap-1.5">
-          <button
+            type="button"
             onClick={() => setFilter('all')}
-            className={`inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-semibold transition-all ${
+            className={`inline-flex items-center gap-1.5 rounded-xl px-2.5 py-1.5 text-xs font-semibold transition-all ${
               filter === 'all'
                 ? 'bg-gold/20 text-gold border border-gold/40 shadow-sm'
                 : 'bg-white/5 text-zinc-400 border border-white/5 hover:text-zinc-200'
@@ -361,8 +471,9 @@ export function AdminNotifications({
           </button>
 
           <button
+            type="button"
             onClick={() => setFilter('created')}
-            className={`inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-semibold transition-all ${
+            className={`inline-flex items-center gap-1.5 rounded-xl px-2.5 py-1.5 text-xs font-semibold transition-all ${
               filter === 'created'
                 ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 shadow-sm'
                 : 'bg-white/5 text-zinc-400 border border-white/5 hover:text-emerald-300'
@@ -378,8 +489,9 @@ export function AdminNotifications({
           </button>
 
           <button
+            type="button"
             onClick={() => setFilter('cancelled')}
-            className={`inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-semibold transition-all ${
+            className={`inline-flex items-center gap-1.5 rounded-xl px-2.5 py-1.5 text-xs font-semibold transition-all ${
               filter === 'cancelled'
                 ? 'bg-red-500/20 text-red-300 border border-red-500/40 shadow-sm'
                 : 'bg-white/5 text-zinc-400 border border-white/5 hover:text-red-300'
@@ -395,97 +507,175 @@ export function AdminNotifications({
           </button>
 
           <button
+            type="button"
             onClick={() => setFilter('rescheduled')}
-            className={`inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-semibold transition-all ${
+            className={`inline-flex items-center gap-1.5 rounded-xl px-2.5 py-1.5 text-xs font-semibold transition-all ${
               filter === 'rescheduled'
                 ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40 shadow-sm'
                 : 'bg-white/5 text-zinc-400 border border-white/5 hover:text-amber-300'
             }`}
           >
             <span className="h-2 w-2 rounded-full bg-amber-400" />
-            <span>Cambios de Horario</span>
+            <span>Cambios</span>
             {countRescheduled > 0 && (
               <span className="rounded-full bg-amber-950/60 px-1.5 py-0.2 text-[0.65rem] font-bold text-amber-300">
                 {countRescheduled}
               </span>
             )}
           </button>
+
+          {/* Separator divider */}
+          {barbers.length > 0 && (
+            <span className="h-4 w-px bg-white/10 mx-0.5 hidden sm:inline-block" />
+          )}
+
+          {/* Barber Dropdown (Right next to notification filters) */}
+          {barbers.length > 0 && (
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setShowBarberDropdown((prev) => !prev)}
+                className={`inline-flex items-center gap-1.5 rounded-xl px-2.5 py-1.5 text-xs font-semibold transition-all border ${
+                  selectedBarberFilter !== 'all'
+                    ? 'bg-gold/20 text-gold border border-gold/40 shadow-sm'
+                    : 'bg-white/5 text-zinc-300 border border-white/10 hover:border-white/20 hover:bg-white/10'
+                }`}
+              >
+                {selectedBarberObj?.photo_url ? (
+                  <img src={selectedBarberObj.photo_url} alt="" className="h-4 w-4 rounded-full object-cover shrink-0" />
+                ) : selectedBarberFilter !== 'all' && selectedBarberObj ? (
+                  <span className="flex h-4 w-4 items-center justify-center rounded-full gold-gradient text-[0.5rem] font-bold text-black shrink-0">
+                    {selectedBarberObj.initials}
+                  </span>
+                ) : (
+                  <Users className="h-3.5 w-3.5 text-zinc-400 shrink-0" />
+                )}
+                <span className="max-w-[120px] truncate">{selectedBarberLabel}</span>
+                <ChevronDown className={`h-3 w-3 text-zinc-400 transition-transform duration-200 ${showBarberDropdown ? 'rotate-180 text-gold' : ''}`} />
+              </button>
+
+              {showBarberDropdown && (
+                <>
+                  <div className="fixed inset-0 z-30" onClick={() => setShowBarberDropdown(false)} />
+                  <div className="absolute left-0 top-full mt-1.5 z-40 w-52 rounded-2xl border border-white/10 bg-zinc-900/98 p-1.5 shadow-2xl backdrop-blur-2xl animate-scale-in space-y-0.5">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedBarberFilter('all');
+                        onSelectBarber?.('all');
+                        setShowBarberDropdown(false);
+                      }}
+                      className={`flex w-full items-center justify-between rounded-xl px-2.5 py-2 text-xs font-semibold transition-colors ${
+                        selectedBarberFilter === 'all'
+                          ? 'bg-gold/15 text-gold border border-gold/30'
+                          : 'text-zinc-300 hover:bg-white/5 hover:text-white'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2">
+                        <Users className="h-3.5 w-3.5 text-zinc-400 shrink-0" />
+                        <span>Todos los barberos</span>
+                      </div>
+                      <span className="rounded-full bg-black/40 px-1.5 py-0.2 text-[0.6rem] font-bold text-zinc-400">
+                        {notifications.length}
+                      </span>
+                    </button>
+
+                    {barbers.map((b) => {
+                      const barberCount = notifications.filter((n) => n.barber === b.id).length;
+                      const isSelected = selectedBarberFilter === b.id;
+                      return (
+                        <button
+                          key={b.id}
+                          type="button"
+                          onClick={() => {
+                            setSelectedBarberFilter(b.id);
+                            onSelectBarber?.(b.id);
+                            setShowBarberDropdown(false);
+                          }}
+                          className={`flex w-full items-center justify-between rounded-xl px-2.5 py-2 text-xs font-semibold transition-colors ${
+                            isSelected
+                              ? 'bg-gold/15 text-gold border border-gold/30'
+                              : 'text-zinc-300 hover:bg-white/5 hover:text-white'
+                          }`}
+                        >
+                          <div className="flex items-center gap-2 min-w-0">
+                            {b.photo_url ? (
+                              <img src={b.photo_url} alt="" className="h-4 w-4 rounded-full object-cover shrink-0" />
+                            ) : (
+                              <span className="flex h-4 w-4 items-center justify-center rounded-full gold-gradient text-[0.5rem] font-bold text-black shrink-0">
+                                {b.initials}
+                              </span>
+                            )}
+                            <span className="truncate">{b.name}</span>
+                          </div>
+                          <span className={`rounded-full px-1.5 py-0.2 text-[0.6rem] font-bold ${
+                            isSelected ? 'bg-gold/30 text-gold' : 'bg-black/40 text-zinc-400'
+                          }`}>
+                            {barberCount}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </>
+              )}
+            </div>
+          )}
         </div>
 
-        {/* Search */}
-        <div className="relative w-full md:w-64">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-zinc-500 pointer-events-none" />
-          <input
-            type="text"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Buscar por cliente o teléfono..."
-            className="w-full rounded-xl border border-white/10 bg-black/30 py-1.5 pl-8 pr-3 text-xs text-white placeholder:text-zinc-500 focus:border-gold/40 focus:outline-none"
-          />
-        </div>
-      </div>
+        {/* Right: Search + Action buttons */}
+        <div className="flex items-center gap-1.5 shrink-0 self-end xl:self-auto w-full xl:w-auto justify-between xl:justify-end">
+          {/* Compact Search */}
+          <div className="relative flex-1 sm:w-56 sm:flex-none">
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-zinc-500 pointer-events-none" />
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Buscar cliente o teléfono..."
+              className="w-full rounded-xl border border-white/10 bg-black/30 py-1.5 pl-8 pr-3 text-xs text-white placeholder:text-zinc-500 focus:border-gold/40 focus:outline-none"
+            />
+          </div>
 
-      {/* Barber Filter Row */}
-      {barbers.length > 1 && (
-        <div className="flex flex-wrap items-center gap-1.5 pt-1 pb-1">
-          <span className="text-[0.65rem] font-bold uppercase tracking-wider text-zinc-500 flex items-center gap-1 mr-1">
-            <Filter className="h-3 w-3 text-gold" />
-            Barbero:
-          </span>
+          {unreadCount > 0 && (
+            <button
+              onClick={markAllAsRead}
+              disabled={markingAll || clearingAll}
+              className="inline-flex items-center gap-1 rounded-xl border border-white/10 bg-white/5 px-2.5 py-1.5 text-xs font-semibold text-zinc-300 transition-all hover:bg-gold/10 hover:text-gold hover:border-gold/30 active:scale-95 disabled:opacity-50 shrink-0"
+              title="Marcar todas como leídas"
+            >
+              <CheckCheck className="h-3.5 w-3.5 text-gold" />
+              <span className="hidden sm:inline">Marcar leídas</span>
+            </button>
+          )}
+
+          {notifications.length > 0 && (
+            <button
+              onClick={() => setShowClearConfirmModal(true)}
+              disabled={clearingAll || markingAll}
+              className="inline-flex items-center gap-1 rounded-xl border border-red-500/20 bg-red-500/10 px-2.5 py-1.5 text-xs font-semibold text-red-400 transition-all hover:bg-red-500/20 hover:border-red-500/40 active:scale-95 disabled:opacity-50 shrink-0"
+              title="Limpiar todas las notificaciones"
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">Limpiar</span>
+            </button>
+          )}
 
           <button
             onClick={() => {
-              setSelectedBarberFilter('all');
-              onSelectBarber?.('all');
+              setLoading(true);
+              fetchNotifications();
             }}
-            className={`inline-flex items-center gap-1.5 rounded-xl px-2.5 py-1 text-xs font-semibold transition-all ${
-              selectedBarberFilter === 'all'
-                ? 'bg-gold/20 text-gold border border-gold/40 shadow-sm'
-                : 'bg-white/5 text-zinc-400 border border-white/5 hover:text-white'
-            }`}
+            title="Refrescar notificaciones"
+            className="flex h-8 w-8 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-zinc-400 transition-colors hover:bg-white/10 hover:text-white shrink-0"
           >
-            <Users className="h-3 w-3" />
-            <span>Todos</span>
-            <span className="rounded-full bg-black/40 px-1.5 py-0.2 text-[0.6rem] font-bold">
-              {notifications.length}
-            </span>
+            <RefreshCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />
           </button>
-
-          {barbers.map((b) => {
-            const barberCount = notifications.filter((n) => n.barber === b.id).length;
-            const isSelected = selectedBarberFilter === b.id;
-            return (
-              <button
-                key={b.id}
-                onClick={() => {
-                  setSelectedBarberFilter(b.id);
-                  onSelectBarber?.(b.id);
-                }}
-                className={`inline-flex items-center gap-1.5 rounded-xl px-2.5 py-1 text-xs font-semibold transition-all ${
-                  isSelected
-                    ? 'bg-gold/20 text-gold border border-gold/40 shadow-sm'
-                    : 'bg-white/5 text-zinc-400 border border-white/5 hover:text-white'
-                }`}
-              >
-                {b.photo_url ? (
-                  <img src={b.photo_url} alt="" className="h-3.5 w-3.5 rounded-full object-cover" />
-                ) : (
-                  <Scissors className="h-3 w-3" />
-                )}
-                <span>{b.name}</span>
-                {barberCount > 0 && (
-                  <span className="rounded-full bg-black/40 px-1.5 py-0.2 text-[0.6rem] font-bold">
-                    {barberCount}
-                  </span>
-                )}
-              </button>
-            );
-          })}
         </div>
-      )}
+      </div>
 
       {/* Notifications list */}
-      <div className="flex-1 overflow-y-auto space-y-2.5 pr-1 min-h-[350px]">
+      <div data-lenis-prevent className="flex-1 min-h-0 overflow-y-auto space-y-2.5 pr-1 pb-12">
         {loading ? (
           <div className="flex items-center justify-center py-24">
             <LoadingSpinner size="lg" label="Cargando notificaciones..." />
@@ -507,6 +697,7 @@ export function AdminNotifications({
             const isCreated = notif.type === 'created';
             const isCancelled = notif.type === 'cancelled';
             const isRescheduled = notif.type === 'rescheduled';
+            const isManual = isManualNotification(notif);
 
             const cleanPhone = notif.client_phone ? notif.client_phone.replace(/\s+/g, '') : null;
             const waNumber = cleanPhone ? (cleanPhone.startsWith('34') ? cleanPhone : `34${cleanPhone}`) : null;
@@ -531,13 +722,15 @@ export function AdminNotifications({
                   <div
                     className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${
                       isCreated
-                        ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/25'
+                        ? isManual
+                          ? 'bg-blue-500/15 text-blue-400 border border-blue-500/25'
+                          : 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/25'
                         : isCancelled
                         ? 'bg-red-500/15 text-red-400 border border-red-500/25'
                         : 'bg-amber-500/15 text-amber-400 border border-amber-500/25'
                     }`}
                   >
-                    {isCreated && <CalendarCheck className="h-5 w-5" />}
+                    {isCreated && (isManual ? <CalendarPlus className="h-5 w-5" /> : <CalendarCheck className="h-5 w-5" />)}
                     {isCancelled && <CalendarX className="h-5 w-5" />}
                     {isRescheduled && <RotateCcw className="h-5 w-5" />}
                   </div>
@@ -546,15 +739,17 @@ export function AdminNotifications({
                   <div className="flex-1 min-w-0">
                     <div className="flex flex-wrap items-center gap-2 mb-1">
                       <span
-                        className={`text-[0.65rem] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full ${
+                        className={`text-[0.65rem] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full ${
                           isCreated
-                            ? 'bg-emerald-500/20 text-emerald-300'
+                            ? isManual
+                              ? 'bg-blue-500/20 text-blue-300 border border-blue-500/30'
+                              : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
                             : isCancelled
-                            ? 'bg-red-500/20 text-red-300'
-                            : 'bg-amber-500/20 text-amber-300'
+                            ? 'bg-red-500/20 text-red-300 border border-red-500/30'
+                            : 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
                         }`}
                       >
-                        {isCreated && 'Nueva Cita'}
+                        {isCreated && (isManual ? 'Nueva Cita Manual' : 'Nueva Cita')}
                         {isCancelled && 'Cita Cancelada'}
                         {isRescheduled && 'Cita Modificada'}
                       </span>
@@ -571,7 +766,7 @@ export function AdminNotifications({
                         {notif.client_name}
                       </h4>
                       <p className="text-xs text-zinc-300 mt-0.5 leading-relaxed">
-                        {notif.message}
+                        {getNotificationMessage(notif, isManual)}
                       </p>
                     </div>
 
@@ -579,16 +774,16 @@ export function AdminNotifications({
                     {isRescheduled && notif.old_date && notif.old_time && (
                       <div className="mt-2 flex flex-wrap items-center gap-2 text-xs bg-white/5 rounded-xl px-3 py-1.5 border border-white/5 w-fit">
                         <span className="text-zinc-500 line-through">
-                          {formatDate(notif.old_date)} · {notif.old_time}h
+                          {formatDate(notif.old_date)} · {notif.old_time.replace(/\s*h$/i, '')}h
                         </span>
                         <ArrowRight className="h-3 w-3 text-amber-400" />
                         <span className="font-semibold text-amber-300 font-mono">
-                          {formatDate(notif.booking_date)} · {notif.booking_time}h
+                          {formatDate(notif.booking_date)} · {notif.booking_time ? `${notif.booking_time.replace(/\s*h$/i, '')}h` : ''}
                         </span>
                       </div>
                     )}
 
-                    {/* Details row: Barber, Service, Price */}
+                    {/* Details row: Barber, Service without price, Date */}
                     <div className="mt-2.5 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-zinc-400">
                       <div className="flex items-center gap-1.5">
                         <User className="h-3.5 w-3.5 text-zinc-500" />
@@ -604,7 +799,6 @@ export function AdminNotifications({
                           <span>Servicio:</span>
                           <span className="text-zinc-200 font-medium">
                             {notif.service}
-                            {notif.service_price ? ` (${notif.service_price} €)` : ''}
                           </span>
                         </div>
                       )}
@@ -614,7 +808,7 @@ export function AdminNotifications({
                           <Clock className="h-3.5 w-3.5 text-zinc-500" />
                           <span>Fecha:</span>
                           <span className="text-zinc-200 font-medium">
-                            {formatDate(notif.booking_date)} a las {notif.booking_time}h
+                            {formatDate(notif.booking_date)} a las {notif.booking_time ? `${notif.booking_time.replace(/\s*h$/i, '')}h` : ''}
                           </span>
                         </div>
                       )}
@@ -622,6 +816,17 @@ export function AdminNotifications({
 
                     {/* Action buttons footer */}
                     <div className="mt-3 flex flex-wrap items-center gap-2 pt-2 border-t border-white/5">
+                      {/* Ver detalles button */}
+                      <button
+                        type="button"
+                        onClick={() => setSelectedNotif(notif)}
+                        className="inline-flex items-center gap-1.5 rounded-lg bg-gold/10 px-2.5 py-1 text-[0.7rem] font-semibold text-gold hover:bg-gold/20 active:scale-95 transition-all"
+                        title="Ver todos los detalles de esta cita"
+                      >
+                        <Eye className="h-3.5 w-3.5" />
+                        <span>Ver detalles</span>
+                      </button>
+
                       {/* WhatsApp contact */}
                       {waUrl && (
                         <a
@@ -729,6 +934,325 @@ export function AdminNotifications({
             </div>
           </div>
         </div>
+      )}
+
+      {/* Appointment Detail Modal in AdminNotifications */}
+      {selectedNotif && (
+        <ModalPortal>
+          <div className="fixed inset-0 z-[9999] flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+            <div
+              className="fixed inset-0 bg-black/80 backdrop-blur-md animate-fade-in"
+              onClick={() => setSelectedNotif(null)}
+            />
+            <div
+              data-lenis-prevent
+              className="relative z-10 my-auto flex max-h-[90vh] w-full max-w-lg flex-col overflow-hidden rounded-3xl border border-gold/20 bg-zinc-950/95 p-4 sm:p-6 shadow-2xl shadow-gold/5 backdrop-blur-xl animate-scale-in"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Header */}
+              <div className="flex items-start justify-between gap-3 border-b border-white/5 pb-4">
+                <div className="flex items-center gap-3">
+                  <div
+                    className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl ${
+                      selectedNotif.type === 'created'
+                        ? isManualNotification(selectedNotif)
+                          ? 'bg-blue-500/15 text-blue-400 border border-blue-500/30'
+                          : 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30'
+                        : selectedNotif.type === 'cancelled'
+                        ? 'bg-red-500/15 text-red-400 border border-red-500/30'
+                        : 'bg-amber-500/15 text-amber-400 border border-amber-500/30'
+                    }`}
+                  >
+                    {selectedNotif.type === 'created' && (
+                      isManualNotification(selectedNotif) ? <CalendarPlus className="h-5 w-5" /> : <CalendarCheck className="h-5 w-5" />
+                    )}
+                    {selectedNotif.type === 'cancelled' && <CalendarX className="h-5 w-5" />}
+                    {selectedNotif.type === 'rescheduled' && <RotateCcw className="h-5 w-5" />}
+                  </div>
+                  <div>
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <span
+                        className={`text-[0.65rem] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full ${
+                          selectedNotif.type === 'created'
+                            ? isManualNotification(selectedNotif)
+                              ? 'bg-blue-500/20 text-blue-300 border border-blue-500/30'
+                              : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                            : selectedNotif.type === 'cancelled'
+                            ? 'bg-red-500/20 text-red-300 border border-red-500/30'
+                            : 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
+                        }`}
+                      >
+                        {selectedNotif.type === 'created' && (
+                          isManualNotification(selectedNotif) ? 'Nueva Cita Manual' : 'Nueva Cita'
+                        )}
+                        {selectedNotif.type === 'cancelled' && 'Cita Cancelada'}
+                        {selectedNotif.type === 'rescheduled' && 'Cita Modificada'}
+                      </span>
+                    </div>
+                    <h3 className="font-display text-lg font-bold text-white mt-1">
+                      Detalle de Cita
+                    </h3>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setSelectedNotif(null)}
+                  className="rounded-full p-1.5 text-zinc-400 hover:bg-white/10 hover:text-white transition-colors"
+                  aria-label="Cerrar ventana"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+
+              {/* Scrollable Body */}
+              <div className="flex-1 overflow-y-auto space-y-4 py-4 pr-1 text-xs">
+                {/* Reschedule alert banner */}
+                {selectedNotif.type === 'rescheduled' && (
+                  <div className="rounded-2xl border border-amber-500/30 bg-amber-500/10 p-3.5 space-y-2.5">
+                    <div className="flex items-center gap-2 text-amber-400 font-bold text-xs uppercase tracking-wider">
+                      <RotateCcw className="h-4 w-4" />
+                      <span>Cambio de Horario / Reasignación</span>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                      <div className="rounded-xl bg-black/40 p-2.5 border border-white/5 space-y-1">
+                        <span className="text-[0.65rem] font-bold uppercase tracking-wider text-zinc-500">
+                          Anterior
+                        </span>
+                        <p className="font-mono text-zinc-400 line-through">
+                          {formatDate(selectedNotif.old_date)} · {selectedNotif.old_time} h
+                        </p>
+                        {selectedNotif.old_barber && (
+                          <p className="text-[0.7rem] text-zinc-500">
+                            Barbero: {getBarberName(selectedNotif.old_barber)}
+                          </p>
+                        )}
+                      </div>
+                      <div className="rounded-xl bg-amber-500/20 p-2.5 border border-amber-500/40 space-y-1">
+                        <span className="text-[0.65rem] font-bold uppercase tracking-wider text-amber-400">
+                          Nuevo Horario
+                        </span>
+                        <p className="font-mono font-bold text-amber-200">
+                          {formatDate(selectedNotif.booking_date)} · {selectedNotif.booking_time} h
+                        </p>
+                        <p className="text-[0.7rem] text-amber-300">
+                          Barbero: {getBarberName(selectedNotif.barber)}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Cancelled alert banner */}
+                {selectedNotif.type === 'cancelled' && (
+                  <div className="rounded-2xl border border-red-500/30 bg-red-500/10 p-3.5 flex items-start gap-3">
+                    <CalendarX className="h-5 w-5 text-red-400 shrink-0 mt-0.5" />
+                    <div>
+                      <p className="font-bold text-red-300 text-sm">Cita Anulada</p>
+                      <p className="text-zinc-300 mt-0.5 leading-relaxed">
+                        Esta cita fue cancelada para el{' '}
+                        <strong className="text-white">
+                          {formatDate(selectedNotif.booking_date || selectedNotif.old_date)}
+                        </strong>{' '}
+                        a las{' '}
+                        <strong className="text-white">
+                          {selectedNotif.booking_time || selectedNotif.old_time} h
+                        </strong>
+                        . El hueco está disponible de nuevo en la agenda.
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {/* Created banner */}
+                {selectedNotif.type === 'created' && (
+                  <div
+                    className={`rounded-2xl border p-3.5 flex items-start gap-3 ${
+                      isManualNotification(selectedNotif)
+                        ? 'border-blue-500/30 bg-blue-500/10'
+                        : 'border-emerald-500/30 bg-emerald-500/10'
+                    }`}
+                  >
+                    {isManualNotification(selectedNotif) ? (
+                      <CalendarPlus className="h-5 w-5 text-blue-400 shrink-0 mt-0.5" />
+                    ) : (
+                      <CalendarCheck className="h-5 w-5 text-emerald-400 shrink-0 mt-0.5" />
+                    )}
+                    <div>
+                      <p
+                        className={`font-bold text-sm ${
+                          isManualNotification(selectedNotif) ? 'text-blue-300' : 'text-emerald-300'
+                        }`}
+                      >
+                        {isManualNotification(selectedNotif) ? 'Nueva Cita Manual' : 'Nueva Cita Reservada'}
+                      </p>
+                      <p className="text-zinc-300 mt-0.5 leading-relaxed">
+                        Programada para el{' '}
+                        <strong className="text-white">{formatDate(selectedNotif.booking_date)}</strong>{' '}
+                        a las <strong className="text-white">{selectedNotif.booking_time ? `${selectedNotif.booking_time.replace(/\s*h$/i, '')}h` : ''}</strong>.
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {/* Client Data Box */}
+                <div className="rounded-2xl bg-white/[0.03] border border-white/5 p-3.5 space-y-2.5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[0.65rem] font-bold uppercase tracking-wider text-zinc-500 flex items-center gap-1.5">
+                      <User className="h-3 w-3 text-gold" />
+                      Datos del Cliente
+                    </span>
+                    <span className="text-[0.65rem] text-zinc-500">
+                      {isManualNotification(selectedNotif) ? 'Añadida manualmente' : 'Cliente registrado'}
+                    </span>
+                  </div>
+
+                  <div>
+                    <h4 className="text-base font-bold text-white">{selectedNotif.client_name}</h4>
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-white/5">
+                    {selectedNotif.client_phone ? (
+                      <>
+                        <a
+                          href={`tel:${selectedNotif.client_phone}`}
+                          className="inline-flex items-center gap-1.5 rounded-xl bg-white/5 px-3 py-1.5 text-xs font-semibold text-zinc-200 hover:bg-white/10 transition-colors"
+                        >
+                          <Phone className="h-3.5 w-3.5 text-gold" />
+                          <span>Llamar: {selectedNotif.client_phone}</span>
+                        </a>
+
+                        <a
+                          href={`https://wa.me/${
+                            selectedNotif.client_phone.replace(/\s+/g, '').startsWith('34')
+                              ? selectedNotif.client_phone.replace(/\s+/g, '')
+                              : `34${selectedNotif.client_phone.replace(/\s+/g, '')}`
+                          }`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-500/15 px-3 py-1.5 text-xs font-semibold text-emerald-400 hover:bg-emerald-500/25 transition-colors border border-emerald-500/20"
+                        >
+                          <MessageCircle className="h-3.5 w-3.5" />
+                          <span>WhatsApp</span>
+                        </a>
+                      </>
+                    ) : (
+                      <span className="text-zinc-500 italic text-xs">Sin teléfono indicado</span>
+                    )}
+
+                    {selectedNotif.client_email && (
+                      <a
+                        href={`mailto:${selectedNotif.client_email}`}
+                        className="inline-flex items-center gap-1.5 rounded-xl bg-white/5 px-3 py-1.5 text-xs text-zinc-300 hover:bg-white/10 transition-colors"
+                      >
+                        <Mail className="h-3.5 w-3.5 text-zinc-400" />
+                        <span className="truncate max-w-[200px]">{selectedNotif.client_email}</span>
+                      </a>
+                    )}
+                  </div>
+                </div>
+
+                {/* Appointment Data Box */}
+                <div className="rounded-2xl bg-white/[0.03] border border-white/5 p-3.5 space-y-2.5">
+                  <span className="text-[0.65rem] font-bold uppercase tracking-wider text-zinc-500 flex items-center gap-1.5">
+                    <Scissors className="h-3 w-3 text-gold" />
+                    Servicio y Asignación
+                  </span>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-1">
+                    <div className="space-y-1">
+                      <span className="text-[0.65rem] text-zinc-500">Servicio</span>
+                      <p className="font-semibold text-white">
+                        {selectedNotif.service || 'Servicio no especificado'}
+                      </p>
+                      {selectedNotif.service_price && (
+                        <p className="text-gold font-bold">{selectedNotif.service_price} €</p>
+                      )}
+                    </div>
+
+                    <div className="space-y-1">
+                      <span className="text-[0.65rem] text-zinc-500">Barbero Asignado</span>
+                      <div className="flex items-center gap-2">
+                        {(() => {
+                          const b = barbers.find((x) => x.id === selectedNotif.barber);
+                          return (
+                            <>
+                              {b?.photo_url ? (
+                                <img src={b.photo_url} alt="" className="h-6 w-6 rounded-full object-cover ring-1 ring-gold/30" />
+                              ) : (
+                                <div className="h-6 w-6 rounded-full gold-gradient flex items-center justify-center text-[0.6rem] font-bold text-black">
+                                  {b?.initials || 'AM'}
+                                </div>
+                              )}
+                              <span className="font-semibold text-zinc-200">
+                                {b?.name || getBarberName(selectedNotif.barber)}
+                              </span>
+                            </>
+                          );
+                        })()}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* System Activity Log & Timestamp */}
+                <div className="rounded-2xl bg-white/[0.02] border border-white/5 p-3 space-y-1">
+                  <div className="flex items-center justify-between text-[0.65rem] text-zinc-500">
+                    <span>Mensaje del sistema</span>
+                    <span className="flex items-center gap-1">
+                      <Clock className="h-3 w-3" />
+                      {formatRelativeTime(selectedNotif.created_at)}
+                    </span>
+                  </div>
+                  <p className="text-zinc-300 leading-relaxed">
+                    {getNotificationMessage(selectedNotif, isManualNotification(selectedNotif))}
+                  </p>
+                </div>
+              </div>
+
+              {/* Modal Footer */}
+              <div className="flex flex-wrap items-center justify-between gap-2.5 border-t border-white/5 pt-4">
+                {selectedNotif.booking_date && onNavigateToAgenda && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const d = selectedNotif.booking_date;
+                      setSelectedNotif(null);
+                      if (d) onNavigateToAgenda(d);
+                    }}
+                    className="inline-flex items-center gap-2 rounded-xl bg-gold/15 px-3.5 py-2 text-xs font-bold text-gold hover:bg-gold/25 transition-all border border-gold/30 active:scale-95"
+                  >
+                    <CalendarDays className="h-4 w-4" />
+                    <span>Ver en agenda</span>
+                  </button>
+                )}
+
+                <div className="flex items-center gap-2 ml-auto">
+                  {!selectedNotif.read && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        markAsRead(selectedNotif.id);
+                        setSelectedNotif((prev) => (prev ? { ...prev, read: true } : null));
+                      }}
+                      className="inline-flex items-center gap-1.5 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs font-medium text-zinc-300 hover:bg-white/10 transition-colors active:scale-95"
+                    >
+                      <Check className="h-3.5 w-3.5 text-gold" />
+                      <span>Marcar leída</span>
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => setSelectedNotif(null)}
+                    className="rounded-xl bg-white/10 px-4 py-2 text-xs font-semibold text-white hover:bg-white/15 transition-colors active:scale-95"
+                  >
+                    Cerrar
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </ModalPortal>
       )}
     </div>
   );

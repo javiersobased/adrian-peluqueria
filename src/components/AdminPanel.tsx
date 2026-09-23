@@ -44,7 +44,7 @@ import {
 import { InstallAppButton } from '@/components/InstallAppButton';
 import { setActivePwaContext } from '@/lib/pwaContext';
 import { toISO, isBlockExpired } from '@/lib/schedule';
-import { isSuperAdminEmail } from '@/lib/auth';
+import { isDeveloper, getDeveloperProfile, isSuperAdminEmail } from '@/lib/auth';
 
 interface AdminPanelProps {
   userRole: UserRole;
@@ -172,15 +172,12 @@ export function AdminPanel({ userRole, onSignOut, onGoPublic }: AdminPanelProps)
   }, [isAdmin, userRole.barber_id]);
 
   const fetchBookings = useCallback(async () => {
-    let query = supabase
+    const query = supabase
       .from('bookings')
       .select('*')
       .order('booking_date', { ascending: true })
       .order('booking_time', { ascending: true });
-    // If not admin, restrict to their assigned barber
-    if (!isAdmin && userRole.barber_id) {
-      query = query.eq('barber', userRole.barber_id);
-    }
+
     const { data } = await query;
     const rawList = (data as SavedBooking[]) ?? [];
     const filtered = rawList.filter((b) => {
@@ -189,16 +186,14 @@ export function AdminPanel({ userRole, onSignOut, onGoPublic }: AdminPanelProps)
     });
 
     setBookings(filtered);
-  }, [isAdmin, userRole.barber_id]);
+  }, []);
 
   const fetchBlocks = useCallback(async () => {
-    let query = supabase
+    const query = supabase
       .from('barber_blocks')
       .select('*')
       .order('created_at', { ascending: false });
-    if (!isAdmin && userRole.barber_id) {
-      query = query.eq('barber', userRole.barber_id);
-    }
+
     const { data } = await query;
     const rawBlocks = (data as BarberBlock[]) ?? [];
 
@@ -213,7 +208,7 @@ export function AdminPanel({ userRole, onSignOut, onGoPublic }: AdminPanelProps)
     }
 
     setBlocks(rawBlocks.filter((b) => !isBlockExpired(b, curIso, curTime)));
-  }, [isAdmin, userRole.barber_id]);
+  }, []);
 
   const fetchCustomers = useCallback(async () => {
     const { data } = await supabase
@@ -230,15 +225,35 @@ export function AdminPanel({ userRole, onSignOut, onGoPublic }: AdminPanelProps)
 
   const fetchUnreadNotifs = useCallback(async () => {
     try {
+      const todayISO = toISO(new Date());
+
+      // Auto-purge past notifications whose scheduled day has passed
+      try {
+        await supabase
+          .from('booking_notifications')
+          .delete()
+          .lt('booking_date', todayISO);
+
+        await supabase
+          .from('booking_notifications')
+          .delete()
+          .is('booking_date', null)
+          .lt('old_date', todayISO);
+      } catch {}
+
       let q = supabase
         .from('booking_notifications')
-        .select('id', { count: 'exact', head: true })
+        .select('id, booking_date, old_date')
         .eq('read', false);
       if (!isAdmin && userRole.barber_id) {
         q = q.eq('barber', userRole.barber_id);
       }
-      const { count } = await q;
-      setUnreadNotifsCount(count ?? 0);
+      const { data } = await q;
+      const validCount = (data || []).filter((n: any) => {
+        const appointmentDate = n.booking_date || n.old_date;
+        return !appointmentDate || appointmentDate >= todayISO;
+      }).length;
+      setUnreadNotifsCount(validCount);
     } catch {
       // ignore
     }
@@ -340,9 +355,16 @@ export function AdminPanel({ userRole, onSignOut, onGoPublic }: AdminPanelProps)
   }, [menuItems, isAdmin, search]);
 
   const activeBarber = barbers.find((b) => b.id === selectedBarber) ?? null;
-  const todayCount = bookings.filter(
-    (b) => b.booking_date === toISO(new Date()) && b.status !== 'cancelled'
-  ).length;
+  const todayCount = useMemo(() => {
+    const todayISO = toISO(new Date());
+    return bookings.filter((b) => {
+      if (b.booking_date !== todayISO || b.status === 'cancelled') return false;
+      if (selectedBarber && selectedBarber !== 'all') {
+        return b.barber === selectedBarber;
+      }
+      return true;
+    }).length;
+  }, [bookings, selectedBarber]);
 
   // Francisco Javier is the super admin — hidden from public but has full control
   const isSuperAdmin = isSuperAdminEmail(userRole.email);
@@ -370,20 +392,12 @@ export function AdminPanel({ userRole, onSignOut, onGoPublic }: AdminPanelProps)
     ? 'Panel de Administración'
     : 'Panel de Barbero';
 
-  // Resolved barber profile for the bottom profile button:
-  // Francisco Javier shows his own virtual profile (not Adrián's)
+  // Resolved barber profile for the bottom profile button
+  const isDev = isDeveloper(userRole.email) || userRole.barber_id === 'franciscojavier' || isSuperAdmin;
+
   const currentProfileBarber = useMemo(() => {
-    if (isSuperAdmin) {
-      const cachedPhoto = typeof window !== 'undefined' ? localStorage.getItem('barber_photo_francisco_javier') : null;
-      return {
-        id: 'francisco_javier',
-        name: 'Francisco Javier',
-        initials: 'FJ',
-        photo_url: cachedPhoto,
-        role: 'Super Administrador',
-        active: false,
-        sort_order: -1,
-      } as Barber;
+    if (isDev) {
+      return getDeveloperProfile();
     }
     if (activeBarber) return activeBarber;
     if (userRole.barber_id) {
@@ -394,21 +408,27 @@ export function AdminPanel({ userRole, onSignOut, onGoPublic }: AdminPanelProps)
     const adrian = barbers.find((b) => b.id === 'adrian');
     if (adrian) return adrian;
     return barbers[0] || null;
-  }, [isSuperAdmin, activeBarber, userRole.barber_id, barbers]);
+  }, [isDev, activeBarber, userRole.barber_id, barbers]);
 
-  const profileDisplayName = isSuperAdmin
+  const profileDisplayName = isDev
     ? 'Francisco Javier'
     : currentProfileBarber?.name || (isAdmin ? 'Adrián Millán' : 'Mi Perfil');
 
-  const profileFilterSubtitle = isSuperAdmin
+  const profileRoleSubtitle = isDev
+    ? 'Desarrollador'
+    : isAdmin ? 'Administrador' : currentProfileBarber?.role || 'Barbero';
+
+  const profileFilterSubtitle = isDev
     ? selectedBarber === 'all'
-      ? 'Super Admin · Todo el salón'
+      ? 'Desarrollador · Todo el salón'
       : `Vista: ${activeBarber?.name || 'Barbero'}`
     : isAdmin
     ? selectedBarber === 'all'
       ? 'Administrador · Todo el salón'
       : `Vista: ${activeBarber?.name || 'Barbero'}`
-    : 'Barbero en servicio';
+    : selectedBarber === 'all'
+    ? 'Barbero · Todo el salón'
+    : `Vista: ${activeBarber?.name || 'Barbero'}`;
 
   return (
     <div
@@ -538,7 +558,7 @@ export function AdminPanel({ userRole, onSignOut, onGoPublic }: AdminPanelProps)
               </div>
               {!isCollapsed && (
                 <>
-                  <span className="flex-1 text-left">Notifications</span>
+                  <span className="flex-1 text-left">Notificaciones</span>
                   {unreadNotifsCount > 0 && (
                     <span className="rounded-full bg-red-500/20 text-red-300 border border-red-500/30 px-2 py-0.2 text-[0.65rem] font-bold">
                       {unreadNotifsCount > 15 ? '15+' : unreadNotifsCount}
@@ -707,8 +727,8 @@ export function AdminPanel({ userRole, onSignOut, onGoPublic }: AdminPanelProps)
                   isCollapsed ? 'left-16 w-64' : 'left-2.5 right-2.5'
                 }`}
               >
-                {/* Section: Barber Selector — only for Super Admin (Francisco Javier) */}
-                {isSuperAdmin && (
+                {/* Section: Barber Selector */}
+                {(isAdmin || userRole.role === 'barber') && (
                   <div className="mb-2">
                     <p className="px-2.5 py-1 text-[0.65rem] font-bold uppercase tracking-wider text-zinc-400">
                       Filtrar por Barbero
@@ -763,7 +783,7 @@ export function AdminPanel({ userRole, onSignOut, onGoPublic }: AdminPanelProps)
                   </div>
                 )}
 
-                {isSuperAdmin && <div className="my-1.5 border-t border-white/5" />}
+                {(isAdmin || userRole.role === 'barber') && <div className="my-1.5 border-t border-white/5" />}
 
                 {/* Section: Profile & Sign Out */}
                 <div className="space-y-0.5">
@@ -979,7 +999,7 @@ export function AdminPanel({ userRole, onSignOut, onGoPublic }: AdminPanelProps)
                     onClick={() => setShowMobileProfileMenu(false)}
                   />
                   <div className="absolute bottom-full left-2.5 right-2.5 mb-2 z-50 rounded-2xl border border-white/10 bg-zinc-900/98 p-2 shadow-2xl backdrop-blur-2xl animate-scale-in max-h-[60vh] overflow-y-auto">
-                    {isSuperAdmin && (
+                    {(isAdmin || userRole.role === 'barber') && (
                       <div className="mb-2">
                         <p className="px-2.5 py-1 text-[0.65rem] font-bold uppercase tracking-wider text-zinc-400">
                           Filtrar por Barbero
@@ -1033,7 +1053,7 @@ export function AdminPanel({ userRole, onSignOut, onGoPublic }: AdminPanelProps)
                         </div>
                       </div>
                     )}
-                    {isSuperAdmin && <div className="my-1.5 border-t border-white/5" />}
+                    {(isAdmin || userRole.role === 'barber') && <div className="my-1.5 border-t border-white/5" />}
                     <button
                       onClick={() => {
                         setShowMobileProfileMenu(false);
@@ -1190,8 +1210,8 @@ export function AdminPanel({ userRole, onSignOut, onGoPublic }: AdminPanelProps)
         </header>
 
         {/* Dynamic Tab Body Container */}
-        <div className="w-full min-w-0 px-2.5 py-3 sm:px-4 md:px-6 md:py-3.5 md:flex-1 md:overflow-y-auto flex flex-col">
-          <div className="admin-embed w-full min-w-0 flex-1 flex flex-col rounded-2xl p-3 sm:rounded-3xl sm:p-4 md:p-5 min-h-full">
+        <div className="w-full min-w-0 px-2.5 py-3 sm:px-4 md:px-6 md:py-4 md:flex-1 md:min-h-0 flex flex-col md:overflow-hidden pb-6 md:pb-6">
+          <div className="admin-embed w-full min-w-0 flex-1 min-h-0 flex flex-col rounded-2xl p-3 sm:rounded-3xl sm:p-4 md:p-5 overflow-hidden shadow-2xl relative">
             {tab === 'today' && (
               <AdminToday
                 bookings={bookings}

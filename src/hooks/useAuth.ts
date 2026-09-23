@@ -15,7 +15,6 @@ export function useAuth() {
       return;
     }
 
-    // 1. Master Admins: unconditional and permanent admin access
     const SUPER_ADMIN_EMAIL = 'franciscojavierfarinapadilla@gmail.com';
     const ADRIAN_EMAILS = [
       'adrian.millan.peguero@hotmail.com',
@@ -26,7 +25,7 @@ export function useAuth() {
       setRole({
         role: 'admin',
         status: 'verified',
-        barber_id: 'francisco_javier',
+        barber_id: 'franciscojavier',
         email: cleanEmail,
         full_name: 'Francisco Javier',
       });

@@ -2,6 +2,7 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import App from './App.tsx';
 import { SmoothScroll } from './components/SmoothScroll.tsx';
+import { BusinessProvider } from './components/BusinessProvider.tsx';
 import { Toaster } from 'sileo';
 import './index.css';
 import 'sileo/styles.css';
@@ -16,7 +17,9 @@ const rootEl = document.getElementById('root')!;
 createRoot(rootEl).render(
   <StrictMode>
     <SmoothScroll>
-      <App />
+      <BusinessProvider>
+        <App />
+      </BusinessProvider>
       <Toaster
         position="top-right"
         options={{

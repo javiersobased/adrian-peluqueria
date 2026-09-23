@@ -64,8 +64,14 @@ function isTodayWithinNextHours(
   return diffMinutes >= -30 && diffMinutes <= hoursThreshold * 60;
 }
 
+// In-memory sliding window cache to prevent duplicate email dispatches (15 second window)
+const recentEmailDispatches = new Map<string, number>();
+const EMAIL_DEDUP_WINDOW_MS = 15000;
+
 /**
- * Sends a notification payload to Supabase Edge Function to dispatch push and/or email
+ * Sends a notification payload to Supabase Edge Function to dispatch push and/or email.
+ * Guarantees that emails are ONLY sent through send-booking-email (deduplicated)
+ * and push is ONLY sent through notificar-reserva, preventing duplicate sends.
  */
 async function dispatchNotification(payload: {
   push?: {
@@ -82,25 +88,41 @@ async function dispatchNotification(payload: {
   };
 }) {
   try {
-    // 1. Send email via send-booking-email Edge Function (Resend)
-    if (payload.email) {
-      try {
-        await supabase.functions.invoke('send-booking-email', {
-          body: {
-            to: payload.email.to,
-            subject: payload.email.subject,
-            html: payload.email.html,
-          },
-        });
-      } catch (emailErr) {
-        console.warn('[Notifications] Email dispatch failed:', emailErr);
+    // 1. Send email via send-booking-email Edge Function (Resend) with strict deduplication
+    if (payload.email && payload.email.to) {
+      const cleanTo = payload.email.to.trim().toLowerCase();
+      const dedupKey = `${cleanTo}::${payload.email.subject.trim()}`;
+      const now = Date.now();
+      const lastSent = recentEmailDispatches.get(dedupKey);
+
+      if (lastSent && now - lastSent < EMAIL_DEDUP_WINDOW_MS) {
+        console.warn(`[Notifications] Duplicate email dispatch suppressed within ${EMAIL_DEDUP_WINDOW_MS}ms:`, dedupKey);
+      } else {
+        recentEmailDispatches.set(dedupKey, now);
+        // Clean up old entries
+        for (const [k, ts] of recentEmailDispatches.entries()) {
+          if (now - ts > 60000) recentEmailDispatches.delete(k);
+        }
+
+        try {
+          await supabase.functions.invoke('send-booking-email', {
+            body: {
+              to: payload.email.to,
+              subject: payload.email.subject,
+              html: payload.email.html,
+            },
+          });
+        } catch (emailErr) {
+          console.warn('[Notifications] Email dispatch failed:', emailErr);
+        }
       }
     }
 
     // 2. Send push via notificar-reserva Edge Function (OneSignal)
+    // NOTE: Only pass push payload so notificar-reserva NEVER triggers an email
     if (payload.push) {
       const { error } = await supabase.functions.invoke('notificar-reserva', {
-        body: payload,
+        body: { push: payload.push },
       });
       if (error) {
         console.warn('[Notifications] Push Edge Function warning:', error.message);
@@ -166,8 +188,9 @@ async function resolveTargetEmail(booking: SavedBooking): Promise<string | null>
  * 1. NOTIFICACIÓN DE CITA CONFIRMADA
  * Dispara:
  * - Push al Cliente (con link a sus citas)
- * - Email al Cliente (plantilla dorada completa, SIEMPRE enviado)
- * - Push y Email al Barbero (notificación al barbero con todos los datos)
+ * - Email al Cliente (plantilla dorada completa, SIEMPRE enviado exactamente 1 vez)
+ * - Al Barbero: SOLAMENTE SI LA CITA ES PARA HOY Y EN LAS PRÓXIMAS 3 HORAS
+ *   (Regla estricta: evitar spam de citas futuras y evitar que barberos reciban emails de confirmación de clientes)
  */
 export async function notifyBookingConfirmed(booking: SavedBooking, barber?: Barber | null) {
   try {
@@ -175,8 +198,9 @@ export async function notifyBookingConfirmed(booking: SavedBooking, barber?: Bar
     const clientName = booking.full_name.trim();
     const barberName = barber?.name || (booking.barber === 'adrian' ? 'Adrián Millán' : booking.barber);
 
-    // 1. Al Cliente: Email transaccional garantizado 100%
+    // 1. Al Cliente: Email transaccional garantizado 100% (único para el cliente)
     const targetEmail = await resolveTargetEmail(booking);
+    const cleanTargetEmail = targetEmail?.trim().toLowerCase() || null;
     const bookingWithEmail: SavedBooking = targetEmail ? { ...booking, email: targetEmail } : booking;
     const clientEmail = targetEmail ? getBookingConfirmationEmail(bookingWithEmail) : null;
 
@@ -194,30 +218,38 @@ export async function notifyBookingConfirmed(booking: SavedBooking, barber?: Bar
       } : undefined,
     });
 
-    // 2. Al Barbero: Enviar email siempre que se reserve una cita con él
-    const barberGoogleEmail = barber?.google_email || (Array.isArray(barber?.admin_emails) ? barber?.admin_emails[0] : null) || (booking.barber === 'adrian' ? 'adrian.millan.peguero@hotmail.com' : null);
-    if (barberGoogleEmail) {
-      const isUrgentForBarber = isTodayWithinNextHours(booking.booking_date, booking.booking_time, 3);
-      const barberEmailPayload = getBarberNewBookingEmail(booking, barberName);
+    // 2. Al Barbero: SOLAMENTE SI LA CITA ES PARA HOY Y EN LAS PRÓXIMAS 3 HORAS
+    // REGLA ESTRICTA SOLICITADA POR EL USUARIO:
+    // "solamente quiero que le notifique si la reserva de la cita, el cambio o la cancelacion es para el mismo día y si la cita es o era en las siguientes 3 horas"
+    const isUrgentForBarber = isTodayWithinNextHours(booking.booking_date, booking.booking_time, 3);
+    const rawBarberEmail = barber?.google_email || (Array.isArray(barber?.admin_emails) ? barber?.admin_emails[0] : null) || (booking.barber === 'adrian' ? 'adrian.millan.peguero@hotmail.com' : null);
+    const cleanBarberEmail = rawBarberEmail?.trim().toLowerCase() || null;
 
-      await dispatchNotification({
-        push: isUrgentForBarber ? {
-          tags: [
-            { key: 'barber_id', relation: '=', value: booking.barber },
-            { key: 'role', relation: '=', value: 'barber' },
-          ],
-          heading: '⚡ Nueva Cita Urgente (Próximas 3h)',
-          content: `${clientName} ha reservado para hoy a las ${hora}h (${booking.service}).`,
-          url: ADMIN_URL,
-        } : undefined,
-        email: barberEmailPayload ? {
-          to: barberGoogleEmail,
-          subject: isUrgentForBarber
-            ? `⚡ [HOY ${hora}h] Nueva Cita: ${clientName}`
-            : `💈 Nueva Cita Reservada: ${clientName} · ${booking.booking_date} a las ${hora}h`,
-          html: barberEmailPayload.html,
-        } : undefined,
-      });
+    // Guard: si el cliente y el barbero son la misma cuenta de correo (ej. reservas de prueba),
+    // no enviar notificación de barbero al mismo correo para no duplicar ni generar confusión con 2 mensajes distintos.
+    if (cleanBarberEmail && cleanBarberEmail !== cleanTargetEmail) {
+      if (isUrgentForBarber) {
+        const barberEmailPayload = getBarberNewBookingEmail(booking, barberName);
+
+        await dispatchNotification({
+          push: {
+            tags: [
+              { key: 'barber_id', relation: '=', value: booking.barber },
+              { key: 'role', relation: '=', value: 'barber' },
+            ],
+            heading: '⚡ Nueva Cita Urgente (Próximas 3h)',
+            content: `${clientName} ha reservado para hoy a las ${hora}h (${booking.service}).`,
+            url: ADMIN_URL,
+          },
+          email: barberEmailPayload ? {
+            to: rawBarberEmail!,
+            subject: `⚡ [HOY ${hora}h] Nueva Cita: ${clientName}`,
+            html: barberEmailPayload.html,
+          } : undefined,
+        });
+      } else {
+        console.log(`[Notifications] Reserva (${booking.booking_date} ${hora}h) no es para hoy en las próximas 3h. No se notifica al barbero según regla.`);
+      }
     }
   } catch (err) {
     console.warn('[Notifications] Error in notifyBookingConfirmed:', err);
@@ -241,6 +273,7 @@ export async function notifyBookingCancelled(
 
     // 1. Al Cliente (Siempre se le notifica la cancelación de su cita por email)
     const targetEmail = await resolveTargetEmail(booking);
+    const cleanTargetEmail = targetEmail?.trim().toLowerCase() || null;
     const bookingWithEmail: SavedBooking = targetEmail ? { ...booking, email: targetEmail } : booking;
     const clientEmail = targetEmail ? getBookingCancelledEmail(bookingWithEmail, barberName, reason) : null;
 
@@ -260,9 +293,11 @@ export async function notifyBookingCancelled(
 
     // 2. Al Barbero: SOLAMENTE SI LA CITA ERA PARA HOY Y EN LAS PRÓXIMAS 3 HORAS
     const isUrgentForBarber = isTodayWithinNextHours(booking.booking_date, booking.booking_time, 3);
-    if (isUrgentForBarber) {
-      const barberGoogleEmail = barber?.google_email || (booking.barber === 'adrian' ? 'adrian.millan.peguero@hotmail.com' : null);
-      const barberEmailPayload = barberGoogleEmail ? getBarberUrgentTodayCancellationEmail(booking, barberName) : null;
+    const rawBarberEmail = barber?.google_email || (Array.isArray(barber?.admin_emails) ? barber?.admin_emails[0] : null) || (booking.barber === 'adrian' ? 'adrian.millan.peguero@hotmail.com' : null);
+    const cleanBarberEmail = rawBarberEmail?.trim().toLowerCase() || null;
+
+    if (cleanBarberEmail && cleanBarberEmail !== cleanTargetEmail && isUrgentForBarber) {
+      const barberEmailPayload = getBarberUrgentTodayCancellationEmail(booking, barberName);
 
       await dispatchNotification({
         push: {
@@ -274,14 +309,14 @@ export async function notifyBookingCancelled(
           content: `${clientName} ha cancelado su cita de hoy a las ${hora}h (${booking.service}).`,
           url: ADMIN_URL,
         },
-        email: barberGoogleEmail && barberEmailPayload ? {
-          to: barberGoogleEmail,
+        email: barberEmailPayload ? {
+          to: rawBarberEmail!,
           subject: barberEmailPayload.subject,
           html: barberEmailPayload.html,
         } : undefined,
       });
     } else {
-      console.log(`[Notifications] Cita cancelada (${booking.booking_date} ${hora}h) no era para hoy en las próximas 3h. Omitiendo aviso al barbero según regla.`);
+      console.log(`[Notifications] Cita cancelada (${booking.booking_date} ${hora}h) no era para hoy en las próximas 3h o barbero es el mismo cliente. Omitiendo aviso al barbero.`);
     }
   } catch (err) {
     console.warn('[Notifications] Error in notifyBookingCancelled:', err);
@@ -307,6 +342,7 @@ export async function notifyBookingRescheduled(
 
     // 1. Al Cliente (Siempre se le notifica el cambio de horario por email)
     const targetEmail = await resolveTargetEmail(booking);
+    const cleanTargetEmail = targetEmail?.trim().toLowerCase() || null;
     const bookingWithEmail: SavedBooking = targetEmail ? { ...booking, email: targetEmail } : booking;
     const clientEmail = targetEmail ? getBookingRescheduledEmail(bookingWithEmail, oldDate, oldTime, reason, barberName) : null;
 
@@ -328,10 +364,11 @@ export async function notifyBookingRescheduled(
     const isUrgentForBarber =
       isTodayWithinNextHours(oldDate, oldTime, 3) ||
       isTodayWithinNextHours(booking.booking_date, booking.booking_time, 3);
+    const rawBarberEmail = barber?.google_email || (Array.isArray(barber?.admin_emails) ? barber?.admin_emails[0] : null) || (booking.barber === 'adrian' ? 'adrian.millan.peguero@hotmail.com' : null);
+    const cleanBarberEmail = rawBarberEmail?.trim().toLowerCase() || null;
 
-    if (isUrgentForBarber) {
-      const barberGoogleEmail = barber?.google_email || (booking.barber === 'adrian' ? 'adrian.millan.peguero@hotmail.com' : null);
-      const barberEmailPayload = barberGoogleEmail ? getBarberUrgentTodayRescheduledEmail(booking, barberName, oldTime) : null;
+    if (cleanBarberEmail && cleanBarberEmail !== cleanTargetEmail && isUrgentForBarber) {
+      const barberEmailPayload = getBarberUrgentTodayRescheduledEmail(booking, barberName, oldTime);
 
       await dispatchNotification({
         push: {
@@ -343,14 +380,14 @@ export async function notifyBookingRescheduled(
           content: `La cita de ${clientName} ahora es hoy a las ${hora}h (${booking.service}).`,
           url: ADMIN_URL,
         },
-        email: barberGoogleEmail && barberEmailPayload ? {
-          to: barberGoogleEmail,
+        email: barberEmailPayload ? {
+          to: rawBarberEmail!,
           subject: barberEmailPayload.subject,
           html: barberEmailPayload.html,
         } : undefined,
       });
     } else {
-      console.log(`[Notifications] Cambio de fecha/hora (${oldDate} -> ${booking.booking_date}) no afecta a las próximas 3h de hoy. Omitiendo aviso al barbero según regla.`);
+      console.log(`[Notifications] Cambio de fecha/hora (${oldDate} -> ${booking.booking_date}) no afecta a las próximas 3h de hoy o barbero es el mismo cliente. Omitiendo aviso al barbero.`);
     }
   } catch (err) {
     console.warn('[Notifications] Error in notifyBookingRescheduled:', err);

@@ -17,23 +17,43 @@ import {
 
 interface AdminProfileProps {
   userRole: UserRole;
+  targetBarberId?: string | null;
   onBarberUpdated?: () => void;
 }
 
-export function AdminProfile({ userRole, onBarberUpdated }: AdminProfileProps) {
+export function AdminProfile({ userRole, targetBarberId, onBarberUpdated }: AdminProfileProps) {
   const [barber, setBarber] = useState<Barber | null>(null);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const effectiveBarberId = targetBarberId || userRole.barber_id;
+
   const loadBarberProfile = async () => {
     try {
       setLoading(true);
       let barberData: Barber | null = null;
 
-      if (userRole.barber_id) {
-        const { data } = await supabase.from('barbers').select('*').eq('id', userRole.barber_id).maybeSingle();
+      if (effectiveBarberId === 'francisco_javier' || (!effectiveBarberId && userRole.email === 'franciscojavierfarinapadilla@gmail.com')) {
+        const cached = typeof window !== 'undefined' ? localStorage.getItem('barber_photo_francisco_javier') : null;
+        setBarber({
+          id: 'francisco_javier',
+          name: 'Francisco Javier Fariña Padilla',
+          role: 'Super Administrador',
+          initials: 'FJ',
+          photo_url: cached,
+          active: false,
+          sort_order: -1,
+          google_email: 'franciscojavierfarinapadilla@gmail.com',
+          admin_emails: ['franciscojavierfarinapadilla@gmail.com'],
+        });
+        setLoading(false);
+        return;
+      }
+
+      if (effectiveBarberId) {
+        const { data } = await supabase.from('barbers').select('*').eq('id', effectiveBarberId).maybeSingle();
         barberData = data as Barber | null;
       }
 
@@ -65,7 +85,7 @@ export function AdminProfile({ userRole, onBarberUpdated }: AdminProfileProps) {
 
   useEffect(() => {
     loadBarberProfile();
-  }, [userRole.barber_id, userRole.email]);
+  }, [effectiveBarberId, userRole.email]);
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -101,6 +121,13 @@ export function AdminProfile({ userRole, onBarberUpdated }: AdminProfileProps) {
       // Immediately cache locally so it never disappears on page refresh
       if (typeof window !== 'undefined') {
         localStorage.setItem(`barber_photo_${barber.id}`, publicUrl);
+      }
+
+      if (barber.id === 'francisco_javier') {
+        setBarber((prev) => (prev ? { ...prev, photo_url: publicUrl } : null));
+        notify.success('Foto de perfil actualizada', 'Tu imagen ha sido guardada correctamente.');
+        onBarberUpdated?.();
+        return;
       }
 
       // Update in barbers table (try direct update first, then RPC fallback)
@@ -148,6 +175,13 @@ export function AdminProfile({ userRole, onBarberUpdated }: AdminProfileProps) {
     try {
       if (typeof window !== 'undefined') {
         localStorage.removeItem(`barber_photo_${barber.id}`);
+      }
+
+      if (barber.id === 'francisco_javier') {
+        setBarber((prev) => (prev ? { ...prev, photo_url: null } : null));
+        notify.success('Foto eliminada', 'Se ha restablecido tu avatar por defecto.');
+        onBarberUpdated?.();
+        return;
       }
 
       await supabase
@@ -204,14 +238,18 @@ export function AdminProfile({ userRole, onBarberUpdated }: AdminProfileProps) {
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <div className="flex items-center gap-2">
-            <h1 className="font-display text-2xl font-bold text-white">Mi Perfil</h1>
+            <h1 className="font-display text-2xl font-bold text-white">
+              {barber.id === 'francisco_javier' ? 'Mi Perfil de Super Administrador' : 'Mi Perfil'}
+            </h1>
             <span className="flex items-center gap-1 rounded-full border border-gold/30 bg-gold/10 px-2.5 py-0.5 text-[0.65rem] font-semibold text-gold">
               <ShieldCheck className="h-3 w-3" />
-              Barbero Verificado
+              {barber.id === 'francisco_javier' ? 'Super Administrador · Oculto' : 'Barbero Verificado'}
             </span>
           </div>
           <p className="text-sm text-zinc-400">
-            Gestiona tu imagen profesional y tu presencia en la plataforma de Adrián Millán.
+            {barber.id === 'francisco_javier'
+              ? 'Perfil confidencial con control total del sistema. Este perfil no es visible para clientes ni para el resto del equipo en la web.'
+              : 'Gestiona tu imagen profesional y tu presencia en la plataforma de Adrián Millán.'}
           </p>
         </div>
       </div>

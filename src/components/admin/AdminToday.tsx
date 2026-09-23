@@ -22,6 +22,7 @@ import type { SavedBooking, Barber, UserRole } from '@/types';
 import { MONTH_SHORT, WEEKDAY_SHORT, toISO } from '@/lib/schedule';
 import { useEffect, useState, useMemo } from 'react';
 import { notify } from '@/lib/notify';
+import { isSuperAdminEmail } from '@/lib/auth';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import { ReorganizeBookingModal } from '@/components/admin/ReorganizeBookingModal';
 import { CustomerDetailModal } from '@/components/admin/CustomerDetailModal';
@@ -128,13 +129,37 @@ export function AdminToday({
     ).length;
   }, [bookings, todayISO]);
 
-  const welcomeName = useMemo(() => {
-    if (userRole?.full_name) return userRole.full_name;
-    if (selectedBarber !== 'all' && activeBarberProfile?.name) {
-      return activeBarberProfile.name.split(' ')[0];
+  const isSuperAdmin = isSuperAdminEmail(userRole?.email);
+
+  const sessionAvatar = useMemo(() => {
+    if (isSuperAdmin) {
+      const localPhoto = typeof window !== 'undefined' ? localStorage.getItem('barber_photo_francisco_javier') : null;
+      return {
+        name: 'Francisco Javier',
+        photo_url: localPhoto,
+        initials: 'FJ',
+        roleBadge: 'Super Administrador',
+      };
     }
-    return activeBarberFirstName;
-  }, [userRole, selectedBarber, activeBarberProfile, activeBarberFirstName]);
+    if (userRole?.role === 'admin') {
+      const adrian = barbers.find((b) => b.id === 'adrian');
+      return {
+        name: userRole?.full_name || adrian?.name || 'Adrián',
+        photo_url: adrian?.photo_url || null,
+        initials: adrian?.initials || 'AM',
+        roleBadge: 'Sesión activa · Administrador',
+      };
+    }
+    const myBarber = barbers.find((b) => b.id === userRole?.barber_id);
+    return {
+      name: userRole?.full_name || myBarber?.name || 'Barbero',
+      photo_url: myBarber?.photo_url || null,
+      initials: myBarber?.initials || 'B',
+      roleBadge: 'Sesión activa · Barbero',
+    };
+  }, [isSuperAdmin, userRole, barbers]);
+
+  const welcomeName = sessionAvatar.name;
 
   // All active bookings for today
   const allTodayBookings = bookings
@@ -291,15 +316,15 @@ export function AdminToday({
         {/* Card 1 (Left): Vista del perfil de barbero activo con bienvenida */}
         <div className="rounded-2xl glass-card p-3 sm:p-3.5 relative overflow-hidden flex items-center gap-3 col-span-2 md:col-span-1 border border-white/5 bg-zinc-900/40">
           <div className="relative shrink-0">
-            {activeBarberProfile?.photo_url ? (
+            {sessionAvatar.photo_url ? (
               <img
-                src={activeBarberProfile.photo_url}
-                alt={activeBarberProfile.name}
+                src={sessionAvatar.photo_url}
+                alt={sessionAvatar.name}
                 className="h-11 w-11 sm:h-12 sm:w-12 rounded-full object-cover ring-2 ring-gold/40 shadow-md"
               />
             ) : (
               <div className="flex h-11 w-11 sm:h-12 sm:w-12 items-center justify-center rounded-full gold-gradient font-display text-xs sm:text-sm font-black text-black shadow-md">
-                {activeBarberProfile?.initials || 'AM'}
+                {sessionAvatar.initials}
               </div>
             )}
             <span className="absolute -bottom-0.5 -right-0.5 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-emerald-500 ring-2 ring-zinc-950 shadow-sm">
@@ -309,10 +334,10 @@ export function AdminToday({
 
           <div className="min-w-0 flex-1">
             <p className="text-[0.6rem] font-semibold uppercase tracking-wider text-gold">
-              Sesión activa
+              {sessionAvatar.roleBadge}
             </p>
             <h4 className="font-display text-base sm:text-lg font-bold text-white tracking-tight truncate leading-tight mt-0.5">
-              ¡Bienvenido, {welcomeName}!
+              ¡Bienvenido, {sessionAvatar.name.split(' ')[0]}!
             </h4>
             <p className="text-[0.68rem] text-zinc-400 font-medium truncate mt-0.5">
               {activeBarberSubtitle}

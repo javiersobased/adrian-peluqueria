@@ -49,7 +49,19 @@ export function SuccessStep({ booking, onHome }: SuccessStepProps) {
   useEffect(() => {
     if (!booking?.id) return;
     if (notifiedBookingIdRef.current === booking.id) return;
+    
+    // Idempotencia persistente en sesión del navegador
+    const sessionKey = `booking_notified_${booking.id}`;
+    if (typeof window !== 'undefined' && sessionStorage.getItem(sessionKey)) {
+      notifiedBookingIdRef.current = booking.id;
+      return;
+    }
     notifiedBookingIdRef.current = booking.id;
+    if (typeof window !== 'undefined') {
+      try {
+        sessionStorage.setItem(sessionKey, '1');
+      } catch {}
+    }
 
     const resolveBarberAndNotify = async () => {
       let resolvedBarber: Barber | null = null;

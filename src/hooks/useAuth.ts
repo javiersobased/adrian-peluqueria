@@ -16,20 +16,30 @@ export function useAuth() {
     }
 
     // 1. Master Admins: unconditional and permanent admin access
-    const MASTER_ADMINS = [
+    const SUPER_ADMIN_EMAIL = 'franciscojavierfarinapadilla@gmail.com';
+    const ADRIAN_EMAILS = [
       'adrian.millan.peguero@hotmail.com',
       'adrianmillanpeguero1994@hotmail.com',
-      'franciscojavierfarinapadilla@gmail.com',
     ];
 
-    if (MASTER_ADMINS.includes(cleanEmail)) {
-      const isLoren = cleanEmail === 'franciscojavierfarinapadilla@gmail.com';
+    if (cleanEmail === SUPER_ADMIN_EMAIL) {
+      setRole({
+        role: 'admin',
+        status: 'verified',
+        barber_id: 'francisco_javier',
+        email: cleanEmail,
+        full_name: 'Francisco Javier',
+      });
+      return;
+    }
+
+    if (ADRIAN_EMAILS.includes(cleanEmail)) {
       setRole({
         role: 'admin',
         status: 'verified',
         barber_id: 'adrian',
         email: cleanEmail,
-        full_name: isLoren ? 'Loren' : 'Adrián',
+        full_name: 'Adrián Millán',
       });
       return;
     }
@@ -94,7 +104,7 @@ export function useAuth() {
         .maybeSingle();
 
       if (barber) {
-        setRole({ role: 'barber', status: 'verified', barber_id: barber.id, email: cleanEmail });
+        setRole({ role: 'barber', status: 'verified', barber_id: barber.id, email: cleanEmail, full_name: barber.name });
         return;
       }
     } catch {

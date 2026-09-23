@@ -1,9 +1,16 @@
 import { supabase } from '@/lib/supabase';
 
+export const SUPER_ADMIN_EMAIL = 'franciscojavierfarinapadilla@gmail.com';
+
+export function isSuperAdminEmail(email?: string | null): boolean {
+  if (!email) return false;
+  return email.toLowerCase().trim() === SUPER_ADMIN_EMAIL;
+}
+
 export const MASTER_ADMIN_EMAILS: readonly string[] = [
   'adrian.millan.peguero@hotmail.com',
   'adrianmillanpeguero1994@hotmail.com',
-  'franciscojavierfarinapadilla@gmail.com',
+  SUPER_ADMIN_EMAIL,
 ];
 
 export function isMasterAdminEmail(email?: string | null): boolean {

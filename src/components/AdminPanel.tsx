@@ -44,6 +44,7 @@ import {
 import { InstallAppButton } from '@/components/InstallAppButton';
 import { setActivePwaContext } from '@/lib/pwaContext';
 import { toISO, isBlockExpired } from '@/lib/schedule';
+import { isSuperAdminEmail } from '@/lib/auth';
 
 interface AdminPanelProps {
   userRole: UserRole;
@@ -343,6 +344,9 @@ export function AdminPanel({ userRole, onSignOut, onGoPublic }: AdminPanelProps)
     (b) => b.booking_date === toISO(new Date()) && b.status !== 'cancelled'
   ).length;
 
+  // Francisco Javier is the super admin — hidden from public but has full control
+  const isSuperAdmin = isSuperAdminEmail(userRole.email);
+
   const handleNav = (id: AdminTab) => {
     setTab(id);
     closeSidebar();
@@ -360,10 +364,27 @@ export function AdminPanel({ userRole, onSignOut, onGoPublic }: AdminPanelProps)
     setShowMobileProfileMenu(false);
   }, []);
 
-  const panelTitle = isAdmin ? 'Panel de Administración' : 'Panel de Barbero';
+  const panelTitle = isSuperAdmin
+    ? 'Super Administrador'
+    : isAdmin
+    ? 'Panel de Administración'
+    : 'Panel de Barbero';
 
-  // Resolved barber profile for the bottom profile button
+  // Resolved barber profile for the bottom profile button:
+  // Francisco Javier shows his own virtual profile (not Adrián's)
   const currentProfileBarber = useMemo(() => {
+    if (isSuperAdmin) {
+      const cachedPhoto = typeof window !== 'undefined' ? localStorage.getItem('barber_photo_francisco_javier') : null;
+      return {
+        id: 'francisco_javier',
+        name: 'Francisco Javier',
+        initials: 'FJ',
+        photo_url: cachedPhoto,
+        role: 'Super Administrador',
+        active: false,
+        sort_order: -1,
+      } as Barber;
+    }
     if (activeBarber) return activeBarber;
     if (userRole.barber_id) {
       const found = barbers.find((b) => b.id === userRole.barber_id);
@@ -373,11 +394,17 @@ export function AdminPanel({ userRole, onSignOut, onGoPublic }: AdminPanelProps)
     const adrian = barbers.find((b) => b.id === 'adrian');
     if (adrian) return adrian;
     return barbers[0] || null;
-  }, [activeBarber, userRole.barber_id, barbers]);
+  }, [isSuperAdmin, activeBarber, userRole.barber_id, barbers]);
 
-  const profileDisplayName = currentProfileBarber?.name || (isAdmin ? 'Adrián Millán' : 'Mi Perfil');
-  const profileRoleSubtitle = isAdmin ? 'Administrador' : currentProfileBarber?.role || 'Barbero';
-  const profileFilterSubtitle = isAdmin
+  const profileDisplayName = isSuperAdmin
+    ? 'Francisco Javier'
+    : currentProfileBarber?.name || (isAdmin ? 'Adrián Millán' : 'Mi Perfil');
+
+  const profileFilterSubtitle = isSuperAdmin
+    ? selectedBarber === 'all'
+      ? 'Super Admin · Todo el salón'
+      : `Vista: ${activeBarber?.name || 'Barbero'}`
+    : isAdmin
     ? selectedBarber === 'all'
       ? 'Administrador · Todo el salón'
       : `Vista: ${activeBarber?.name || 'Barbero'}`
@@ -680,8 +707,8 @@ export function AdminPanel({ userRole, onSignOut, onGoPublic }: AdminPanelProps)
                   isCollapsed ? 'left-16 w-64' : 'left-2.5 right-2.5'
                 }`}
               >
-                {/* Section: Barber Selector */}
-                {isAdmin && (
+                {/* Section: Barber Selector — only for Super Admin (Francisco Javier) */}
+                {isSuperAdmin && (
                   <div className="mb-2">
                     <p className="px-2.5 py-1 text-[0.65rem] font-bold uppercase tracking-wider text-zinc-400">
                       Filtrar por Barbero
@@ -736,7 +763,7 @@ export function AdminPanel({ userRole, onSignOut, onGoPublic }: AdminPanelProps)
                   </div>
                 )}
 
-                {isAdmin && <div className="my-1.5 border-t border-white/5" />}
+                {isSuperAdmin && <div className="my-1.5 border-t border-white/5" />}
 
                 {/* Section: Profile & Sign Out */}
                 <div className="space-y-0.5">
@@ -952,7 +979,7 @@ export function AdminPanel({ userRole, onSignOut, onGoPublic }: AdminPanelProps)
                     onClick={() => setShowMobileProfileMenu(false)}
                   />
                   <div className="absolute bottom-full left-2.5 right-2.5 mb-2 z-50 rounded-2xl border border-white/10 bg-zinc-900/98 p-2 shadow-2xl backdrop-blur-2xl animate-scale-in max-h-[60vh] overflow-y-auto">
-                    {isAdmin && (
+                    {isSuperAdmin && (
                       <div className="mb-2">
                         <p className="px-2.5 py-1 text-[0.65rem] font-bold uppercase tracking-wider text-zinc-400">
                           Filtrar por Barbero
@@ -1006,7 +1033,7 @@ export function AdminPanel({ userRole, onSignOut, onGoPublic }: AdminPanelProps)
                         </div>
                       </div>
                     )}
-                    {isAdmin && <div className="my-1.5 border-t border-white/5" />}
+                    {isSuperAdmin && <div className="my-1.5 border-t border-white/5" />}
                     <button
                       onClick={() => {
                         setShowMobileProfileMenu(false);

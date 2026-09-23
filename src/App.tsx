@@ -60,14 +60,43 @@ function App() {
       const path = window.location.pathname.toLowerCase();
       const host = window.location.hostname.toLowerCase();
 
-      // 1. Direct subdomain support: citas.adrianmillan.es
+      // 1. Direct subdomain support: citas.adrianmillan.es, admin.adrianmillan.es, reserva.adrianmillan.es
       if (host.startsWith('citas.')) {
         setView('my-bookings');
         return;
       }
+      if (host.startsWith('admin.')) {
+        setView('admin');
+        if (!auth.loading && !auth.user) {
+          setLoginPurpose('general');
+          setShowLoginModal(true);
+        }
+        return;
+      }
+      if (host.startsWith('reserva.') || host.startsWith('reservar.')) {
+        setView('public');
+        booking.startBooking();
+        return;
+      }
 
-      // 2. Direct paths or hash linking
-      if (h === '#admin' || path === '/admin') {
+      // 2. Direct booking link: /reserva, /reservar, #reserva, #reservar, #/reserva
+      if (
+        path === '/reserva' ||
+        path === '/reservar' ||
+        path === '/booking' ||
+        h === '#reserva' ||
+        h === '#reservar' ||
+        h === '#booking' ||
+        h === '#/reserva' ||
+        h === '#/reservar'
+      ) {
+        setView('public');
+        booking.startBooking();
+        return;
+      }
+
+      // 3. Direct paths or hash linking
+      if (h === '#admin' || path === '/admin' || h === '#/admin') {
         setView('admin');
         if (!auth.loading && !auth.user) {
           setLoginPurpose('general');
@@ -77,7 +106,7 @@ function App() {
         setView('gallery');
       } else if (h === '#catalogo' || h === '#tienda' || h === '#productos' || path === '/catalogo' || path === '/tienda') {
         setView('catalog');
-      } else if (h === '#mis-citas' || h === '#citas' || path === '/citas' || path === '/mis-citas') {
+      } else if (h === '#mis-citas' || h === '#citas' || path === '/citas' || path === '/mis-citas' || h === '#/mis-citas') {
         setView('my-bookings');
       } else if (h === '#inicio' || h === '' || h === '#') {
         setView('public');
@@ -91,7 +120,7 @@ function App() {
       window.removeEventListener('hashchange', handleNavigation);
       window.removeEventListener('popstate', handleNavigation);
     };
-  }, [auth.loading, auth.user]);
+  }, [auth.loading, auth.user, booking.startBooking]);
 
   // If loading finishes and user is on #admin but not logged in, prompt login
   useEffect(() => {

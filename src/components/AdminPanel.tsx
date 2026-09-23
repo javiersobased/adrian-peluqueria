@@ -1179,8 +1179,8 @@ export function AdminPanel({ userRole, onSignOut, onGoPublic }: AdminPanelProps)
         </header>
 
         {/* Dynamic Tab Body Container */}
-        <div className="w-full min-w-0 px-2.5 py-3 sm:px-4 md:px-6 md:py-3.5 md:flex-1 md:overflow-y-auto flex flex-col">
-          <div className="admin-embed w-full min-w-0 flex-1 flex flex-col rounded-2xl p-3 sm:rounded-3xl sm:p-4 md:p-5 min-h-full">
+        <div className="w-full min-w-0 px-2.5 py-3 sm:px-4 md:px-6 md:py-4 md:flex-1 md:min-h-0 flex flex-col md:overflow-hidden pb-6 md:pb-6">
+          <div className="admin-embed w-full min-w-0 flex-1 min-h-0 flex flex-col rounded-2xl p-3 sm:rounded-3xl sm:p-4 md:p-5 overflow-hidden shadow-2xl relative">
             {tab === 'today' && (
               <AdminToday
                 bookings={bookings}

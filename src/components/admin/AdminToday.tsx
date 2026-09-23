@@ -228,7 +228,7 @@ export function AdminToday({
   const dateLabel = `${WEEKDAY_SHORT[now.getDay()]} ${now.getDate()} ${MONTH_SHORT[now.getMonth()]}`;
 
   return (
-    <div className="mx-auto max-w-6xl w-full min-w-0 space-y-3 sm:space-y-4">
+    <div className="mx-auto max-w-6xl w-full min-w-0 flex-1 min-h-0 flex flex-col space-y-3 sm:space-y-4">
       {/* Barber Scope Selector Bar */}
       {barbers.length > 0 && (
         <div className="flex flex-wrap items-center justify-between gap-2 p-2 rounded-2xl bg-zinc-900/60 border border-white/5 shadow-sm">
@@ -366,6 +366,7 @@ export function AdminToday({
       </div>
 
       {/* Main upcoming bookings list */}
+      <div data-lenis-prevent className="flex-1 min-h-0 overflow-y-auto space-y-4 pr-1 pb-12">
       {upcomingBookings.length === 0 ? (
         <div className="rounded-3xl glass-card px-5 py-12 text-center">
           {allTodayBookings.length === 0 ? (
@@ -586,6 +587,7 @@ export function AdminToday({
           )}
         </div>
       )}
+      </div>
 
       {/* Appointment Detail Modal in AdminToday */}
       {selectedBooking && (

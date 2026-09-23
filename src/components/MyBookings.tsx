@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import type { SavedBooking, Barber } from '@/types';
 import { safeInitial } from '@/lib/calendar';
-import { ArrowLeft, Calendar, Clock, Scissors, X, Phone, CalendarClock, Check, Trash2, AlertTriangle } from 'lucide-react';
+import { ArrowLeft, Calendar, Clock, Scissors, X, Phone, CalendarClock, Check, Trash2, AlertTriangle, CalendarPlus } from 'lucide-react';
 import { MONTH_SHORT, WEEKDAY_SHORT } from '@/lib/schedule';
 import { fetchMyBookings, rescheduleBooking } from '@/lib/myBookings';
 import { supabase } from '@/lib/supabase';
@@ -292,8 +292,16 @@ export function MyBookings({ onBack, userEmail, userId, onSignOut }: MyBookingsP
         {bookings.length === 0 ? (
           <div className="rounded-3xl glass-card px-5 py-16 text-center">
             <Calendar className="mx-auto h-10 w-10 text-zinc-600" />
-            <p className="mt-4 text-sm font-medium text-zinc-400">No tienes citas reservadas</p>
-            <p className="mt-1 text-xs text-zinc-600">Cuando reserves una cita, aparecerá aquí.</p>
+            <p className="mt-4 text-base font-bold text-white">No tienes citas reservadas</p>
+            <p className="mt-1 text-xs text-zinc-400">Cuando reserves una cita, aparecerá aquí.</p>
+            <button
+              type="button"
+              onClick={onBack}
+              className="mt-6 inline-flex items-center gap-2 rounded-full gold-gradient px-6 py-3 text-xs font-bold uppercase tracking-wider text-black shadow-lg shadow-gold/20 transition-all hover:scale-105 active:scale-95 cursor-pointer"
+            >
+              <CalendarPlus className="h-4 w-4 text-black" />
+              <span>Reserva tu cita</span>
+            </button>
           </div>
         ) : (
           <div className="space-y-8">
@@ -312,25 +320,17 @@ export function MyBookings({ onBack, userEmail, userId, onSignOut }: MyBookingsP
           </div>
         )}
 
-        {/* Sección de Privacidad y Derecho de Supresión (RGPD) */}
-        <div className="mt-14 rounded-3xl border border-white/5 bg-zinc-900/40 p-5 sm:p-6 backdrop-blur-md">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div>
-              <h3 className="text-xs font-semibold uppercase tracking-wider text-zinc-400">
-                Privacidad y Derecho al Olvido (RGPD)
-              </h3>
-              <p className="mt-1 text-xs text-zinc-500 max-w-md leading-relaxed">
-                Puedes solicitar la eliminación definitiva de tu cuenta y el borrado de tus datos personales de contacto de nuestro sistema.
-              </p>
-            </div>
-            <button
-              onClick={() => setShowDeleteModal(true)}
-              className="inline-flex items-center justify-center gap-2 rounded-full border border-red-500/25 bg-red-500/10 px-4 py-2.5 text-xs font-bold text-red-400 transition-all hover:bg-red-500/20 active:scale-95"
-            >
-              <Trash2 className="h-3.5 w-3.5" />
-              Eliminar mi cuenta
-            </button>
-          </div>
+        {/* Apartado de eliminar cuenta discreto abajo a la derecha */}
+        <div className="mt-16 pt-8 pb-4 flex justify-end">
+          <button
+            type="button"
+            onClick={() => setShowDeleteModal(true)}
+            className="group inline-flex items-center gap-1.5 text-[0.7rem] text-zinc-600 hover:text-red-400/80 transition-colors"
+            title="Eliminar mi cuenta y datos personales"
+          >
+            <Trash2 className="h-3 w-3 opacity-50 group-hover:opacity-100" />
+            <span>Eliminar cuenta</span>
+          </button>
         </div>
       </div>
 

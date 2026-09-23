@@ -21,8 +21,14 @@ import {
   RefreshCw,
   Trash2,
   AlertTriangle,
+  CalendarPlus,
+  Eye,
+  X,
+  Mail,
+  CalendarDays,
 } from 'lucide-react';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
+import { ModalPortal } from '@/components/ui/ModalPortal';
 import { notify } from '@/lib/notify';
 
 interface AdminNotificationsProps {
@@ -86,6 +92,8 @@ export function AdminNotifications({
   const [showClearConfirmModal, setShowClearConfirmModal] = useState(false);
 
   const [selectedBarberFilter, setSelectedBarberFilter] = useState<string>(selectedBarber || 'all');
+  const [selectedNotif, setSelectedNotif] = useState<BookingNotification | null>(null);
+  const [manualBookingIds, setManualBookingIds] = useState<Set<string>>(new Set());
 
   // Keep in sync if prop changes
   useEffect(() => {
@@ -103,13 +111,43 @@ export function AdminNotifications({
         .limit(150);
 
       if (error) throw error;
-      setNotifications((data as BookingNotification[]) || []);
+      const notifs = (data as BookingNotification[]) || [];
+      setNotifications(notifs);
+
+      // Check which booking_ids correspond to manual bookings (user_id IS NULL)
+      const bIds = Array.from(
+        new Set(notifs.map((n) => n.booking_id).filter((id): id is string => Boolean(id)))
+      );
+      if (bIds.length > 0) {
+        const { data: bData } = await supabase
+          .from('bookings')
+          .select('id, user_id')
+          .in('id', bIds);
+        if (bData) {
+          const manualSet = new Set<string>();
+          bData.forEach((b) => {
+            if (!b.user_id) {
+              manualSet.add(b.id);
+            }
+          });
+          setManualBookingIds(manualSet);
+        }
+      }
     } catch (err) {
       console.warn('Error fetching booking notifications:', err);
     } finally {
       setLoading(false);
     }
   }, []);
+
+  const isManualNotification = useCallback(
+    (notif: BookingNotification) => {
+      if (notif.booking_id && manualBookingIds.has(notif.booking_id)) return true;
+      if (!notif.client_email && !notif.booking_id) return true;
+      return false;
+    },
+    [manualBookingIds]
+  );
 
   useEffect(() => {
     fetchNotifications();
@@ -125,6 +163,19 @@ export function AdminNotifications({
             const newNotif = payload.new as BookingNotification;
             setNotifications((prev) => [newNotif, ...prev.filter((n) => n.id !== newNotif.id)]);
             notify.info('Nueva Notificación', newNotif.title + ': ' + newNotif.client_name);
+
+            if (newNotif.booking_id) {
+              supabase
+                .from('bookings')
+                .select('id, user_id')
+                .eq('id', newNotif.booking_id)
+                .maybeSingle()
+                .then(({ data: b }) => {
+                  if (b && !b.user_id) {
+                    setManualBookingIds((prev) => new Set([...prev, b.id]));
+                  }
+                });
+            }
           } else if (payload.eventType === 'UPDATE') {
             const updated = payload.new as BookingNotification;
             setNotifications((prev) =>
@@ -485,7 +536,7 @@ export function AdminNotifications({
       )}
 
       {/* Notifications list */}
-      <div className="flex-1 overflow-y-auto space-y-2.5 pr-1 min-h-[350px]">
+      <div data-lenis-prevent className="flex-1 min-h-0 overflow-y-auto space-y-2.5 pr-1 pb-12">
         {loading ? (
           <div className="flex items-center justify-center py-24">
             <LoadingSpinner size="lg" label="Cargando notificaciones..." />
@@ -507,6 +558,7 @@ export function AdminNotifications({
             const isCreated = notif.type === 'created';
             const isCancelled = notif.type === 'cancelled';
             const isRescheduled = notif.type === 'rescheduled';
+            const isManual = isManualNotification(notif);
 
             const cleanPhone = notif.client_phone ? notif.client_phone.replace(/\s+/g, '') : null;
             const waNumber = cleanPhone ? (cleanPhone.startsWith('34') ? cleanPhone : `34${cleanPhone}`) : null;
@@ -558,6 +610,14 @@ export function AdminNotifications({
                         {isCancelled && 'Cita Cancelada'}
                         {isRescheduled && 'Cita Modificada'}
                       </span>
+
+                      {/* Manual badge if staff created appointment, online bookings stay untouched */}
+                      {isManual && (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-blue-500/15 px-2 py-0.5 text-[0.65rem] font-semibold text-blue-400 border border-blue-500/20">
+                          <CalendarPlus className="h-2.5 w-2.5" />
+                          Manual
+                        </span>
+                      )}
 
                       <span className="text-[0.7rem] text-zinc-500 flex items-center gap-1">
                         <Clock className="h-3 w-3" />
@@ -622,6 +682,17 @@ export function AdminNotifications({
 
                     {/* Action buttons footer */}
                     <div className="mt-3 flex flex-wrap items-center gap-2 pt-2 border-t border-white/5">
+                      {/* Ver detalles button */}
+                      <button
+                        type="button"
+                        onClick={() => setSelectedNotif(notif)}
+                        className="inline-flex items-center gap-1.5 rounded-lg bg-gold/10 px-2.5 py-1 text-[0.7rem] font-semibold text-gold hover:bg-gold/20 active:scale-95 transition-all"
+                        title="Ver todos los detalles de esta cita"
+                      >
+                        <Eye className="h-3.5 w-3.5" />
+                        <span>Ver detalles</span>
+                      </button>
+
                       {/* WhatsApp contact */}
                       {waUrl && (
                         <a
@@ -729,6 +800,306 @@ export function AdminNotifications({
             </div>
           </div>
         </div>
+      )}
+
+      {/* Appointment Detail Modal in AdminNotifications */}
+      {selectedNotif && (
+        <ModalPortal>
+          <div className="fixed inset-0 z-[9999] flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+            <div
+              className="fixed inset-0 bg-black/80 backdrop-blur-md animate-fade-in"
+              onClick={() => setSelectedNotif(null)}
+            />
+            <div
+              data-lenis-prevent
+              className="relative z-10 my-auto flex max-h-[90vh] w-full max-w-lg flex-col overflow-hidden rounded-3xl border border-gold/20 bg-zinc-950/95 p-4 sm:p-6 shadow-2xl shadow-gold/5 backdrop-blur-xl animate-scale-in"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Header */}
+              <div className="flex items-start justify-between gap-3 border-b border-white/5 pb-4">
+                <div className="flex items-center gap-3">
+                  <div
+                    className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl ${
+                      selectedNotif.type === 'created'
+                        ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30'
+                        : selectedNotif.type === 'cancelled'
+                        ? 'bg-red-500/15 text-red-400 border border-red-500/30'
+                        : 'bg-amber-500/15 text-amber-400 border border-amber-500/30'
+                    }`}
+                  >
+                    {selectedNotif.type === 'created' && <CalendarCheck className="h-5 w-5" />}
+                    {selectedNotif.type === 'cancelled' && <CalendarX className="h-5 w-5" />}
+                    {selectedNotif.type === 'rescheduled' && <RotateCcw className="h-5 w-5" />}
+                  </div>
+                  <div>
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <span
+                        className={`text-[0.65rem] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full ${
+                          selectedNotif.type === 'created'
+                            ? 'bg-emerald-500/20 text-emerald-300'
+                            : selectedNotif.type === 'cancelled'
+                            ? 'bg-red-500/20 text-red-300'
+                            : 'bg-amber-500/20 text-amber-300'
+                        }`}
+                      >
+                        {selectedNotif.type === 'created' && 'Nueva Cita'}
+                        {selectedNotif.type === 'cancelled' && 'Cita Cancelada'}
+                        {selectedNotif.type === 'rescheduled' && 'Cita Modificada'}
+                      </span>
+                      {isManualNotification(selectedNotif) && (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-blue-500/15 px-2 py-0.5 text-[0.65rem] font-semibold text-blue-400 border border-blue-500/20">
+                          <CalendarPlus className="h-2.5 w-2.5" /> Manual
+                        </span>
+                      )}
+                    </div>
+                    <h3 className="font-display text-lg font-bold text-white mt-1">
+                      Detalle de Cita
+                    </h3>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setSelectedNotif(null)}
+                  className="rounded-full p-1.5 text-zinc-400 hover:bg-white/10 hover:text-white transition-colors"
+                  aria-label="Cerrar ventana"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+
+              {/* Scrollable Body */}
+              <div className="flex-1 overflow-y-auto space-y-4 py-4 pr-1 text-xs">
+                {/* Reschedule alert banner */}
+                {selectedNotif.type === 'rescheduled' && (
+                  <div className="rounded-2xl border border-amber-500/30 bg-amber-500/10 p-3.5 space-y-2.5">
+                    <div className="flex items-center gap-2 text-amber-400 font-bold text-xs uppercase tracking-wider">
+                      <RotateCcw className="h-4 w-4" />
+                      <span>Cambio de Horario / Reasignación</span>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                      <div className="rounded-xl bg-black/40 p-2.5 border border-white/5 space-y-1">
+                        <span className="text-[0.65rem] font-bold uppercase tracking-wider text-zinc-500">
+                          Anterior
+                        </span>
+                        <p className="font-mono text-zinc-400 line-through">
+                          {formatDate(selectedNotif.old_date)} · {selectedNotif.old_time} h
+                        </p>
+                        {selectedNotif.old_barber && (
+                          <p className="text-[0.7rem] text-zinc-500">
+                            Barbero: {getBarberName(selectedNotif.old_barber)}
+                          </p>
+                        )}
+                      </div>
+                      <div className="rounded-xl bg-amber-500/20 p-2.5 border border-amber-500/40 space-y-1">
+                        <span className="text-[0.65rem] font-bold uppercase tracking-wider text-amber-400">
+                          Nuevo Horario
+                        </span>
+                        <p className="font-mono font-bold text-amber-200">
+                          {formatDate(selectedNotif.booking_date)} · {selectedNotif.booking_time} h
+                        </p>
+                        <p className="text-[0.7rem] text-amber-300">
+                          Barbero: {getBarberName(selectedNotif.barber)}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Cancelled alert banner */}
+                {selectedNotif.type === 'cancelled' && (
+                  <div className="rounded-2xl border border-red-500/30 bg-red-500/10 p-3.5 flex items-start gap-3">
+                    <CalendarX className="h-5 w-5 text-red-400 shrink-0 mt-0.5" />
+                    <div>
+                      <p className="font-bold text-red-300 text-sm">Cita Anulada</p>
+                      <p className="text-zinc-300 mt-0.5 leading-relaxed">
+                        Esta cita fue cancelada para el{' '}
+                        <strong className="text-white">
+                          {formatDate(selectedNotif.booking_date || selectedNotif.old_date)}
+                        </strong>{' '}
+                        a las{' '}
+                        <strong className="text-white">
+                          {selectedNotif.booking_time || selectedNotif.old_time} h
+                        </strong>
+                        . El hueco está disponible de nuevo en la agenda.
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {/* Created banner */}
+                {selectedNotif.type === 'created' && (
+                  <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-3.5 flex items-start gap-3">
+                    <CalendarCheck className="h-5 w-5 text-emerald-400 shrink-0 mt-0.5" />
+                    <div>
+                      <p className="font-bold text-emerald-300 text-sm">
+                        {isManualNotification(selectedNotif) ? 'Cita Manual Registrada' : 'Cita Reservada Online'}
+                      </p>
+                      <p className="text-zinc-300 mt-0.5 leading-relaxed">
+                        Programada para el{' '}
+                        <strong className="text-white">{formatDate(selectedNotif.booking_date)}</strong>{' '}
+                        a las <strong className="text-white">{selectedNotif.booking_time} h</strong>.
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {/* Client Data Box */}
+                <div className="rounded-2xl bg-white/[0.03] border border-white/5 p-3.5 space-y-2.5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[0.65rem] font-bold uppercase tracking-wider text-zinc-500 flex items-center gap-1.5">
+                      <User className="h-3 w-3 text-gold" />
+                      Datos del Cliente
+                    </span>
+                    <span className="text-[0.65rem] text-zinc-500">
+                      {isManualNotification(selectedNotif) ? 'Añadida manualmente' : 'Cliente registrado'}
+                    </span>
+                  </div>
+
+                  <div>
+                    <h4 className="text-base font-bold text-white">{selectedNotif.client_name}</h4>
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-white/5">
+                    {selectedNotif.client_phone ? (
+                      <>
+                        <a
+                          href={`tel:${selectedNotif.client_phone}`}
+                          className="inline-flex items-center gap-1.5 rounded-xl bg-white/5 px-3 py-1.5 text-xs font-semibold text-zinc-200 hover:bg-white/10 transition-colors"
+                        >
+                          <Phone className="h-3.5 w-3.5 text-gold" />
+                          <span>Llamar: {selectedNotif.client_phone}</span>
+                        </a>
+
+                        <a
+                          href={`https://wa.me/${
+                            selectedNotif.client_phone.replace(/\s+/g, '').startsWith('34')
+                              ? selectedNotif.client_phone.replace(/\s+/g, '')
+                              : `34${selectedNotif.client_phone.replace(/\s+/g, '')}`
+                          }`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-500/15 px-3 py-1.5 text-xs font-semibold text-emerald-400 hover:bg-emerald-500/25 transition-colors border border-emerald-500/20"
+                        >
+                          <MessageCircle className="h-3.5 w-3.5" />
+                          <span>WhatsApp</span>
+                        </a>
+                      </>
+                    ) : (
+                      <span className="text-zinc-500 italic text-xs">Sin teléfono indicado</span>
+                    )}
+
+                    {selectedNotif.client_email && (
+                      <a
+                        href={`mailto:${selectedNotif.client_email}`}
+                        className="inline-flex items-center gap-1.5 rounded-xl bg-white/5 px-3 py-1.5 text-xs text-zinc-300 hover:bg-white/10 transition-colors"
+                      >
+                        <Mail className="h-3.5 w-3.5 text-zinc-400" />
+                        <span className="truncate max-w-[200px]">{selectedNotif.client_email}</span>
+                      </a>
+                    )}
+                  </div>
+                </div>
+
+                {/* Appointment Data Box */}
+                <div className="rounded-2xl bg-white/[0.03] border border-white/5 p-3.5 space-y-2.5">
+                  <span className="text-[0.65rem] font-bold uppercase tracking-wider text-zinc-500 flex items-center gap-1.5">
+                    <Scissors className="h-3 w-3 text-gold" />
+                    Servicio y Asignación
+                  </span>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-1">
+                    <div className="space-y-1">
+                      <span className="text-[0.65rem] text-zinc-500">Servicio</span>
+                      <p className="font-semibold text-white">
+                        {selectedNotif.service || 'Servicio no especificado'}
+                      </p>
+                      {selectedNotif.service_price && (
+                        <p className="text-gold font-bold">{selectedNotif.service_price} €</p>
+                      )}
+                    </div>
+
+                    <div className="space-y-1">
+                      <span className="text-[0.65rem] text-zinc-500">Barbero Asignado</span>
+                      <div className="flex items-center gap-2">
+                        {(() => {
+                          const b = barbers.find((x) => x.id === selectedNotif.barber);
+                          return (
+                            <>
+                              {b?.photo_url ? (
+                                <img src={b.photo_url} alt="" className="h-6 w-6 rounded-full object-cover ring-1 ring-gold/30" />
+                              ) : (
+                                <div className="h-6 w-6 rounded-full gold-gradient flex items-center justify-center text-[0.6rem] font-bold text-black">
+                                  {b?.initials || 'AM'}
+                                </div>
+                              )}
+                              <span className="font-semibold text-zinc-200">
+                                {b?.name || getBarberName(selectedNotif.barber)}
+                              </span>
+                            </>
+                          );
+                        })()}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* System Activity Log & Timestamp */}
+                <div className="rounded-2xl bg-white/[0.02] border border-white/5 p-3 space-y-1">
+                  <div className="flex items-center justify-between text-[0.65rem] text-zinc-500">
+                    <span>Mensaje del sistema</span>
+                    <span className="flex items-center gap-1">
+                      <Clock className="h-3 w-3" />
+                      {formatRelativeTime(selectedNotif.created_at)}
+                    </span>
+                  </div>
+                  <p className="text-zinc-300 leading-relaxed">{selectedNotif.message}</p>
+                </div>
+              </div>
+
+              {/* Modal Footer */}
+              <div className="flex flex-wrap items-center justify-between gap-2.5 border-t border-white/5 pt-4">
+                {selectedNotif.booking_date && onNavigateToAgenda && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const d = selectedNotif.booking_date;
+                      setSelectedNotif(null);
+                      if (d) onNavigateToAgenda(d);
+                    }}
+                    className="inline-flex items-center gap-2 rounded-xl bg-gold/15 px-3.5 py-2 text-xs font-bold text-gold hover:bg-gold/25 transition-all border border-gold/30 active:scale-95"
+                  >
+                    <CalendarDays className="h-4 w-4" />
+                    <span>Ver en agenda</span>
+                  </button>
+                )}
+
+                <div className="flex items-center gap-2 ml-auto">
+                  {!selectedNotif.read && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        markAsRead(selectedNotif.id);
+                        setSelectedNotif((prev) => (prev ? { ...prev, read: true } : null));
+                      }}
+                      className="inline-flex items-center gap-1.5 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs font-medium text-zinc-300 hover:bg-white/10 transition-colors active:scale-95"
+                    >
+                      <Check className="h-3.5 w-3.5 text-gold" />
+                      <span>Marcar leída</span>
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => setSelectedNotif(null)}
+                    className="rounded-xl bg-white/10 px-4 py-2 text-xs font-semibold text-white hover:bg-white/15 transition-colors active:scale-95"
+                  >
+                    Cerrar
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </ModalPortal>
       )}
     </div>
   );

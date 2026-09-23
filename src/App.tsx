@@ -278,14 +278,10 @@ function App() {
 
   const goBooking = useCallback(() => {
     if (typeof window !== 'undefined' && window.location.hostname.startsWith('citas.')) {
-      window.location.href = 'https://adrianmillan.es/reservas';
+      window.location.href = 'https://www.adrianmillan.es/#reservas';
       return;
     }
-    try {
-      history.pushState(null, '', '/reservas');
-    } catch {
-      window.location.hash = '#reservas';
-    }
+    window.location.hash = '#reservas';
     setView('public');
     booking.startBooking();
   }, [booking]);

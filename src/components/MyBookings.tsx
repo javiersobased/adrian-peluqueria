@@ -162,10 +162,10 @@ export function MyBookings({ onBack, onBook, userEmail, userId, onSignOut }: MyB
     }
     if (typeof window !== 'undefined') {
       if (window.location.hostname.startsWith('citas.')) {
-        window.location.href = 'https://adrianmillan.es/reservas';
+        window.location.href = 'https://www.adrianmillan.es/#reservas';
         return;
       }
-      window.location.href = '/reservas';
+      window.location.hash = '#reservas';
     }
   }, [onBook]);
 

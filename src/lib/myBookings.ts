@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabase';
+import { tenantFrom } from '@/lib/tenant';
 import type { SavedBooking } from '@/types';
 import { toISO, isCancelledBookingExpired } from '@/lib/schedule';
 
@@ -23,13 +24,12 @@ export async function fetchMyBookings(
   // If the logged-in email is one of the test accounts, purge any test bookings
   if (currentEmail && TEST_EMAILS.includes(currentEmail)) {
     try {
-      await supabase.from('bookings').delete().ilike('email', currentEmail);
+      await tenantFrom('bookings').delete().ilike('email', currentEmail);
     } catch { /* ignore */ }
     return [];
   }
 
-  let query = supabase
-    .from('bookings')
+  let query = tenantFrom('bookings')
     .select('*')
     .order('booking_date', { ascending: true })
     .order('booking_time', { ascending: true });

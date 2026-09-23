@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabase';
+import { getCurrentBusinessId, tenantFrom } from '@/lib/tenant';
 import type { BarberSchedule, BarberBlock, BarberVacation, SavedBooking, Service } from '@/types';
 import {
   generateSlotsForDay,
@@ -88,28 +89,23 @@ export async function getBarberAvailableSlots(
 
   // 1. Consultar en paralelo bookings, horario, bloqueos, vacaciones y servicios
   const [schedRes, blockRes, vacRes, bookingsRes, rpcRes, servicesRes] = await Promise.all([
-    supabase
-      .from('barber_schedules')
+    tenantFrom('barber_schedules')
       .select('*')
       .or(`barber.eq.${barberId},barber_id.eq.${barberId}`),
-    supabase
-      .from('barber_blocks')
+    tenantFrom('barber_blocks')
       .select('*')
       .eq('barber', barberId),
-    supabase
-      .from('barber_vacations')
+    tenantFrom('barber_vacations')
       .select('*')
       .eq('barber', barberId),
-    supabase
-      .from('bookings')
+    tenantFrom('bookings')
       .select('id, full_name, booking_time, service, status')
       .eq('barber', barberId)
       .eq('booking_date', dateIso)
       .neq('status', 'cancelled'),
     supabase
-      .rpc('get_booked_intervals', { p_barber: barberId, p_date: dateIso }),
-    supabase
-      .from('services')
+      .rpc('get_booked_intervals', { p_barber: barberId, p_date: dateIso, p_business_id: getCurrentBusinessId() }),
+    tenantFrom('services')
       .select('id, name, duration, duration_minutes'),
   ]);
 

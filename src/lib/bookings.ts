@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabase';
+import { getCurrentBusinessId, tenantFrom } from '@/lib/tenant';
 import type { PendingBookingPayload } from '@/lib/pendingBooking';
 import type { SavedBooking } from '@/types';
 import { timeToMinutes } from '@/lib/schedule';
@@ -15,6 +16,7 @@ export async function checkSlotAvailability(
     const { data, error } = await supabase.rpc('get_booked_intervals', {
       p_barber: barber,
       p_date: bookingDate,
+      p_business_id: getCurrentBusinessId(),
     });
 
     if (!error && Array.isArray(data)) {
@@ -52,8 +54,7 @@ export async function findMyExistingBooking(
   bookingTime: string
 ): Promise<SavedBooking | null> {
   try {
-    const { data } = await supabase
-      .from('bookings')
+    const { data } = await tenantFrom('bookings')
       .select('*')
       .eq('barber', barber)
       .eq('booking_date', bookingDate)
@@ -132,6 +133,7 @@ export async function createBooking(payload: PendingBookingPayload): Promise<{ b
       p_full_name: payload.full_name,
       p_phone: payload.phone,
       p_comments: payload.comments ?? '',
+      p_business_id: getCurrentBusinessId(),
     });
   };
 
@@ -193,8 +195,7 @@ export async function createBooking(payload: PendingBookingPayload): Promise<{ b
         return { booking: myExisting, error: null };
       }
 
-      const { data: inserted, error: insertError } = await supabase
-        .from('bookings')
+      const { data: inserted, error: insertError } = await tenantFrom('bookings')
         .insert({
           service: payload.service,
           service_price: payload.service_price,
@@ -214,14 +215,14 @@ export async function createBooking(payload: PendingBookingPayload): Promise<{ b
       if (!insertError && inserted) {
         // Opportunistically save or update customer details
         try {
-          await supabase.from('customers').upsert({
+          await tenantFrom('customers').upsert({
             user_id: userId,
             full_name: payload.full_name.trim(),
             phone: payload.phone.trim(),
             email: userEmail,
             ...(payload.marketing_accepted !== undefined ? { marketing_accepted: payload.marketing_accepted } : {}),
             updated_at: new Date().toISOString(),
-          });
+          }, { onConflict: 'business_id,user_id' });
         } catch {
           // ignore
         }
@@ -260,7 +261,7 @@ export async function createBooking(payload: PendingBookingPayload): Promise<{ b
     }
   } else if (typeof raw === 'string' && raw.length > 10) {
     // raw is the UUID of the newly created booking
-    const { data: byId } = await supabase.from('bookings').select('*').eq('id', raw).maybeSingle();
+    const { data: byId } = await tenantFrom('bookings').select('*').eq('id', raw).maybeSingle();
     if (byId) resolvedBooking = byId as SavedBooking;
   }
 
@@ -304,8 +305,7 @@ export async function findExistingBooking(
   bookingDate: string,
   bookingTime: string
 ): Promise<SavedBooking | null> {
-  const { data } = await supabase
-    .from('bookings')
+  const { data } = await tenantFrom('bookings')
     .select('*')
     .eq('barber', barber)
     .eq('booking_date', bookingDate)

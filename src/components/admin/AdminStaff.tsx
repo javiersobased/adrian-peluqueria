@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
+import { tenantFrom, tenantStoragePath } from '@/lib/tenant';
 import { fetchAllBarbers } from '@/data/services';
 import type { Barber, SavedBooking } from '@/types';
 import {
@@ -72,13 +73,13 @@ export function AdminStaff() {
 
   const executeDeleteBarber = async (barberId: string, barberName: string, googleEmail?: string | null) => {
     try {
-      const { error: delError } = await supabase.from('barbers').delete().eq('id', barberId);
+      const { error: delError } = await tenantFrom('barbers').delete().eq('id', barberId);
       if (delError) throw delError;
 
       if (googleEmail) {
         const cleanEmail = googleEmail.toLowerCase().trim();
         if (!MASTER_ADMINS.some((a) => a.email === cleanEmail)) {
-          await supabase.from('staff').delete().eq('email', cleanEmail);
+          await tenantFrom('staff').delete().eq('email', cleanEmail);
         }
       }
       notify.success('Barbero eliminado', `${barberName} y sus permisos fueron revocados`);
@@ -96,8 +97,7 @@ export function AdminStaff() {
 
     // 1. Consultar si este barbero tiene citas activas futuras pendientes
     const today = toISO(new Date());
-    const { data: futureBookings, error: fetchErr } = await supabase
-      .from('bookings')
+    const { data: futureBookings, error: fetchErr } = await tenantFrom('bookings')
       .select('*')
       .eq('barber', b.id)
       .gte('booking_date', today)
@@ -549,8 +549,7 @@ function BarberForm({ barber, onClose, onSaved }: { barber: Barber | null; onClo
   // Sync existing admin emails from staff table when editing Adrián
   useEffect(() => {
     if (barber && isAdrian(barber)) {
-      supabase
-        .from('staff')
+      tenantFrom('staff')
         .select('email')
         .eq('role', 'admin')
         .then(({ data }) => {
@@ -581,9 +580,9 @@ function BarberForm({ barber, onClose, onSaved }: { barber: Barber | null; onClo
     try {
       const ext = file.name.split('.').pop();
       const fileName = `${Date.now()}.${ext}`;
-      const { error: uploadError } = await supabase.storage.from('barber-photos').upload(fileName, file);
+      const { error: uploadError } = await supabase.storage.from('barber-photos').upload(tenantStoragePath(fileName), file);
       if (uploadError) throw uploadError;
-      const { data: urlData } = supabase.storage.from('barber-photos').getPublicUrl(fileName);
+      const { data: urlData } = supabase.storage.from('barber-photos').getPublicUrl(tenantStoragePath(fileName));
       setPhotoUrl(urlData.publicUrl);
       notify.success('Foto subida', 'Imagen actualizada correctamente');
     } catch (err: any) {
@@ -625,8 +624,7 @@ function BarberForm({ barber, onClose, onSaved }: { barber: Barber | null; onClo
 
         // Also retrieve current staff emails assigned to adrian
         try {
-          const { data: staffList } = await supabase
-            .from('staff')
+          const { data: staffList } = await tenantFrom('staff')
             .select('email')
             .eq('barber_id', 'adrian');
           if (staffList) {
@@ -643,13 +641,13 @@ function BarberForm({ barber, onClose, onSaved }: { barber: Barber | null; onClo
         const removedEmails = oldEmails.filter((old) => !uniqueAdminEmails.includes(old));
         for (const rem of removedEmails) {
           if (rem !== 'franciscojavierfarinapadilla@gmail.com') {
-            await supabase.from('staff').delete().eq('email', rem);
+            await tenantFrom('staff').delete().eq('email', rem);
           }
         }
 
         // Grant verified admin permissions in staff table to all configured accounts
         for (const em of uniqueAdminEmails) {
-          await supabase.from('staff').upsert(
+          await tenantFrom('staff').upsert(
             {
               email: em,
               full_name: name.trim() || 'Adrián Millán',
@@ -657,7 +655,7 @@ function BarberForm({ barber, onClose, onSaved }: { barber: Barber | null; onClo
               status: 'verified',
               barber_id: 'adrian',
             },
-            { onConflict: 'email' }
+            { onConflict: 'business_id,email' }
           );
         }
 
@@ -672,14 +670,13 @@ function BarberForm({ barber, onClose, onSaved }: { barber: Barber | null; onClo
           admin_emails: uniqueAdminEmails,
         };
 
-        let { error: updateError } = await supabase
-          .from('barbers')
+        let { error: updateError } = await tenantFrom('barbers')
           .update(updatePayload)
           .eq('id', barber!.id);
 
         if (updateError && updateError.message?.includes('admin_emails')) {
           delete updatePayload.admin_emails;
-          const retry = await supabase.from('barbers').update(updatePayload).eq('id', barber!.id);
+          const retry = await tenantFrom('barbers').update(updatePayload).eq('id', barber!.id);
           updateError = retry.error;
         }
 
@@ -692,12 +689,12 @@ function BarberForm({ barber, onClose, onSaved }: { barber: Barber | null; onClo
 
         if (cleanOldEmail && cleanOldEmail !== cleanNewEmail) {
           if (!MASTER_ADMINS.some((a) => a.email === cleanOldEmail)) {
-            await supabase.from('staff').delete().eq('email', cleanOldEmail);
+            await tenantFrom('staff').delete().eq('email', cleanOldEmail);
           }
         }
 
         if (barber) {
-          const { error: updateError } = await supabase.from('barbers').update({
+          const { error: updateError } = await tenantFrom('barbers').update({
             name: name.trim(),
             role: role.trim() || 'Barbero',
             initials,
@@ -708,7 +705,7 @@ function BarberForm({ barber, onClose, onSaved }: { barber: Barber | null; onClo
           notify.success('Barbero actualizado', name.trim());
         } else {
           const newId = id.trim().toLowerCase().replace(/\s+/g, '-') || name.trim().toLowerCase().replace(/\s+/g, '-');
-          const { error: insertError } = await supabase.from('barbers').insert({
+          const { error: insertError } = await tenantFrom('barbers').insert({
             id: newId,
             name: name.trim(),
             role: role.trim() || 'Barbero',

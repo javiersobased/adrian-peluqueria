@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Megaphone, X, Send, Users } from 'lucide-react';
-import { supabase } from '@/lib/supabase';
+import { tenantFrom } from '@/lib/tenant';
 import { sendPromotionalCampaign } from '@/lib/notifications';
 import { notify } from '@/lib/notify';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
@@ -29,8 +29,7 @@ export function PromotionalCampaignModal({ isOpen, onClose }: PromotionalCampaig
 
     async function fetchAudience() {
       try {
-        const { count, error } = await supabase
-          .from('customers')
+        const { count, error } = await tenantFrom('customers')
           .select('user_id', { count: 'exact', head: true })
           .eq('marketing_accepted', true);
 

@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { supabase } from '@/lib/supabase';
+import { tenantFrom } from '@/lib/tenant';
 import { fetchAllBarbers, fetchAllServices } from '@/data/services';
 import type { Barber, Service } from '@/types';
 import {
@@ -143,7 +143,7 @@ export function AdminManualBooking({ onCreated }: AdminManualBookingProps) {
       const cleanComments = comments.trim() || null;
 
       // 2. Insertar la cita
-      const { error: insertError } = await supabase.from('bookings').insert({
+      const { error: insertError } = await tenantFrom('bookings').insert({
         barber,
         service,
         service_price: svc?.price ?? 0,
@@ -167,7 +167,7 @@ export function AdminManualBooking({ onCreated }: AdminManualBookingProps) {
       // 3. Guardar o actualizar la ficha del cliente si hay datos
       if (cleanName && cleanPhone) {
         try {
-          await supabase.from('customers').upsert(
+          await tenantFrom('customers').upsert(
             {
               full_name: cleanName,
               phone: cleanPhone,

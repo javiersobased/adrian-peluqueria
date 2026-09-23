@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { User } from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabase';
+import { getCurrentBusinessId, tenantFrom } from '@/lib/tenant';
 import type { UserRole } from '@/types';
 
 export function useAuth() {
@@ -45,8 +46,7 @@ export function useAuth() {
 
     // 2. Check staff table for verified admin or barber role
     try {
-      const { data: staffMember } = await supabase
-        .from('staff')
+      const { data: staffMember } = await tenantFrom('staff')
         .select('role, status, barber_id, email, full_name')
         .ilike('email', cleanEmail)
         .maybeSingle();
@@ -67,8 +67,7 @@ export function useAuth() {
 
     // 3. Check if this email is in Adrián's profile (admin_emails or google_email)
     try {
-      const { data: adrianBarber } = await supabase
-        .from('barbers')
+      const { data: adrianBarber } = await tenantFrom('barbers')
         .select('id, name, google_email, admin_emails')
         .eq('id', 'adrian')
         .maybeSingle();
@@ -94,8 +93,7 @@ export function useAuth() {
 
     // 4. Regular Barbers: Check if this email is assigned to an active barber (excluding adrian)
     try {
-      const { data: barber } = await supabase
-        .from('barbers')
+      const { data: barber } = await tenantFrom('barbers')
         .select('id, name, google_email')
         .eq('active', true)
         .neq('id', 'adrian')
@@ -112,7 +110,7 @@ export function useAuth() {
 
     // 5. Fallback to RPC
     try {
-      const { data } = await supabase.rpc('get_my_role');
+      const { data } = await supabase.rpc('get_my_role', { p_business_id: getCurrentBusinessId() });
       if (
         data &&
         (data as UserRole).role &&

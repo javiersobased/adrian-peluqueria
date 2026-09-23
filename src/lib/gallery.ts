@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabase';
+import { tenantFrom, tenantStoragePath } from '@/lib/tenant';
 import type { GalleryPhoto } from '@/types';
 
 export const DEFAULT_GALLERY_PHOTOS: GalleryPhoto[] = [
@@ -62,8 +63,7 @@ function getDeletedSeedIds(): string[] {
 export async function fetchGalleryPhotos(): Promise<GalleryPhoto[]> {
   const deletedSeeds = getDeletedSeedIds();
   try {
-    const { data, error } = await supabase
-      .from('gallery_photos')
+    const { data, error } = await tenantFrom('gallery_photos')
       .select('*')
       .order('created_at', { ascending: false });
 
@@ -94,7 +94,7 @@ export async function uploadGalleryPhoto(
 
     const { error: uploadError } = await supabase.storage
       .from('gallery-photos')
-      .upload(fileName, file, {
+      .upload(tenantStoragePath(fileName), file, {
         cacheControl: '3600',
         upsert: false,
       });
@@ -106,12 +106,11 @@ export async function uploadGalleryPhoto(
 
     const { data: urlData } = supabase.storage
       .from('gallery-photos')
-      .getPublicUrl(fileName);
+      .getPublicUrl(tenantStoragePath(fileName));
 
     const imageUrl = urlData.publicUrl;
 
-    const { data: insertData, error: insertError } = await supabase
-      .from('gallery_photos')
+    const { data: insertData, error: insertError } = await tenantFrom('gallery_photos')
       .insert({
         image_url: imageUrl,
         title: title.trim() || null,
@@ -153,7 +152,7 @@ export async function deleteGalleryPhoto(id: string, imageUrl?: string): Promise
       }
     }
 
-    const { error } = await supabase.from('gallery_photos').delete().eq('id', id);
+    const { error } = await tenantFrom('gallery_photos').delete().eq('id', id);
     if (error) {
       return { error: error.message };
     }

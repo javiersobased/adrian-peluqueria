@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabase';
+import { getCurrentBusinessId, tenantFrom } from '@/lib/tenant';
 import type { SavedBooking, Barber } from '@/types';
 import { toISO } from '@/lib/schedule';
 import {
@@ -96,6 +97,7 @@ async function dispatchNotification(payload: {
             idempotency_key: payload.idempotencyKey,
             booking_id: payload.bookingId,
             notification_type: payload.notificationType,
+            business_id: getCurrentBusinessId(),
           },
         });
       } catch (emailErr) {
@@ -110,6 +112,7 @@ async function dispatchNotification(payload: {
           ...payload,
           idempotency_key: payload.idempotencyKey ? `${payload.idempotencyKey}-push` : undefined,
           booking_id: payload.bookingId,
+          business_id: getCurrentBusinessId(),
         },
       });
       if (error) {
@@ -132,8 +135,7 @@ async function resolveTargetEmail(booking: SavedBooking): Promise<string | null>
   // 1. Fallback to customer record in database by user_id
   if (booking.user_id) {
     try {
-      const { data } = await supabase
-        .from('customers')
+      const { data } = await tenantFrom('customers')
         .select('email')
         .eq('user_id', booking.user_id)
         .not('email', 'is', null)
@@ -147,8 +149,7 @@ async function resolveTargetEmail(booking: SavedBooking): Promise<string | null>
   // 2. Fallback to customer record by phone number
   if (booking.phone) {
     try {
-      const { data } = await supabase
-        .from('customers')
+      const { data } = await tenantFrom('customers')
         .select('email')
         .eq('phone', booking.phone)
         .not('email', 'is', null)
@@ -413,8 +414,7 @@ export async function sendPromotionalCampaign(options: {
     // 2. Correos dirigidos exclusivamente a clientes con marketing_accepted == true en la base de datos
     let emailsSent = 0;
     try {
-      const { data: subscribedCustomers } = await supabase
-        .from('customers')
+      const { data: subscribedCustomers } = await tenantFrom('customers')
         .select('email, full_name')
         .eq('marketing_accepted', true)
         .not('email', 'is', null);

@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useMemo } from 'react';
-import { supabase } from '@/lib/supabase';
+import { tenantFrom } from '@/lib/tenant';
 import { fetchAllBarbers } from '@/data/services';
 import type { SavedBooking, Barber } from '@/types';
 import { WEEKDAY_SHORT, MONTH_SHORT } from '@/lib/schedule';
@@ -81,7 +81,7 @@ export function CustomerDetailModal({ customer, onClose }: CustomerDetailModalPr
           fetchAllBarbers(),
           (async () => {
             if (orConditions.length === 0) return { data: [] };
-            let q = supabase.from('bookings').select('*');
+            let q = tenantFrom('bookings').select('*');
             if (orConditions.length === 1) {
               const [field, op, ...rest] = orConditions[0].split('.');
               const val = rest.join('.');
@@ -99,7 +99,7 @@ export function CustomerDetailModal({ customer, onClose }: CustomerDetailModalPr
             if (cleanEmail) cConditions.push(`email.ilike.${cleanEmail}`);
 
             if (cConditions.length > 0) {
-              const { data } = await supabase.from('customers').select('comments').or(cConditions.join(',')).limit(1);
+              const { data } = await tenantFrom('customers').select('comments').or(cConditions.join(',')).limit(1);
               return data?.[0] || null;
             }
             return null;

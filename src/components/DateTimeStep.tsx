@@ -4,6 +4,7 @@ import { StepHeader } from '@/components/ServiceStep';
 import { ChevronLeftIcon, ChevronRightIcon, ClockIcon, CheckIcon, ScissorsIcon } from '@/components/icons';
 import { X, Sun, Moon } from 'lucide-react';
 import { supabase, supabaseUrl } from '@/lib/supabase';
+import { getCurrentBusinessId, tenantFrom } from '@/lib/tenant';
 import { fetchAllServices } from '@/data/services';
 import type { Barber, BarberBlock, BarberVacation, BarberSchedule, Service } from '@/types';
 import {
@@ -70,9 +71,9 @@ export function DateTimeStep({ barber, service, onBack, onContinue }: DateTimeSt
   const fetchData = useCallback(async () => {
     setLoading(true);
     const [schedRes, blockRes, vacRes, servList] = await Promise.all([
-      supabase.from('barber_schedules').select('*').or(`barber.eq.${barber.id},barber_id.eq.${barber.id}`),
-      supabase.from('barber_blocks').select('*').eq('barber', barber.id),
-      supabase.from('barber_vacations').select('*').eq('barber', barber.id),
+      tenantFrom('barber_schedules').select('*').or(`barber.eq.${barber.id},barber_id.eq.${barber.id}`),
+      tenantFrom('barber_blocks').select('*').eq('barber', barber.id),
+      tenantFrom('barber_vacations').select('*').eq('barber', barber.id),
       fetchAllServices(),
     ]);
     setSchedules((schedRes.data as BarberSchedule[]) ?? []);
@@ -135,7 +136,7 @@ export function DateTimeStep({ barber, service, onBack, onContinue }: DateTimeSt
         const results = await Promise.all(
           datesToFetch.map(async (iso) => {
             try {
-              const { data, error } = await supabase.rpc('get_booked_intervals', { p_barber: barber.id, p_date: iso });
+              const { data, error } = await supabase.rpc('get_booked_intervals', { p_barber: barber.id, p_date: iso, p_business_id: getCurrentBusinessId() });
               if (!error && Array.isArray(data)) {
                 const intervals = data.map((item: any) => {
                   const sName = (item.service || '').trim().toLowerCase();
@@ -181,7 +182,7 @@ export function DateTimeStep({ barber, service, onBack, onContinue }: DateTimeSt
     });
 
     try {
-      const { data, error } = await supabase.rpc('get_booked_intervals', { p_barber: barber.id, p_date: iso });
+      const { data, error } = await supabase.rpc('get_booked_intervals', { p_barber: barber.id, p_date: iso, p_business_id: getCurrentBusinessId() });
       if (!error && Array.isArray(data)) {
         const intervals = data.map((item: any) => {
           const sName = (item.service || '').trim().toLowerCase();
@@ -202,7 +203,7 @@ export function DateTimeStep({ barber, service, onBack, onContinue }: DateTimeSt
       // Fallback below
     }
 
-    const { data } = await supabase.rpc('get_booked_slots', { p_barber: barber.id, p_date: iso });
+    const { data } = await supabase.rpc('get_booked_slots', { p_barber: barber.id, p_date: iso, p_business_id: getCurrentBusinessId() });
     const slotList = (data as string[]) ?? [];
     const fallbackIntervals = slotList.map((s) => ({ start: s, duration: 30 }));
     setBookedIntervals(fallbackIntervals);
@@ -324,7 +325,7 @@ export function DateTimeStep({ barber, service, onBack, onContinue }: DateTimeSt
         const results = await Promise.all(
           datesToLoad.map(async (iso) => {
             try {
-              const { data, error } = await supabase.rpc('get_booked_intervals', { p_barber: barber.id, p_date: iso });
+              const { data, error } = await supabase.rpc('get_booked_intervals', { p_barber: barber.id, p_date: iso, p_business_id: getCurrentBusinessId() });
               if (!error && Array.isArray(data)) {
                 const intervals = data.map((item: any) => {
                   const sName = (item.service || '').trim().toLowerCase();

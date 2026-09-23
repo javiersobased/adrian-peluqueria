@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
+import { getCurrentBusinessId, tenantFrom, tenantStoragePath } from '@/lib/tenant';
 import { notify } from '@/lib/notify';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import type { UserRole, Barber } from '@/types';
@@ -62,8 +63,7 @@ export function AdminProfile({ userRole, targetBarberId, onBarberUpdated }: Admi
       if (isTargetDev) {
         barberData = getDeveloperProfile();
         try {
-          const { data } = await supabase
-            .from('barbers')
+          const { data } = await tenantFrom('barbers')
             .select('*')
             .eq('id', 'franciscojavier')
             .maybeSingle();
@@ -89,8 +89,7 @@ export function AdminProfile({ userRole, targetBarberId, onBarberUpdated }: Admi
         }
       } else {
         if (effectiveBarberId) {
-          const { data } = await supabase
-            .from('barbers')
+          const { data } = await tenantFrom('barbers')
             .select('*')
             .eq('id', effectiveBarberId)
             .maybeSingle();
@@ -98,8 +97,7 @@ export function AdminProfile({ userRole, targetBarberId, onBarberUpdated }: Admi
         }
 
         if (!barberData && userRole.email) {
-          const { data } = await supabase
-            .from('barbers')
+          const { data } = await tenantFrom('barbers')
             .select('*')
             .ilike('google_email', userRole.email)
             .maybeSingle();
@@ -108,8 +106,7 @@ export function AdminProfile({ userRole, targetBarberId, onBarberUpdated }: Admi
 
         // Default fallback for Adrián (administrator)
         if (!barberData) {
-          const { data } = await supabase
-            .from('barbers')
+          const { data } = await tenantFrom('barbers')
             .select('*')
             .eq('id', 'adrian')
             .maybeSingle();
@@ -161,7 +158,7 @@ export function AdminProfile({ userRole, targetBarberId, onBarberUpdated }: Admi
       // Upload to barber-photos bucket
       const { error: uploadError } = await supabase.storage
         .from('barber-photos')
-        .upload(fileName, file, {
+        .upload(tenantStoragePath(fileName), file, {
           cacheControl: '3600',
           upsert: true,
         });
@@ -170,7 +167,7 @@ export function AdminProfile({ userRole, targetBarberId, onBarberUpdated }: Admi
 
       const { data: urlData } = supabase.storage
         .from('barber-photos')
-        .getPublicUrl(fileName);
+        .getPublicUrl(tenantStoragePath(fileName));
 
       const publicUrl = urlData.publicUrl;
 
@@ -185,7 +182,7 @@ export function AdminProfile({ userRole, targetBarberId, onBarberUpdated }: Admi
 
       if (barber.id === 'franciscojavier' || isTargetDev) {
         try {
-          await supabase.from('barbers').upsert({
+          await tenantFrom('barbers').upsert({
             id: 'franciscojavier',
             name: barber.name || 'Francisco Javier',
             role: 'Desarrollador',
@@ -194,7 +191,7 @@ export function AdminProfile({ userRole, targetBarberId, onBarberUpdated }: Admi
             active: false,
             sort_order: 9999,
             google_email: userRole.email,
-          });
+          }, { onConflict: 'business_id,id' });
         } catch (e) {
           console.error('Error upserting dev barber photo:', e);
         }
@@ -202,11 +199,11 @@ export function AdminProfile({ userRole, targetBarberId, onBarberUpdated }: Admi
         try {
           await supabase.rpc('update_my_barber_profile', {
             p_barber_id: barber.id,
+            p_business_id: getCurrentBusinessId(),
             p_photo_url: publicUrl,
           });
         } catch {
-          await supabase
-            .from('barbers')
+          await tenantFrom('barbers')
             .update({ photo_url: publicUrl })
             .eq('id', barber.id);
         }
@@ -248,16 +245,17 @@ export function AdminProfile({ userRole, targetBarberId, onBarberUpdated }: Admi
 
       if (barber.id === 'franciscojavier' || isTargetDev) {
         try {
-          await supabase.from('barbers').update({ photo_url: null }).eq('id', 'franciscojavier');
+          await tenantFrom('barbers').update({ photo_url: null }).eq('id', 'franciscojavier');
         } catch {}
       } else {
         try {
           await supabase.rpc('update_my_barber_profile', {
             p_barber_id: barber.id,
+            p_business_id: getCurrentBusinessId(),
             p_photo_url: '',
           });
         } catch {
-          await supabase.from('barbers').update({ photo_url: null }).eq('id', barber.id);
+          await tenantFrom('barbers').update({ photo_url: null }).eq('id', barber.id);
         }
       }
 
@@ -296,7 +294,7 @@ export function AdminProfile({ userRole, targetBarberId, onBarberUpdated }: Admi
           localStorage.setItem('barber_name_francisco_javier', cleanName);
         }
         try {
-          await supabase.from('barbers').upsert({
+          await tenantFrom('barbers').upsert({
             id: 'franciscojavier',
             name: cleanName,
             initials,
@@ -305,7 +303,7 @@ export function AdminProfile({ userRole, targetBarberId, onBarberUpdated }: Admi
             active: false,
             sort_order: 9999,
             google_email: userRole.email,
-          });
+          }, { onConflict: 'business_id,id' });
         } catch (e) {
           console.error('Error upserting developer name:', e);
         }
@@ -313,11 +311,11 @@ export function AdminProfile({ userRole, targetBarberId, onBarberUpdated }: Admi
         try {
           await supabase.rpc('update_my_barber_profile', {
             p_barber_id: barber.id,
+            p_business_id: getCurrentBusinessId(),
             p_name: cleanName,
           });
         } catch {
-          await supabase
-            .from('barbers')
+          await tenantFrom('barbers')
             .update({ name: cleanName, initials })
             .eq('id', barber.id);
         }

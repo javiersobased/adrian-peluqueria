@@ -5,6 +5,7 @@ import { ArrowLeft, Calendar, Clock, Scissors, X, Phone, CalendarClock, Check, T
 import { MONTH_SHORT, WEEKDAY_SHORT } from '@/lib/schedule';
 import { fetchMyBookings, rescheduleBooking } from '@/lib/myBookings';
 import { supabase } from '@/lib/supabase';
+import { tenantFrom } from '@/lib/tenant';
 import { DateTimeStep } from '@/components/DateTimeStep';
 import { deleteUserAccount } from '@/lib/terms';
 import { notifyBookingCancelled, notifyBookingRescheduled } from '@/lib/notifications';
@@ -38,7 +39,7 @@ export function MyBookings({ onBack, onBook, userEmail, userId, onSignOut }: MyB
     (async () => {
       const [data, { data: barberData }] = await Promise.all([
         fetchMyBookings(userId, userEmail),
-        supabase.from('barbers').select('*'),
+        tenantFrom('barbers').select('*'),
       ]);
       setBookings(data);
       setBarbers((barberData as Barber[]) ?? []);
@@ -81,7 +82,7 @@ export function MyBookings({ onBack, onBook, userEmail, userId, onSignOut }: MyB
     if (target?.status === 'cancelled') return;
     setCancellingId(id);
     try {
-      await supabase.from('bookings').update({ status: 'cancelled' }).eq('id', id);
+      await tenantFrom('bookings').update({ status: 'cancelled' }).eq('id', id);
       setBookings((prev) => prev.filter((b) => b.id !== id));
       if (target) {
         await notifyBookingCancelled({ ...target, status: 'cancelled' }, getBarber(target.barber)).catch(console.error);

@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { supabase } from '@/lib/supabase';
+import { tenantFrom } from '@/lib/tenant';
 import { fetchAllServices } from '@/data/services';
 import type { Service } from '@/types';
 import { Plus, Trash2, Pencil, Check, X, Sparkles } from 'lucide-react';
@@ -30,7 +30,7 @@ export function AdminServices() {
 
   const handleDelete = async (id: string) => {
     if (!confirm('¿Eliminar este servicio?')) return;
-    const { error } = await supabase.from('services').delete().eq('id', id);
+    const { error } = await tenantFrom('services').delete().eq('id', id);
     if (error) {
       notify.error('Error al eliminar', error.message);
       return;
@@ -41,7 +41,7 @@ export function AdminServices() {
 
   const handleToggleActive = async (s: Service) => {
     const nextState = !s.active;
-    const { error } = await supabase.from('services').update({ active: nextState }).eq('id', s.id);
+    const { error } = await tenantFrom('services').update({ active: nextState }).eq('id', s.id);
     if (error) {
       notify.error('Error al actualizar', error.message);
       return;
@@ -196,19 +196,19 @@ function ServiceForm({
       };
 
       if (service) {
-        let { error } = await supabase.from('services').update(payload).eq('id', service.id);
+        let { error } = await tenantFrom('services').update(payload).eq('id', service.id);
         if (error && error.message?.includes('duration_minutes')) {
           delete payload.duration_minutes;
-          const retry = await supabase.from('services').update(payload).eq('id', service.id);
+          const retry = await tenantFrom('services').update(payload).eq('id', service.id);
           error = retry.error;
         }
         if (error) throw error;
         notify.success('Servicio actualizado', payload.name);
       } else {
-        let { error } = await supabase.from('services').insert({ ...payload, active: true, sort_order: 99 });
+        let { error } = await tenantFrom('services').insert({ ...payload, active: true, sort_order: 99 });
         if (error && error.message?.includes('duration_minutes')) {
           delete payload.duration_minutes;
-          const retry = await supabase.from('services').insert({ ...payload, active: true, sort_order: 99 });
+          const retry = await tenantFrom('services').insert({ ...payload, active: true, sort_order: 99 });
           error = retry.error;
         }
         if (error) throw error;

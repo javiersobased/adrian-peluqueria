@@ -17,7 +17,7 @@ import {
   XCircle,
   CalendarPlus,
 } from 'lucide-react';
-import { supabase } from '@/lib/supabase';
+import { tenantFrom } from '@/lib/tenant';
 import { fetchAllBarbers } from '@/data/services';
 import type { SavedBooking, Barber, UserRole } from '@/types';
 import { MONTH_SHORT, WEEKDAY_SHORT, toISO } from '@/lib/schedule';
@@ -115,8 +115,7 @@ export function AdminToday({
   // Auto-fetch Francisco's latest photo and name from Supabase barbers table if isDev
   useEffect(() => {
     if (isDev) {
-      supabase
-        .from('barbers')
+      tenantFrom('barbers')
         .select('*')
         .eq('id', 'franciscojavier')
         .maybeSingle()
@@ -246,7 +245,7 @@ export function AdminToday({
         notify.info('Cita ya cancelada', 'Esta cita ya se encuentra cancelada');
         return;
       }
-      const { error } = await supabase.from('bookings').update({ status: 'cancelled' }).eq('id', id);
+      const { error } = await tenantFrom('bookings').update({ status: 'cancelled' }).eq('id', id);
       if (error) throw error;
       notify.success('Cita cancelada', 'La cita se ha cancelado correctamente');
       if (target) {
@@ -275,7 +274,7 @@ export function AdminToday({
           console.warn('[handlePermanentDelete] Error notificando al cliente:', err);
         });
       }
-      const { error } = await supabase.from('bookings').delete().eq('id', id);
+      const { error } = await tenantFrom('bookings').delete().eq('id', id);
       if (error) throw error;
       notify.success(
         'Cita eliminada definitivamente',

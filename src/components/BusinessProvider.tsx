@@ -2,6 +2,7 @@ import { useEffect, useState, type ReactNode } from 'react';
 import { BusinessContext } from '@/context/BusinessContext';
 import { fetchBusinessByHost, LEGACY_BUSINESS, lookupHostFor, type BusinessPublicConfig } from '@/lib/business';
 import { SAAS_MODE_ENABLED } from '@/lib/featureFlags';
+import { setCurrentBusinessId } from '@/lib/tenant';
 
 type State =
   | { status: 'loading' }
@@ -52,6 +53,7 @@ export function BusinessProvider({ children }: { children: ReactNode }) {
   }, [business]);
 
   if (business) {
+    setCurrentBusinessId(business.id);
     return <BusinessContext.Provider value={business}>{children}</BusinessContext.Provider>;
   }
 

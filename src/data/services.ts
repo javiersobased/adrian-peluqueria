@@ -1,9 +1,8 @@
-import { supabase } from '@/lib/supabase';
+import { tenantFrom } from '@/lib/tenant';
 import type { Service, Barber } from '@/types';
 
 export async function fetchServices(): Promise<Service[]> {
-  const { data, error } = await supabase
-    .from('services')
+  const { data, error } = await tenantFrom('services')
     .select('*')
     .eq('active', true)
     .order('sort_order', { ascending: true });
@@ -12,8 +11,7 @@ export async function fetchServices(): Promise<Service[]> {
 }
 
 export async function fetchAllServices(): Promise<Service[]> {
-  const { data, error } = await supabase
-    .from('services')
+  const { data, error } = await tenantFrom('services')
     .select('*')
     .order('sort_order', { ascending: true });
   if (error) return [];
@@ -21,8 +19,7 @@ export async function fetchAllServices(): Promise<Service[]> {
 }
 
 export async function fetchBarbers(): Promise<Barber[]> {
-  const { data, error } = await supabase
-    .from('barbers')
+  const { data, error } = await tenantFrom('barbers')
     .select('id, name, role, initials, photo_url, active, sort_order')
     .eq('active', true)
     .neq('id', 'franciscojavier')
@@ -41,8 +38,7 @@ export async function fetchBarbers(): Promise<Barber[]> {
 }
 
 export async function fetchAllBarbers(): Promise<Barber[]> {
-  const { data, error } = await supabase
-    .from('barbers')
+  const { data, error } = await tenantFrom('barbers')
     .select('*')
     .neq('id', 'franciscojavier')
     .order('sort_order', { ascending: true });

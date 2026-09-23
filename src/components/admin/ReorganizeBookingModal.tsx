@@ -14,7 +14,7 @@ import {
   Save,
   CheckCircle2,
 } from 'lucide-react';
-import { supabase } from '@/lib/supabase';
+import { tenantFrom } from '@/lib/tenant';
 import { notify } from '@/lib/notify';
 import { getWhatsAppUrl, getCallUrl } from '@/lib/phoneActions';
 import { WhatsAppIcon } from '@/components/icons';
@@ -95,8 +95,7 @@ export function ReorganizeBookingModal({
     let active = true;
     (async () => {
       try {
-        const { data } = await supabase
-          .from('bookings')
+        const { data } = await tenantFrom('bookings')
           .select('booking_time')
           .eq('barber', targetBarber)
           .eq('booking_date', targetDate)
@@ -173,8 +172,7 @@ Por ${selectedReason.toLowerCase()}, nos gustaría proponerte mover tu turno par
     const oldDate = booking.booking_date;
     const oldTime = booking.booking_time;
     try {
-      const { error } = await supabase
-        .from('bookings')
+      const { error } = await tenantFrom('bookings')
         .update({
           booking_date: targetDate,
           booking_time: targetTime,
@@ -235,8 +233,7 @@ Por ${selectedReason.toLowerCase()}, nos gustaría proponerte mover tu turno par
       if (onCancelBooking) {
         await onCancelBooking(booking.id);
       } else {
-        const { error } = await supabase
-          .from('bookings')
+        const { error } = await tenantFrom('bookings')
           .update({ status: 'cancelled' })
           .eq('id', booking.id);
         if (error) throw error;

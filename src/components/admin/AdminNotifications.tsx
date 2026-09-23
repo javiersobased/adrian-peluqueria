@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
+import { getCurrentBusinessId, tenantFrom, tenantRealtimeFilter } from '@/lib/tenant';
 import type { BookingNotification, Barber } from '@/types';
 import {
   Bell,
@@ -144,13 +145,11 @@ export function AdminNotifications({
 
       // Automatically purge from Supabase any notifications whose scheduled appointment day has passed
       try {
-        await supabase
-          .from('booking_notifications')
+        await tenantFrom('booking_notifications')
           .delete()
           .lt('booking_date', todayISO);
 
-        await supabase
-          .from('booking_notifications')
+        await tenantFrom('booking_notifications')
           .delete()
           .is('booking_date', null)
           .lt('old_date', todayISO);
@@ -158,8 +157,7 @@ export function AdminNotifications({
         console.warn('Error auto-cleaning expired notifications:', delErr);
       }
 
-      const { data, error } = await supabase
-        .from('booking_notifications')
+      const { data, error } = await tenantFrom('booking_notifications')
         .select('*')
         .order('created_at', { ascending: false })
         .limit(150);
@@ -180,8 +178,7 @@ export function AdminNotifications({
         new Set(notifs.map((n) => n.booking_id).filter((id): id is string => Boolean(id)))
       );
       if (bIds.length > 0) {
-        const { data: bData } = await supabase
-          .from('bookings')
+        const { data: bData } = await tenantFrom('bookings')
           .select('id, user_id')
           .in('id', bIds);
         if (bData) {
@@ -215,10 +212,10 @@ export function AdminNotifications({
 
     // Subscribe to realtime updates
     const channel = supabase
-      .channel('booking-notifications-live')
+      .channel(`booking-notifications-${getCurrentBusinessId()}`)
       .on(
         'postgres_changes',
-        { event: '*', schema: 'public', table: 'booking_notifications' },
+        { event: '*', schema: 'public', table: 'booking_notifications', filter: tenantRealtimeFilter() },
         (payload) => {
           if (payload.eventType === 'INSERT') {
             const newNotif = payload.new as BookingNotification;
@@ -232,8 +229,7 @@ export function AdminNotifications({
             notify.info('Nueva Notificación', newNotif.title + ': ' + newNotif.client_name);
 
             if (newNotif.booking_id) {
-              supabase
-                .from('bookings')
+              tenantFrom('bookings')
                 .select('id, user_id')
                 .eq('id', newNotif.booking_id)
                 .maybeSingle()
@@ -280,7 +276,7 @@ export function AdminNotifications({
       prev.map((n) => (n.id === id ? { ...n, read: true } : n))
     );
     try {
-      await supabase.from('booking_notifications').update({ read: true }).eq('id', id);
+      await tenantFrom('booking_notifications').update({ read: true }).eq('id', id);
     } catch (err) {
       console.warn('Error marking notification as read:', err);
     }
@@ -293,8 +289,7 @@ export function AdminNotifications({
     setMarkingAll(true);
     setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
     try {
-      await supabase
-        .from('booking_notifications')
+      await tenantFrom('booking_notifications')
         .update({ read: true })
         .in('id', unreadIds);
       notify.success('Notificaciones al día', 'Todas las notificaciones se han marcado como leídas.');
@@ -312,8 +307,7 @@ export function AdminNotifications({
     setNotifications((prev) => prev.filter((n) => n.id !== id));
 
     try {
-      const { error } = await supabase
-        .from('booking_notifications')
+      const { error } = await tenantFrom('booking_notifications')
         .delete()
         .eq('id', id);
 
@@ -338,8 +332,7 @@ export function AdminNotifications({
 
     try {
       // Clear all notifications across all barbers from the database unconditionally
-      const { error } = await supabase
-        .from('booking_notifications')
+      const { error } = await tenantFrom('booking_notifications')
         .delete()
         .neq('id', '00000000-0000-0000-0000-000000000000');
 

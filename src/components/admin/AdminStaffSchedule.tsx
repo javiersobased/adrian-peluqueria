@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { supabase } from '@/lib/supabase';
+import { tenantFrom } from '@/lib/tenant';
 import { fetchAllBarbers } from '@/data/services';
 import type { Barber, BarberSchedule } from '@/types';
 import { WEEKDAY_NAMES } from '@/lib/schedule';
@@ -21,8 +21,7 @@ export function AdminStaffSchedule() {
   const loadSchedules = useCallback(async () => {
     if (!barber) return;
     setLoading(true);
-    const { data } = await supabase
-      .from('barber_schedules')
+    const { data } = await tenantFrom('barber_schedules')
       .select('*')
       .or(`barber.eq.${barber},barber_id.eq.${barber}`);
     setSchedules((data as BarberSchedule[]) ?? []);
@@ -117,8 +116,7 @@ export function AdminStaffSchedule() {
     setSaved(false);
     try {
       // 1. Obtener los registros actuales del barbero para verificar IDs existentes
-      const { data: existing, error: fetchErr } = await supabase
-        .from('barber_schedules')
+      const { data: existing, error: fetchErr } = await tenantFrom('barber_schedules')
         .select('*')
         .or(`barber.eq.${barber},barber_id.eq.${barber}`);
 
@@ -146,10 +144,10 @@ export function AdminStaffSchedule() {
         };
 
         if (match?.id) {
-          const { error } = await supabase.from('barber_schedules').update(rowData).eq('id', match.id);
+          const { error } = await tenantFrom('barber_schedules').update(rowData).eq('id', match.id);
           if (error) throw error;
         } else {
-          const { error } = await supabase.from('barber_schedules').insert([rowData]);
+          const { error } = await tenantFrom('barber_schedules').insert([rowData]);
           if (error) throw error;
         }
       });

@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { StepHeader } from '@/components/ServiceStep';
 import { UserIcon, CheckIcon } from '@/components/icons';
 import { supabase } from '@/lib/supabase';
+import { tenantFrom } from '@/lib/tenant';
 import { getPendingBooking } from '@/lib/pendingBooking';
 import type { BookingForm } from '@/types';
 import {
@@ -148,16 +149,14 @@ export function DetailsStep({ onBack, onSubmit, submitting, error }: DetailsStep
 
           // Consultar última reserva y perfil de cliente para autorellenar teléfono
           try {
-            const { data: lastBooking } = await supabase
-              .from('bookings')
+            const { data: lastBooking } = await tenantFrom('bookings')
               .select('phone, full_name')
               .eq('user_id', user.id)
               .order('created_at', { ascending: false })
               .limit(1)
               .maybeSingle();
 
-            const { data: custRecord } = await supabase
-              .from('customers')
+            const { data: custRecord } = await tenantFrom('customers')
               .select('phone, full_name, comments')
               .eq('user_id', user.id)
               .maybeSingle();

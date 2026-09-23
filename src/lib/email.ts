@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabase';
+import { getCurrentBusinessId } from '@/lib/tenant';
 import type { SavedBooking } from '@/types';
 
 // TODO: Implement Edge Function URL — replace with your deployed Supabase Edge Function endpoint
@@ -21,6 +22,8 @@ export async function sendBookingEmail(
       },
       body: JSON.stringify({
         booking,
+        booking_id: booking.id,
+        business_id: getCurrentBusinessId(),
         barber_email: barberEmail || null,
         barber_name: barberName || null,
       }),

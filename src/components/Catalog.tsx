@@ -24,7 +24,7 @@ import {
   fetchAdminProductsByCategory,
   uploadProductImage,
 } from '@/lib/store';
-import { supabase } from '@/lib/supabase';
+import { tenantFrom } from '@/lib/tenant';
 import { notify } from '@/lib/notify';
 import { WHATSAPP_NUMBER } from '@/data/services';
 import type { StoreCategory, StoreProduct, UserRole } from '@/types';
@@ -117,7 +117,7 @@ export function Catalog({ onBack, userRole }: CatalogProps) {
   const handleDeleteCategory = async (cat: StoreCategory) => {
     if (!confirm(`¿Eliminar la sección "${cat.name}" y todos sus productos asociados?`)) return;
     try {
-      const { error } = await supabase.from('store_categories').delete().eq('id', cat.id);
+      const { error } = await tenantFrom('store_categories').delete().eq('id', cat.id);
       if (error) throw error;
       notify.success('Sección eliminada', `La sección "${cat.name}" se ha borrado`);
       await loadCategories();
@@ -133,8 +133,8 @@ export function Catalog({ onBack, userRole }: CatalogProps) {
     if (!swapWith) return;
     try {
       await Promise.all([
-        supabase.from('store_categories').update({ sort_order: swapWith.sort_order }).eq('id', cat.id),
-        supabase.from('store_categories').update({ sort_order: cat.sort_order }).eq('id', swapWith.id),
+        tenantFrom('store_categories').update({ sort_order: swapWith.sort_order }).eq('id', cat.id),
+        tenantFrom('store_categories').update({ sort_order: cat.sort_order }).eq('id', swapWith.id),
       ]);
       await loadCategories();
     } catch (err: any) {
@@ -146,7 +146,7 @@ export function Catalog({ onBack, userRole }: CatalogProps) {
   const handleDeleteProduct = async (p: StoreProduct) => {
     if (!confirm(`¿Eliminar definitivamente el producto "${p.name}"?`)) return;
     try {
-      const { error } = await supabase.from('store_products').delete().eq('id', p.id);
+      const { error } = await tenantFrom('store_products').delete().eq('id', p.id);
       if (error) throw error;
       notify.success('Producto eliminado', p.name);
       if (activeCategory) loadProducts(activeCategory);
@@ -158,7 +158,7 @@ export function Catalog({ onBack, userRole }: CatalogProps) {
   const handleToggleProductActive = async (p: StoreProduct) => {
     const nextState = !p.active;
     try {
-      const { error } = await supabase.from('store_products').update({ active: nextState }).eq('id', p.id);
+      const { error } = await tenantFrom('store_products').update({ active: nextState }).eq('id', p.id);
       if (error) throw error;
       notify.info('Visibilidad actualizada', `${p.name} marcado como ${nextState ? 'activo' : 'oculto'}`);
       if (activeCategory) loadProducts(activeCategory);
@@ -171,7 +171,7 @@ export function Catalog({ onBack, userRole }: CatalogProps) {
     const nextFeatured = !p.is_featured;
     const nextBadge = nextFeatured ? (p.badge || 'MÁS VENDIDO') : null;
     try {
-      const { error } = await supabase.from('store_products').update({
+      const { error } = await tenantFrom('store_products').update({
         is_featured: nextFeatured,
         badge: nextBadge,
       }).eq('id', p.id);
@@ -189,7 +189,7 @@ export function Catalog({ onBack, userRole }: CatalogProps) {
   const handleToggleCardSize = async (p: StoreProduct) => {
     const nextSize = p.card_size === 'wide' ? 'normal' : 'wide';
     try {
-      const { error } = await supabase.from('store_products').update({ card_size: nextSize }).eq('id', p.id);
+      const { error } = await tenantFrom('store_products').update({ card_size: nextSize }).eq('id', p.id);
       if (error) throw error;
       notify.info('Tamaño de embed cambiado', `Formato: ${nextSize === 'wide' ? 'Ancho (2 columnas)' : 'Normal (1 columna)'}`);
       if (activeCategory) loadProducts(activeCategory);
@@ -641,8 +641,7 @@ function CategoryModal({
     setSaving(true);
     try {
       if (category) {
-        const { error } = await supabase
-          .from('store_categories')
+        const { error } = await tenantFrom('store_categories')
           .update({
             name: name.trim(),
             slug: slugify(name.trim()),
@@ -652,14 +651,13 @@ function CategoryModal({
         if (error) throw error;
         notify.success('Sección actualizada', name.trim());
       } else {
-        const { data: maxOrder } = await supabase
-          .from('store_categories')
+        const { data: maxOrder } = await tenantFrom('store_categories')
           .select('sort_order')
           .order('sort_order', { ascending: false })
           .limit(1)
           .maybeSingle();
         const nextOrder = (maxOrder as StoreCategory | null)?.sort_order ?? -1;
-        const { error } = await supabase.from('store_categories').insert({
+        const { error } = await tenantFrom('store_categories').insert({
           name: name.trim(),
           slug: slugify(name.trim()),
           sort_order: nextOrder + 1,
@@ -816,19 +814,18 @@ function ProductModal({
       };
 
       if (product) {
-        const { error } = await supabase.from('store_products').update(payload).eq('id', product.id);
+        const { error } = await tenantFrom('store_products').update(payload).eq('id', product.id);
         if (error) throw error;
         notify.success('Producto actualizado', payload.name);
       } else {
-        const { data: maxOrder } = await supabase
-          .from('store_products')
+        const { data: maxOrder } = await tenantFrom('store_products')
           .select('sort_order')
           .eq('category_id', selectedCatId)
           .order('sort_order', { ascending: false })
           .limit(1)
           .maybeSingle();
         const nextOrder = (maxOrder as StoreProduct | null)?.sort_order ?? -1;
-        const { error } = await supabase.from('store_products').insert({
+        const { error } = await tenantFrom('store_products').insert({
           ...payload,
           sort_order: nextOrder + 1,
           active: true,

@@ -1,4 +1,4 @@
-import { supabase } from '@/lib/supabase';
+import { tenantFrom } from '@/lib/tenant';
 import type { Barber, SavedBooking, BarberBlock, BarberVacation, BarberSchedule } from '@/types';
 import { timeToMinutes } from '@/lib/schedule';
 import { fetchAllBarbers } from '@/data/services';
@@ -69,25 +69,20 @@ export async function planCascadingReassignments(
 
   // 2. Consultar en paralelo los datos de disponibilidad de todos los candidatos
   const [bookingsRes, blocksRes, vacationsRes, schedulesRes, servicesRes] = await Promise.all([
-    supabase
-      .from('bookings')
+    tenantFrom('bookings')
       .select('id, barber, full_name, booking_date, booking_time, service')
       .in('barber', candidateIds)
       .in('booking_date', affectedDates)
       .neq('status', 'cancelled'),
-    supabase
-      .from('barber_blocks')
+    tenantFrom('barber_blocks')
       .select('*')
       .in('barber', candidateIds),
-    supabase
-      .from('barber_vacations')
+    tenantFrom('barber_vacations')
       .select('*')
       .in('barber', candidateIds),
-    supabase
-      .from('barber_schedules')
+    tenantFrom('barber_schedules')
       .select('*'),
-    supabase
-      .from('services')
+    tenantFrom('services')
       .select('name, duration_minutes, duration'),
   ]);
 
@@ -330,8 +325,7 @@ export async function executeCascadingDecisions(
     const { booking, action, targetBarberId, targetBarberName } = decision;
 
     if (action === 'reassign' && targetBarberId) {
-      const { error } = await supabase
-        .from('bookings')
+      const { error } = await tenantFrom('bookings')
         .update({ barber: targetBarberId })
         .eq('id', booking.id);
 
@@ -350,8 +344,7 @@ export async function executeCascadingDecisions(
         targetBarberObj
       ).catch((err) => console.warn('[CascadingReassignment] Error notificando reasignación:', err));
     } else if (action === 'cancel') {
-      const { error } = await supabase
-        .from('bookings')
+      const { error } = await tenantFrom('bookings')
         .update({ status: 'cancelled' })
         .eq('id', booking.id);
 
@@ -383,8 +376,7 @@ export async function cancelAllAffectedBookings(
   if (!bookings || bookings.length === 0) return 0;
   const ids = bookings.map((b) => b.id);
 
-  const { error } = await supabase
-    .from('bookings')
+  const { error } = await tenantFrom('bookings')
     .update({ status: 'cancelled' })
     .in('id', ids);
 

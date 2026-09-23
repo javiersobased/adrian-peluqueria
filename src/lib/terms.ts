@@ -1,5 +1,6 @@
 import type { User } from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabase';
+import { tenantFrom } from '@/lib/tenant';
 
 const TERMS_VERSION = '1.0';
 
@@ -55,13 +56,13 @@ export async function acceptUserTerms(
 
     // 3. Opportunistically update customers table in database
     try {
-      await supabase.from('customers').upsert({
+      await tenantFrom('customers').upsert({
         user_id: user.id,
         email: user.email || null,
         full_name: user.user_metadata?.full_name || '',
         marketing_accepted: options.marketingAccepted,
         updated_at: timestamp,
-      });
+      }, { onConflict: 'business_id,user_id' });
     } catch {
       // Table column or RLS might vary, safe to ignore
     }
@@ -92,8 +93,7 @@ export async function deleteUserAccount(
 
     // 1. Cancel future bookings
     try {
-      await supabase
-        .from('bookings')
+      await tenantFrom('bookings')
         .update({
           status: 'cancelled',
           comments: 'Cuenta y datos personales eliminados por el usuario (RGPD)',
@@ -106,9 +106,9 @@ export async function deleteUserAccount(
 
     // 2. Delete customer profile
     try {
-      await supabase.from('customers').delete().eq('user_id', userId);
+      await tenantFrom('customers').delete().eq('user_id', userId);
       if (userEmail) {
-        await supabase.from('customers').delete().ilike('email', userEmail.trim());
+        await tenantFrom('customers').delete().ilike('email', userEmail.trim());
       }
     } catch (e) {
       console.warn('Error eliminando perfil customer:', e);

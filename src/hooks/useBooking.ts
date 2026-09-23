@@ -5,6 +5,7 @@ import { clearPendingBooking } from '@/lib/pendingBooking';
 import { createBooking, findExistingBooking } from '@/lib/bookings';
 import { fetchAllServices, fetchAllBarbers } from '@/data/services';
 import { supabase } from '@/lib/supabase';
+import { tenantFrom } from '@/lib/tenant';
 import { updateOneSignalMarketingConsent } from '@/lib/onesignal';
 
 export type BookingStep = 'landing' | 'barber' | 'service' | 'datetime' | 'details' | 'success';
@@ -90,8 +91,7 @@ export function useBooking() {
           supabase.auth.updateUser({ data: { marketing_accepted: accepted } }).catch(() => {});
           updateOneSignalMarketingConsent(accepted).catch(() => {});
           if (booking?.user_id) {
-            supabase
-              .from('customers')
+            tenantFrom('customers')
               .update({ marketing_accepted: accepted, updated_at: new Date().toISOString() })
               .eq('user_id', booking.user_id)
               .then(null, () => {});

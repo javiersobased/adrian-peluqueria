@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { supabase } from '@/lib/supabase';
+import { getCurrentBusinessId, tenantFrom, tenantRealtimeFilter } from '@/lib/tenant';
 import { fetchAllBarbers } from '@/data/services';
 import type { SavedBooking, BarberBlock, Barber, Customer, UserRole } from '@/types';
 import { AdminToday } from '@/components/admin/AdminToday';
@@ -177,8 +178,7 @@ export function AdminPanel({ userRole, onSignOut, onGoPublic }: AdminPanelProps)
   // Auto-fetch developer profile from database on mount if dev
   useEffect(() => {
     if (isDeveloper(userRole.email) || userRole.barber_id === 'franciscojavier' || isSuperAdminEmail(userRole.email)) {
-      supabase
-        .from('barbers')
+      tenantFrom('barbers')
         .select('*')
         .eq('id', 'franciscojavier')
         .maybeSingle()
@@ -204,8 +204,7 @@ export function AdminPanel({ userRole, onSignOut, onGoPublic }: AdminPanelProps)
   }, [isAdmin, userRole.barber_id, userRole.email]);
 
   const fetchBookings = useCallback(async () => {
-    const query = supabase
-      .from('bookings')
+    const query = tenantFrom('bookings')
       .select('*')
       .order('booking_date', { ascending: true })
       .order('booking_time', { ascending: true });
@@ -221,8 +220,7 @@ export function AdminPanel({ userRole, onSignOut, onGoPublic }: AdminPanelProps)
   }, []);
 
   const fetchBlocks = useCallback(async () => {
-    const query = supabase
-      .from('barber_blocks')
+    const query = tenantFrom('barber_blocks')
       .select('*')
       .order('created_at', { ascending: false });
 
@@ -236,15 +234,14 @@ export function AdminPanel({ userRole, onSignOut, onGoPublic }: AdminPanelProps)
       .filter((b) => isBlockExpired(b, curIso, curTime))
       .map((b) => b.id);
     if (expiredIds.length > 0) {
-      supabase.from('barber_blocks').delete().in('id', expiredIds).then(() => {});
+      tenantFrom('barber_blocks').delete().in('id', expiredIds).then(() => {});
     }
 
     setBlocks(rawBlocks.filter((b) => !isBlockExpired(b, curIso, curTime)));
   }, []);
 
   const fetchCustomers = useCallback(async () => {
-    const { data } = await supabase
-      .from('customers')
+    const { data } = await tenantFrom('customers')
       .select('*')
       .order('created_at', { ascending: false });
     const rawCustomers = (data as Customer[]) ?? [];
@@ -261,20 +258,17 @@ export function AdminPanel({ userRole, onSignOut, onGoPublic }: AdminPanelProps)
 
       // Auto-purge past notifications whose scheduled day has passed
       try {
-        await supabase
-          .from('booking_notifications')
+        await tenantFrom('booking_notifications')
           .delete()
           .lt('booking_date', todayISO);
 
-        await supabase
-          .from('booking_notifications')
+        await tenantFrom('booking_notifications')
           .delete()
           .is('booking_date', null)
           .lt('old_date', todayISO);
       } catch {}
 
-      let q = supabase
-        .from('booking_notifications')
+      let q = tenantFrom('booking_notifications')
         .select('id, booking_date, old_date')
         .eq('read', false);
       if (!isAdmin && userRole.barber_id) {
@@ -326,17 +320,17 @@ export function AdminPanel({ userRole, onSignOut, onGoPublic }: AdminPanelProps)
 
   useEffect(() => {
     const channel = supabase
-      .channel('admin-bookings-channel')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'bookings' }, () => {
+      .channel(`admin-bookings-${getCurrentBusinessId()}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'bookings', filter: tenantRealtimeFilter() }, () => {
         fetchBookings();
         fetchUnreadNotifs();
       })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'booking_notifications' }, () => {
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'booking_notifications', filter: tenantRealtimeFilter() }, () => {
         fetchUnreadNotifs();
       })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'barber_blocks' }, () => fetchBlocks())
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'barber_vacations' }, () => fetchBlocks())
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'barber_schedules' }, () => fetchBlocks())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'barber_blocks', filter: tenantRealtimeFilter() }, () => fetchBlocks())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'barber_vacations', filter: tenantRealtimeFilter() }, () => fetchBlocks())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'barber_schedules', filter: tenantRealtimeFilter() }, () => fetchBlocks())
       .subscribe();
     return () => {
       supabase.removeChannel(channel);
@@ -355,7 +349,7 @@ export function AdminPanel({ userRole, onSignOut, onGoPublic }: AdminPanelProps)
           .filter((b) => isBlockExpired(b, curIso, curTime))
           .map((b) => b.id);
         if (expiredBlockIds.length > 0) {
-          supabase.from('barber_blocks').delete().in('id', expiredBlockIds).then(() => {});
+          tenantFrom('barber_blocks').delete().in('id', expiredBlockIds).then(() => {});
           return prev.filter((b) => !expiredBlockIds.includes(b.id));
         }
         return prev;

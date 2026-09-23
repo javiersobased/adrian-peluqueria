@@ -1,6 +1,6 @@
 import { CheckIcon, CalendarIcon, ClockIcon, HomeIcon } from '@/components/icons';
 import { useState, useEffect, useRef } from 'react';
-import { supabase } from '@/lib/supabase';
+import { tenantFrom } from '@/lib/tenant';
 import type { SavedBooking, Barber } from '@/types';
 import { safeCap, googleCalendarUrl, downloadIcs } from '@/lib/calendar';
 import { notifyBookingConfirmed } from '@/lib/notifications';
@@ -67,8 +67,7 @@ export function SuccessStep({ booking, onHome }: SuccessStepProps) {
       let resolvedBarber: Barber | null = null;
       if (booking.barber) {
         try {
-          const { data } = await supabase
-            .from('barbers')
+          const { data } = await tenantFrom('barbers')
             .select('*')
             .eq('id', booking.barber)
             .maybeSingle();

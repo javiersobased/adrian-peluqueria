@@ -15,7 +15,7 @@ import {
   Trash2,
   CalendarPlus,
 } from 'lucide-react';
-import { supabase } from '@/lib/supabase';
+import { tenantFrom } from '@/lib/tenant';
 import { fetchAllBarbers } from '@/data/services';
 import type { SavedBooking, Barber } from '@/types';
 import { WEEKDAY_SHORT, MONTH_SHORT, toISO, isCancelledBookingExpired } from '@/lib/schedule';
@@ -121,7 +121,7 @@ export function AdminAgenda({ bookings, loading, onRefresh }: AdminAgendaProps) 
         notify.info('Cita ya cancelada', 'Esta cita ya se encuentra cancelada');
         return;
       }
-      const { error } = await supabase.from('bookings').update({ status: 'cancelled' }).eq('id', id);
+      const { error } = await tenantFrom('bookings').update({ status: 'cancelled' }).eq('id', id);
       if (error) throw error;
       notify.success('Cita cancelada', 'La cita fue marcada como cancelada');
       if (selectedBooking?.id === id) {
@@ -139,7 +139,7 @@ export function AdminAgenda({ bookings, loading, onRefresh }: AdminAgendaProps) 
 
   const handleRestore = async (id: string) => {
     try {
-      const { error } = await supabase.from('bookings').update({ status: 'confirmed' }).eq('id', id);
+      const { error } = await tenantFrom('bookings').update({ status: 'confirmed' }).eq('id', id);
       if (error) throw error;
       notify.success('Cita restaurada', 'La cita vuelve a estar activa en la agenda');
       if (selectedBooking?.id === id) {
@@ -168,7 +168,7 @@ export function AdminAgenda({ bookings, loading, onRefresh }: AdminAgendaProps) 
           console.warn('[handlePermanentDelete] Error notificando al cliente:', err);
         });
       }
-      const { error } = await supabase.from('bookings').delete().eq('id', id);
+      const { error } = await tenantFrom('bookings').delete().eq('id', id);
       if (error) throw error;
       notify.success(
         'Cita eliminada definitivamente',

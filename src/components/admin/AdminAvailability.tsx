@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { supabase } from '@/lib/supabase';
+import { getCurrentBusinessId, tenantFrom, tenantRealtimeFilter } from '@/lib/tenant';
 import { fetchAllBarbers } from '@/data/services';
 import type { BarberBlock, Barber, BarberVacation, SavedBooking } from '@/types';
 import {
@@ -86,8 +87,7 @@ export function AdminAvailability({ blocks: initialBlocks, onRefresh }: AdminAva
 
   const fetchBlocks = useCallback(async () => {
     if (!barber) return;
-    const { data } = await supabase
-      .from('barber_blocks')
+    const { data } = await tenantFrom('barber_blocks')
       .select('*')
       .eq('barber', barber)
       .order('block_date', { ascending: false })
@@ -100,7 +100,7 @@ export function AdminAvailability({ blocks: initialBlocks, onRefresh }: AdminAva
     const curTime = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
     const expiredIds = list.filter((b) => isBlockExpired(b, curIso, curTime)).map((b) => b.id);
     if (expiredIds.length > 0) {
-      supabase.from('barber_blocks').delete().in('id', expiredIds).then(() => {});
+      tenantFrom('barber_blocks').delete().in('id', expiredIds).then(() => {});
     }
 
     setBlocks(list.filter((b) => !isBlockExpired(b, curIso, curTime)));
@@ -108,8 +108,7 @@ export function AdminAvailability({ blocks: initialBlocks, onRefresh }: AdminAva
 
   const fetchVacations = useCallback(async () => {
     if (!barber) return;
-    const { data } = await supabase
-      .from('barber_vacations')
+    const { data } = await tenantFrom('barber_vacations')
       .select('*')
       .eq('barber', barber)
       .order('start_date', { ascending: false });
@@ -121,7 +120,7 @@ export function AdminAvailability({ blocks: initialBlocks, onRefresh }: AdminAva
     const curTime = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
     const expiredIds = list.filter((v) => isVacationExpired(v, curIso, curTime)).map((v) => v.id);
     if (expiredIds.length > 0) {
-      supabase.from('barber_vacations').delete().in('id', expiredIds).then(() => {});
+      tenantFrom('barber_vacations').delete().in('id', expiredIds).then(() => {});
     }
 
     setVacations(list.filter((v) => !isVacationExpired(v, curIso, curTime)));
@@ -133,7 +132,7 @@ export function AdminAvailability({ blocks: initialBlocks, onRefresh }: AdminAva
       .filter((b) => isBlockExpired(b, nowState.iso, nowState.time))
       .map((b) => b.id);
     if (expiredBlockIds.length > 0) {
-      supabase.from('barber_blocks').delete().in('id', expiredBlockIds).then(() => {
+      tenantFrom('barber_blocks').delete().in('id', expiredBlockIds).then(() => {
         setBlocks((prev) => prev.filter((b) => !expiredBlockIds.includes(b.id)));
       });
     }
@@ -142,7 +141,7 @@ export function AdminAvailability({ blocks: initialBlocks, onRefresh }: AdminAva
       .filter((v) => isVacationExpired(v, nowState.iso, nowState.time))
       .map((v) => v.id);
     if (expiredVacIds.length > 0) {
-      supabase.from('barber_vacations').delete().in('id', expiredVacIds).then(() => {
+      tenantFrom('barber_vacations').delete().in('id', expiredVacIds).then(() => {
         setVacations((prev) => prev.filter((v) => !expiredVacIds.includes(v.id)));
       });
     }
@@ -160,9 +159,9 @@ export function AdminAvailability({ blocks: initialBlocks, onRefresh }: AdminAva
   useEffect(() => {
     if (!barber) return;
     const channel = supabase
-      .channel(`availability-${barber}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'barber_blocks' }, () => fetchBlocks())
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'barber_vacations' }, () => fetchVacations())
+      .channel(`availability-${getCurrentBusinessId()}-${barber}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'barber_blocks', filter: tenantRealtimeFilter() }, () => fetchBlocks())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'barber_vacations', filter: tenantRealtimeFilter() }, () => fetchVacations())
       .subscribe();
     return () => { supabase.removeChannel(channel); };
   }, [barber, fetchBlocks, fetchVacations]);
@@ -184,15 +183,15 @@ export function AdminAvailability({ blocks: initialBlocks, onRefresh }: AdminAva
 
     const executeInsertBlock = async () => {
       if (mode === 'day_full') {
-        const { error } = await supabase.from('barber_blocks').insert({ barber, block_type: 'day_off', block_date: date, note: reason.trim() || null });
+        const { error } = await tenantFrom('barber_blocks').insert({ barber, block_type: 'day_off', block_date: date, note: reason.trim() || null });
         if (error) throw error;
         notify.success('Día bloqueado', `Bloqueo para el ${date}`);
       } else if (mode === 'time_range') {
-        const { error } = await supabase.from('barber_blocks').insert({ barber, block_type: 'time_range', block_date: date, block_start_time: startTime, block_end_time: endTime, note: reason.trim() || null });
+        const { error } = await tenantFrom('barber_blocks').insert({ barber, block_type: 'time_range', block_date: date, block_start_time: startTime, block_end_time: endTime, note: reason.trim() || null });
         if (error) throw error;
         notify.success('Horario bloqueado', `${date} de ${startTime} a ${endTime}h`);
       } else if (mode === 'vacation') {
-        const { error } = await supabase.from('barber_vacations').insert({ barber, start_date: date, end_date: endDate, reason: reason.trim() || null });
+        const { error } = await tenantFrom('barber_vacations').insert({ barber, start_date: date, end_date: endDate, reason: reason.trim() || null });
         if (error) throw error;
         notify.success('Vacaciones añadidas', `${date} al ${endDate}`);
       }
@@ -203,8 +202,7 @@ export function AdminAvailability({ blocks: initialBlocks, onRefresh }: AdminAva
 
     try {
       // 1. Detectar si hay citas activas programadas que coincidan con este bloqueo
-      let q = supabase
-        .from('bookings')
+      let q = tenantFrom('bookings')
         .select('*')
         .eq('barber', barber)
         .neq('status', 'cancelled');
@@ -339,7 +337,7 @@ export function AdminAvailability({ blocks: initialBlocks, onRefresh }: AdminAva
 
   const handleDeleteBlock = async (id: string) => {
     try {
-      const { error } = await supabase.from('barber_blocks').delete().eq('id', id);
+      const { error } = await tenantFrom('barber_blocks').delete().eq('id', id);
       if (error) throw error;
       notify.success('Bloqueo eliminado', 'El tramo vuelve a estar disponible');
       await fetchBlocks();
@@ -351,7 +349,7 @@ export function AdminAvailability({ blocks: initialBlocks, onRefresh }: AdminAva
 
   const handleDeleteVacation = async (id: string) => {
     try {
-      const { error } = await supabase.from('barber_vacations').delete().eq('id', id);
+      const { error } = await tenantFrom('barber_vacations').delete().eq('id', id);
       if (error) throw error;
       notify.success('Vacaciones eliminadas', 'Se ha eliminado el período');
       await fetchVacations();

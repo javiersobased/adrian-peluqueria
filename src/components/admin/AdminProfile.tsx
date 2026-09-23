@@ -41,15 +41,16 @@ export function AdminProfile({ userRole, targetBarberId, onBarberUpdated }: Admi
     userRole.barber_id === 'francisco_javier' ||
     isSuperAdminEmail(userRole.email);
 
-  // Determine whether the target profile being inspected is Francisco's developer profile
+  // Determine whether the target profile being inspected is Francisco's developer profile (only accessible to Francisco)
   const isTargetDev =
-    targetBarberId === 'franciscojavier' ||
-    (!targetBarberId && isDevUser) ||
-    (targetBarberId === 'all' && isDevUser);
+    isDevUser &&
+    (targetBarberId === 'franciscojavier' ||
+      !targetBarberId ||
+      targetBarberId === 'all');
 
   const effectiveBarberId = isTargetDev
     ? 'franciscojavier'
-    : targetBarberId && targetBarberId !== 'all'
+    : targetBarberId && targetBarberId !== 'all' && targetBarberId !== 'franciscojavier'
     ? targetBarberId
     : userRole.barber_id || 'adrian';
 

@@ -93,9 +93,58 @@ export function AdminToday({
 
   const todayISO = toISO(new Date());
 
+  const [profileSyncKey, setProfileSyncKey] = useState(0);
+
   useEffect(() => {
     fetchAllBarbers().then(setBarbers);
+  }, [profileSyncKey]);
+
+  // Listen for profile changes from AdminProfile so session avatar updates instantly
+  useEffect(() => {
+    const handleProfileUpdated = () => {
+      setProfileSyncKey((prev) => prev + 1);
+      fetchAllBarbers().then(setBarbers);
+    };
+    window.addEventListener('barber_profile_updated', handleProfileUpdated);
+    return () => window.removeEventListener('barber_profile_updated', handleProfileUpdated);
   }, []);
+
+  const isSuperAdmin = isSuperAdminEmail(userRole?.email);
+  const isDev = isDeveloper(userRole?.email) || userRole?.barber_id === 'franciscojavier' || isSuperAdmin;
+
+  // Auto-fetch Francisco's latest photo and name from Supabase barbers table if isDev
+  useEffect(() => {
+    if (isDev) {
+      supabase
+        .from('barbers')
+        .select('*')
+        .eq('id', 'franciscojavier')
+        .maybeSingle()
+        .then(({ data }) => {
+          if (data) {
+            let changed = false;
+            if (data.photo_url) {
+              const cur = localStorage.getItem('barber_photo_franciscojavier');
+              if (cur !== data.photo_url) {
+                localStorage.setItem('barber_photo_franciscojavier', data.photo_url);
+                localStorage.setItem('barber_photo_francisco_javier', data.photo_url);
+                changed = true;
+              }
+            }
+            if (data.name) {
+              const curName = localStorage.getItem('barber_name_franciscojavier');
+              if (curName !== data.name) {
+                localStorage.setItem('barber_name_franciscojavier', data.name);
+                changed = true;
+              }
+            }
+            if (changed) {
+              setProfileSyncKey((k) => k + 1);
+            }
+          }
+        });
+    }
+  }, [isDev]);
 
   // Update current time every 30 seconds so upcoming/past transitions automatically
   useEffect(() => {
@@ -105,8 +154,6 @@ export function AdminToday({
     }, 30000);
     return () => clearInterval(interval);
   }, []);
-
-  const isDev = isDeveloper(userRole?.email) || userRole?.barber_id === 'franciscojavier';
 
   // Resolved barber profile currently in use for the active session card
   const activeBarberProfile = useMemo(() => {
@@ -119,7 +166,7 @@ export function AdminToday({
     const adrian = barbers.find((b) => b.id === 'adrian');
     if (adrian) return adrian;
     return barbers[0] || null;
-  }, [isDev, currentBarber, selectedBarber, barbers]);
+  }, [isDev, currentBarber, selectedBarber, barbers, profileSyncKey]);
 
   const activeBarberFirstName = activeBarberProfile?.name?.split(' ')[0] || 'Adrián';
 
@@ -138,16 +185,14 @@ export function AdminToday({
     ).length;
   }, [bookings, todayISO]);
 
-  const isSuperAdmin = isSuperAdminEmail(userRole?.email);
-
   const sessionAvatar = useMemo(() => {
-    if (isSuperAdmin) {
-      const localPhoto = typeof window !== 'undefined' ? localStorage.getItem('barber_photo_francisco_javier') : null;
+    if (isDev || isSuperAdmin) {
+      const devProfile = getDeveloperProfile();
       return {
-        name: 'Francisco Javier',
-        photo_url: localPhoto,
-        initials: 'FJ',
-        roleBadge: 'Super Administrador',
+        name: devProfile.name,
+        photo_url: devProfile.photo_url,
+        initials: devProfile.initials,
+        roleBadge: 'Super Administrador · Desarrollador',
       };
     }
     if (userRole?.role === 'admin') {
@@ -166,7 +211,7 @@ export function AdminToday({
       initials: myBarber?.initials || 'B',
       roleBadge: 'Sesión activa · Barbero',
     };
-  }, [isSuperAdmin, userRole, barbers]);
+  }, [isDev, isSuperAdmin, userRole, barbers, profileSyncKey]);
 
   const welcomeName = sessionAvatar.name;
 

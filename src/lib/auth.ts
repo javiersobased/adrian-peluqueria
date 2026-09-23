@@ -33,12 +33,28 @@ export function isDeveloper(email?: string | null): boolean {
 }
 
 export function getDeveloperProfile(): import('@/types').Barber {
-  const cachedPhoto = typeof window !== 'undefined' ? localStorage.getItem(`barber_photo_${DEVELOPER_BARBER_ID}`) : null;
+  const cachedPhoto = typeof window !== 'undefined'
+    ? localStorage.getItem(`barber_photo_${DEVELOPER_BARBER_ID}`) ||
+      localStorage.getItem('barber_photo_francisco_javier')
+    : null;
+  const cachedName = typeof window !== 'undefined'
+    ? localStorage.getItem(`barber_name_${DEVELOPER_BARBER_ID}`) ||
+      localStorage.getItem('barber_name_francisco_javier')
+    : null;
+  const devName = cachedName?.trim() || 'Francisco Javier';
+  const initials = devName
+    .split(' ')
+    .filter(Boolean)
+    .map((w: string) => w[0])
+    .slice(0, 2)
+    .join('')
+    .toUpperCase() || 'FJ';
+
   return {
     id: DEVELOPER_BARBER_ID,
-    name: 'Francisco Javier',
+    name: devName,
     role: 'Desarrollador',
-    initials: 'FJ',
+    initials,
     photo_url: cachedPhoto || null,
     active: false,
     sort_order: 9999,

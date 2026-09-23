@@ -43,8 +43,7 @@ import {
 } from 'lucide-react';
 import { InstallAppButton } from '@/components/InstallAppButton';
 import { setActivePwaContext } from '@/lib/pwaContext';
-import { toISO, isBlockExpired } from '@/lib/schedule';
-import { isDeveloper, getDeveloperProfile, isSuperAdminEmail } from '@/lib/auth';
+import { isDeveloper, getDeveloperProfile, isSuperAdminEmail, isMasterAdminEmail } from '@/lib/auth';
 
 interface AdminPanelProps {
   userRole: UserRole;
@@ -165,11 +164,43 @@ export function AdminPanel({ userRole, onSignOut, onGoPublic }: AdminPanelProps)
     reloadBarbers();
   }, [reloadBarbers]);
 
+  // Sync profile changes immediately when modified in AdminProfile
   useEffect(() => {
-    if (!isAdmin && userRole.barber_id) {
+    const handleProfileUpdated = () => {
+      reloadBarbers();
+    };
+    window.addEventListener('barber_profile_updated', handleProfileUpdated);
+    return () => window.removeEventListener('barber_profile_updated', handleProfileUpdated);
+  }, [reloadBarbers]);
+
+  // Auto-fetch developer profile from database on mount if dev
+  useEffect(() => {
+    if (isDeveloper(userRole.email) || userRole.barber_id === 'franciscojavier' || isSuperAdminEmail(userRole.email)) {
+      supabase
+        .from('barbers')
+        .select('*')
+        .eq('id', 'franciscojavier')
+        .maybeSingle()
+        .then(({ data }) => {
+          if (data) {
+            if (data.photo_url) {
+              localStorage.setItem('barber_photo_franciscojavier', data.photo_url);
+              localStorage.setItem('barber_photo_francisco_javier', data.photo_url);
+            }
+            if (data.name) {
+              localStorage.setItem('barber_name_franciscojavier', data.name);
+            }
+            reloadBarbers();
+          }
+        });
+    }
+  }, [userRole.email, userRole.barber_id, reloadBarbers]);
+
+  useEffect(() => {
+    if (!isAdmin && userRole.barber_id && !isDeveloper(userRole.email) && !isSuperAdminEmail(userRole.email)) {
       setSelectedBarber(userRole.barber_id);
     }
-  }, [isAdmin, userRole.barber_id]);
+  }, [isAdmin, userRole.barber_id, userRole.email]);
 
   const fetchBookings = useCallback(async () => {
     const query = supabase
@@ -392,43 +423,68 @@ export function AdminPanel({ userRole, onSignOut, onGoPublic }: AdminPanelProps)
     ? 'Panel de Administración'
     : 'Panel de Barbero';
 
-  // Resolved barber profile for the bottom profile button
-  const isDev = isDeveloper(userRole.email) || userRole.barber_id === 'franciscojavier' || isSuperAdmin;
+  const isDevUser = isDeveloper(userRole.email) || userRole.barber_id === 'franciscojavier' || isSuperAdmin;
+  const isAdrianAdmin = (userRole.role === 'admin' || isMasterAdminEmail(userRole.email)) && !isDevUser;
+  const canSwitchBarberProfiles = isDevUser || isAdrianAdmin;
 
+  // Resolved barber profile for the bottom profile button
   const currentProfileBarber = useMemo(() => {
-    if (isDev) {
+    if (isDevUser) {
+      if (selectedBarber && selectedBarber !== 'all' && selectedBarber !== 'franciscojavier') {
+        const found = barbers.find((b) => b.id === selectedBarber);
+        if (found) return found;
+      }
       return getDeveloperProfile();
     }
-    if (activeBarber) return activeBarber;
+    if (isAdrianAdmin) {
+      if (selectedBarber && selectedBarber !== 'all') {
+        const found = barbers.find((b) => b.id === selectedBarber);
+        if (found) return found;
+      }
+      const adrian = barbers.find((b) => b.id === 'adrian');
+      if (adrian) return adrian;
+    }
+    // Regular barber: only their own linked profile
     if (userRole.barber_id) {
       const found = barbers.find((b) => b.id === userRole.barber_id);
       if (found) return found;
     }
-    // Fallback: Adrián Millán
-    const adrian = barbers.find((b) => b.id === 'adrian');
-    if (adrian) return adrian;
     return barbers[0] || null;
-  }, [isDev, activeBarber, userRole.barber_id, barbers]);
+  }, [isDevUser, isAdrianAdmin, selectedBarber, userRole.barber_id, barbers]);
 
-  const profileDisplayName = isDev
-    ? 'Francisco Javier'
-    : currentProfileBarber?.name || (isAdmin ? 'Adrián Millán' : 'Mi Perfil');
+  const profileDisplayName = isDevUser
+    ? selectedBarber && selectedBarber !== 'all' && selectedBarber !== 'franciscojavier'
+      ? activeBarber?.name || 'Barbero'
+      : getDeveloperProfile().name
+    : isAdrianAdmin
+    ? selectedBarber && selectedBarber !== 'all'
+      ? activeBarber?.name || 'Barbero'
+      : 'Adrián Millán'
+    : currentProfileBarber?.name || userRole.full_name || 'Mi Perfil';
 
-  const profileRoleSubtitle = isDev
+  const profileRoleSubtitle = isDevUser
     ? 'Desarrollador'
-    : isAdmin ? 'Administrador' : currentProfileBarber?.role || 'Barbero';
+    : isAdrianAdmin ? 'Administrador' : currentProfileBarber?.role || 'Barbero';
 
-  const profileFilterSubtitle = isDev
-    ? selectedBarber === 'all'
-      ? 'Desarrollador · Todo el salón'
-      : `Vista: ${activeBarber?.name || 'Barbero'}`
-    : isAdmin
-    ? selectedBarber === 'all'
+  const profileFilterSubtitle = canSwitchBarberProfiles
+    ? isDevUser
+      ? selectedBarber === 'all'
+        ? 'Desarrollador · Todo el salón'
+        : `Vista: ${activeBarber?.name || selectedBarber}`
+      : selectedBarber === 'all'
       ? 'Administrador · Todo el salón'
-      : `Vista: ${activeBarber?.name || 'Barbero'}`
-    : selectedBarber === 'all'
-    ? 'Barbero · Todo el salón'
-    : `Vista: ${activeBarber?.name || 'Barbero'}`;
+      : `Vista: ${activeBarber?.name || selectedBarber}`
+    : 'Barbero Profesional';
+
+  const effectiveProfileTargetId = useMemo(() => {
+    if (canSwitchBarberProfiles) {
+      if (selectedBarber && selectedBarber !== 'all') {
+        return selectedBarber;
+      }
+      return isDevUser ? 'franciscojavier' : 'adrian';
+    }
+    return userRole.barber_id || 'adrian';
+  }, [canSwitchBarberProfiles, selectedBarber, isDevUser, userRole.barber_id]);
 
   return (
     <div
@@ -727,8 +783,8 @@ export function AdminPanel({ userRole, onSignOut, onGoPublic }: AdminPanelProps)
                   isCollapsed ? 'left-16 w-64' : 'left-2.5 right-2.5'
                 }`}
               >
-                {/* Section: Barber Selector */}
-                {(isAdmin || userRole.role === 'barber') && (
+                {/* Section: Barber Selector (Only for Adrián as admin or Francisco as dev) */}
+                {canSwitchBarberProfiles && (
                   <div className="mb-2">
                     <p className="px-2.5 py-1 text-[0.65rem] font-bold uppercase tracking-wider text-zinc-400">
                       Filtrar por Barbero
@@ -748,6 +804,35 @@ export function AdminPanel({ userRole, onSignOut, onGoPublic }: AdminPanelProps)
                         </div>
                         {selectedBarber === 'all' && <Check className="h-3.5 w-3.5 text-gold shrink-0" />}
                       </button>
+
+                      {isDevUser && (
+                        <button
+                          onClick={() => handleSelectBarber('franciscojavier')}
+                          className={`w-full rounded-xl px-2.5 py-2 text-xs font-semibold flex items-center justify-between transition-colors ${
+                            selectedBarber === 'franciscojavier'
+                              ? 'bg-gold/15 text-gold border border-gold/30'
+                              : 'text-zinc-300 hover:bg-white/5 hover:text-white'
+                          }`}
+                        >
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            {getDeveloperProfile().photo_url ? (
+                              <img
+                                src={getDeveloperProfile().photo_url!}
+                                alt=""
+                                className="h-5 w-5 rounded-full object-cover ring-1 ring-gold/30 shrink-0"
+                              />
+                            ) : (
+                              <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full gold-gradient text-[0.55rem] font-bold text-black">
+                                FJ
+                              </div>
+                            )}
+                            <span className="truncate">Francisco Javier (Desarrollador)</span>
+                          </div>
+                          {selectedBarber === 'franciscojavier' && (
+                            <Check className="h-3.5 w-3.5 text-gold shrink-0" />
+                          )}
+                        </button>
+                      )}
 
                       {barbers.map((b) => {
                         const isSelected = selectedBarber === b.id;
@@ -783,7 +868,7 @@ export function AdminPanel({ userRole, onSignOut, onGoPublic }: AdminPanelProps)
                   </div>
                 )}
 
-                {(isAdmin || userRole.role === 'barber') && <div className="my-1.5 border-t border-white/5" />}
+                {canSwitchBarberProfiles && <div className="my-1.5 border-t border-white/5" />}
 
                 {/* Section: Profile & Sign Out */}
                 <div className="space-y-0.5">
@@ -999,7 +1084,7 @@ export function AdminPanel({ userRole, onSignOut, onGoPublic }: AdminPanelProps)
                     onClick={() => setShowMobileProfileMenu(false)}
                   />
                   <div className="absolute bottom-full left-2.5 right-2.5 mb-2 z-50 rounded-2xl border border-white/10 bg-zinc-900/98 p-2 shadow-2xl backdrop-blur-2xl animate-scale-in max-h-[60vh] overflow-y-auto">
-                    {(isAdmin || userRole.role === 'barber') && (
+                    {canSwitchBarberProfiles && (
                       <div className="mb-2">
                         <p className="px-2.5 py-1 text-[0.65rem] font-bold uppercase tracking-wider text-zinc-400">
                           Filtrar por Barbero
@@ -1023,6 +1108,40 @@ export function AdminPanel({ userRole, onSignOut, onGoPublic }: AdminPanelProps)
                             </div>
                             {selectedBarber === 'all' && <Check className="h-3.5 w-3.5 text-gold shrink-0" />}
                           </button>
+
+                          {isDevUser && (
+                            <button
+                              onClick={() => {
+                                handleSelectBarber('franciscojavier');
+                                setShowMobileProfileMenu(false);
+                                closeSidebar();
+                              }}
+                              className={`w-full rounded-xl px-2.5 py-2 text-xs font-semibold flex items-center justify-between transition-colors ${
+                                selectedBarber === 'franciscojavier'
+                                  ? 'bg-gold/15 text-gold border border-gold/30'
+                                  : 'text-zinc-300 hover:bg-white/5'
+                              }`}
+                            >
+                              <div className="flex items-center gap-2.5 min-w-0">
+                                {getDeveloperProfile().photo_url ? (
+                                  <img
+                                    src={getDeveloperProfile().photo_url!}
+                                    alt=""
+                                    className="h-5 w-5 rounded-full object-cover ring-1 ring-gold/30 shrink-0"
+                                  />
+                                ) : (
+                                  <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full gold-gradient text-[0.55rem] font-bold text-black">
+                                    FJ
+                                  </div>
+                                )}
+                                <span className="truncate">Francisco Javier (Desarrollador)</span>
+                              </div>
+                              {selectedBarber === 'franciscojavier' && (
+                                <Check className="h-3.5 w-3.5 text-gold shrink-0" />
+                              )}
+                            </button>
+                          )}
+
                           {barbers.map((b) => (
                             <button
                               key={b.id}
@@ -1053,7 +1172,7 @@ export function AdminPanel({ userRole, onSignOut, onGoPublic }: AdminPanelProps)
                         </div>
                       </div>
                     )}
-                    {(isAdmin || userRole.role === 'barber') && <div className="my-1.5 border-t border-white/5" />}
+                    {canSwitchBarberProfiles && <div className="my-1.5 border-t border-white/5" />}
                     <button
                       onClick={() => {
                         setShowMobileProfileMenu(false);
@@ -1245,7 +1364,11 @@ export function AdminPanel({ userRole, onSignOut, onGoPublic }: AdminPanelProps)
             )}
 
             {tab === 'profile' && (
-              <AdminProfile userRole={userRole} onBarberUpdated={reloadBarbers} />
+              <AdminProfile
+                userRole={userRole}
+                targetBarberId={effectiveProfileTargetId}
+                onBarberUpdated={reloadBarbers}
+              />
             )}
 
             {tab === 'availability' && isAdmin && (

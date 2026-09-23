@@ -172,15 +172,12 @@ export function AdminPanel({ userRole, onSignOut, onGoPublic }: AdminPanelProps)
   }, [isAdmin, userRole.barber_id]);
 
   const fetchBookings = useCallback(async () => {
-    let query = supabase
+    const query = supabase
       .from('bookings')
       .select('*')
       .order('booking_date', { ascending: true })
       .order('booking_time', { ascending: true });
-    // If not admin, restrict to their assigned barber
-    if (!isAdmin && userRole.barber_id) {
-      query = query.eq('barber', userRole.barber_id);
-    }
+
     const { data } = await query;
     const rawList = (data as SavedBooking[]) ?? [];
     const filtered = rawList.filter((b) => {
@@ -189,16 +186,14 @@ export function AdminPanel({ userRole, onSignOut, onGoPublic }: AdminPanelProps)
     });
 
     setBookings(filtered);
-  }, [isAdmin, userRole.barber_id]);
+  }, []);
 
   const fetchBlocks = useCallback(async () => {
-    let query = supabase
+    const query = supabase
       .from('barber_blocks')
       .select('*')
       .order('created_at', { ascending: false });
-    if (!isAdmin && userRole.barber_id) {
-      query = query.eq('barber', userRole.barber_id);
-    }
+
     const { data } = await query;
     const rawBlocks = (data as BarberBlock[]) ?? [];
 
@@ -213,7 +208,7 @@ export function AdminPanel({ userRole, onSignOut, onGoPublic }: AdminPanelProps)
     }
 
     setBlocks(rawBlocks.filter((b) => !isBlockExpired(b, curIso, curTime)));
-  }, [isAdmin, userRole.barber_id]);
+  }, []);
 
   const fetchCustomers = useCallback(async () => {
     const { data } = await supabase
@@ -360,9 +355,16 @@ export function AdminPanel({ userRole, onSignOut, onGoPublic }: AdminPanelProps)
   }, [menuItems, isAdmin, search]);
 
   const activeBarber = barbers.find((b) => b.id === selectedBarber) ?? null;
-  const todayCount = bookings.filter(
-    (b) => b.booking_date === toISO(new Date()) && b.status !== 'cancelled'
-  ).length;
+  const todayCount = useMemo(() => {
+    const todayISO = toISO(new Date());
+    return bookings.filter((b) => {
+      if (b.booking_date !== todayISO || b.status === 'cancelled') return false;
+      if (selectedBarber && selectedBarber !== 'all') {
+        return b.barber === selectedBarber;
+      }
+      return true;
+    }).length;
+  }, [bookings, selectedBarber]);
 
   const handleNav = (id: AdminTab) => {
     setTab(id);
@@ -417,7 +419,9 @@ export function AdminPanel({ userRole, onSignOut, onGoPublic }: AdminPanelProps)
     ? selectedBarber === 'all'
       ? 'Administrador · Todo el salón'
       : `Vista: ${activeBarber?.name || 'Barbero'}`
-    : 'Barbero en servicio';
+    : selectedBarber === 'all'
+    ? 'Barbero · Todo el salón'
+    : `Vista: ${activeBarber?.name || 'Barbero'}`;
 
   return (
     <div
@@ -717,7 +721,7 @@ export function AdminPanel({ userRole, onSignOut, onGoPublic }: AdminPanelProps)
                 }`}
               >
                 {/* Section: Barber Selector */}
-                {isAdmin && (
+                {(isAdmin || userRole.role === 'barber') && (
                   <div className="mb-2">
                     <p className="px-2.5 py-1 text-[0.65rem] font-bold uppercase tracking-wider text-zinc-400">
                       Filtrar por Barbero
@@ -772,7 +776,7 @@ export function AdminPanel({ userRole, onSignOut, onGoPublic }: AdminPanelProps)
                   </div>
                 )}
 
-                {isAdmin && <div className="my-1.5 border-t border-white/5" />}
+                {(isAdmin || userRole.role === 'barber') && <div className="my-1.5 border-t border-white/5" />}
 
                 {/* Section: Profile & Sign Out */}
                 <div className="space-y-0.5">
@@ -988,7 +992,7 @@ export function AdminPanel({ userRole, onSignOut, onGoPublic }: AdminPanelProps)
                     onClick={() => setShowMobileProfileMenu(false)}
                   />
                   <div className="absolute bottom-full left-2.5 right-2.5 mb-2 z-50 rounded-2xl border border-white/10 bg-zinc-900/98 p-2 shadow-2xl backdrop-blur-2xl animate-scale-in max-h-[60vh] overflow-y-auto">
-                    {isAdmin && (
+                    {(isAdmin || userRole.role === 'barber') && (
                       <div className="mb-2">
                         <p className="px-2.5 py-1 text-[0.65rem] font-bold uppercase tracking-wider text-zinc-400">
                           Filtrar por Barbero
@@ -1042,7 +1046,7 @@ export function AdminPanel({ userRole, onSignOut, onGoPublic }: AdminPanelProps)
                         </div>
                       </div>
                     )}
-                    {isAdmin && <div className="my-1.5 border-t border-white/5" />}
+                    {(isAdmin || userRole.role === 'barber') && <div className="my-1.5 border-t border-white/5" />}
                     <button
                       onClick={() => {
                         setShowMobileProfileMenu(false);

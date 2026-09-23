@@ -110,11 +110,11 @@ export function AdminToday({
   // Resolved barber profile currently in use for the active session card
   const activeBarberProfile = useMemo(() => {
     if (isDev) return getDeveloperProfile();
-    if (currentBarber) return currentBarber;
     if (selectedBarber && selectedBarber !== 'all') {
       const found = barbers.find((b) => b.id === selectedBarber);
       if (found) return found;
     }
+    if (currentBarber) return currentBarber;
     const adrian = barbers.find((b) => b.id === 'adrian');
     if (adrian) return adrian;
     return barbers[0] || null;
@@ -139,12 +139,16 @@ export function AdminToday({
 
   const welcomeName = useMemo(() => {
     if (isDev) return 'Francisco Javier';
-    if (userRole?.full_name) return userRole.full_name;
+    if (selectedBarber === 'all') {
+      if (userRole?.full_name) return userRole.full_name;
+      if (currentBarber?.name) return currentBarber.name;
+    }
     if (selectedBarber !== 'all' && activeBarberProfile?.name) {
       return activeBarberProfile.name.split(' ')[0];
     }
+    if (userRole?.full_name) return userRole.full_name;
     return activeBarberFirstName;
-  }, [isDev, userRole, selectedBarber, activeBarberProfile, activeBarberFirstName]);
+  }, [isDev, userRole, currentBarber, selectedBarber, activeBarberProfile, activeBarberFirstName]);
 
   // All active bookings for today
   const allTodayBookings = bookings

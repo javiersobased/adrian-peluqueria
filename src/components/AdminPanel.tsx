@@ -551,7 +551,7 @@ export function AdminPanel({ userRole, onSignOut, onGoPublic }: AdminPanelProps)
               </div>
               {!isCollapsed && (
                 <>
-                  <span className="flex-1 text-left">Notifications</span>
+                  <span className="flex-1 text-left">Notificaciones</span>
                   {unreadNotifsCount > 0 && (
                     <span className="rounded-full bg-red-500/20 text-red-300 border border-red-500/30 px-2 py-0.2 text-[0.65rem] font-bold">
                       {unreadNotifsCount > 15 ? '15+' : unreadNotifsCount}

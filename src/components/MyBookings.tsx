@@ -11,6 +11,7 @@ import { notifyBookingCancelled, notifyBookingRescheduled } from '@/lib/notifica
 
 interface MyBookingsProps {
   onBack: () => void;
+  onBook?: () => void;
   userEmail?: string | null;
   userId?: string | null;
   onSignOut?: () => Promise<void>;
@@ -18,7 +19,7 @@ interface MyBookingsProps {
 
 const CANCEL_THRESHOLD_HOURS = 3;
 
-export function MyBookings({ onBack, userEmail, userId, onSignOut }: MyBookingsProps) {
+export function MyBookings({ onBack, onBook, userEmail, userId, onSignOut }: MyBookingsProps) {
   const [bookings, setBookings] = useState<SavedBooking[]>([]);
   const [barbers, setBarbers] = useState<Barber[]>([]);
   const [loading, setLoading] = useState(true);
@@ -153,6 +154,20 @@ export function MyBookings({ onBack, userEmail, userId, onSignOut }: MyBookingsP
       setDeletingAccount(false);
     }
   }, [userId, userEmail, onSignOut, onBack]);
+
+  const handleGoToBooking = useCallback(() => {
+    if (onBook) {
+      onBook();
+      return;
+    }
+    if (typeof window !== 'undefined') {
+      if (window.location.hostname.startsWith('citas.')) {
+        window.location.href = 'https://adrianmillan.es/reservas';
+        return;
+      }
+      window.location.href = '/reservas';
+    }
+  }, [onBook]);
 
   const now = new Date().toISOString().slice(0, 10);
 
@@ -301,7 +316,7 @@ export function MyBookings({ onBack, userEmail, userId, onSignOut }: MyBookingsP
             <p className="mt-1 text-xs text-zinc-400">Cuando reserves una cita, aparecerá aquí.</p>
             <button
               type="button"
-              onClick={onBack}
+              onClick={handleGoToBooking}
               className="mt-6 inline-flex items-center gap-2 rounded-full gold-gradient px-6 py-3 text-xs font-bold uppercase tracking-wider text-black shadow-lg shadow-gold/20 transition-all hover:scale-105 active:scale-95 cursor-pointer"
             >
               <CalendarPlus className="h-4 w-4 text-black" />

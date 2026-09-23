@@ -1,99 +1,85 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import {
+  acquireOnce,
+  adminClient,
+  type BookingRow,
+  isServiceRoleToken,
+  json,
+  loadTenant,
+  localNow,
+  sendPush,
+  tenantUrl,
+} from "../_shared/tenant.ts";
 
-const APP_ID = Deno.env.get("ONESIGNAL_APP_ID");
-const API_KEY = Deno.env.get("ONESIGNAL_REST_API_KEY");
-const SUPABASE_URL = Deno.env.get('SUPABASE_URL') || '';
-const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
-const CRON_SECRET = Deno.env.get('CRON_SECRET');
+const CRON_SECRET = Deno.env.get("CRON_SECRET");
 
-const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+// Ventanas calibradas para una ejecución cada 15 minutos.
+const CLIENT_WINDOW = { from: 85, to: 100 };
+const BARBER_WINDOW = { from: 55, to: 70 };
 
-serve(async (req: Request) => {
-  // 1. Verificación de autorización para ejecución de tareas programadas
-  const authHeader = req.headers.get("Authorization");
-  if (CRON_SECRET) {
-    const isAuthorized =
-      authHeader === `Bearer ${CRON_SECRET}` ||
-      authHeader === `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`;
-    if (!isAuthorized) {
-      return new Response(JSON.stringify({ error: "Unauthorized: Invalid cron secret" }), {
-        status: 401,
-        headers: { "Content-Type": "application/json" },
-      });
-    }
-  }
+Deno.serve(async (req: Request) => {
+  const auth = req.headers.get("Authorization");
+  const authorized = (CRON_SECRET && auth === `Bearer ${CRON_SECRET}`) || isServiceRoleToken(auth);
+  if (!authorized) return json({ error: "Unauthorized" }, 401);
 
-  if (!APP_ID || !API_KEY) {
-    return new Response(JSON.stringify({ warning: "OneSignal not configured" }), {
-      status: 200,
-      headers: { "Content-Type": "application/json" },
-    });
-  }
+  const db = adminClient();
+  const { data: businesses, error } = await db.from("businesses").select("id").eq("status", "active");
+  if (error) return json({ error: error.message }, 500);
 
-  // Obtener citas de hoy que no estén canceladas
-  const hoy = new Date().toISOString().split('T')[0];
-  const { data: citas, error } = await supabase
-    .from('bookings')
-    .select('*')
-    .eq('booking_date', hoy)
-    .neq('status', 'cancelled');
+  const summary: Record<string, { client: number; barber: number; skipped?: string }> = {};
 
-  if (error || !citas || citas.length === 0) {
-    return new Response(JSON.stringify({ message: "Sin citas pendientes hoy", count: 0 }), {
-      status: 200,
-      headers: { "Content-Type": "application/json" },
-    });
-  }
-
-  const ahora = new Date();
-
-  for (const cita of citas) {
-    if (!cita.booking_time) continue;
-    const [horas, minutos] = cita.booking_time.split(':');
-    const fechaCita = new Date();
-    fechaCita.setHours(parseInt(horas, 10), parseInt(minutos, 10), 0, 0);
-    
-    const minutosRestantes = Math.round((fechaCita.getTime() - ahora.getTime()) / 60000);
-    const horaFormateada = cita.booking_time.slice(0, 5);
-    const nombreCliente = cita.full_name || 'El cliente';
-
-    // Aviso al CLIENTE (1 hora y media antes -> entre 85 y 100 mins para el cron de 15m)
-    if (minutosRestantes > 85 && minutosRestantes <= 100 && cita.user_id) {
-      await enviarPush([cita.user_id], "Recordatorio de Cita", `Tu cita es en 1 hora y media (a las ${horaFormateada}h). ¡Te esperamos!`);
+  for (const { id: businessId } of businesses ?? []) {
+    const tenant = await loadTenant(db, businessId);
+    if (!tenant?.push) {
+      summary[businessId] = { client: 0, barber: 0, skipped: "push not configured" };
+      continue;
     }
 
-    // Aviso al BARBERO (1 hora antes -> entre 55 y 70 mins para el cron de 15m)
-    if (minutosRestantes > 55 && minutosRestantes <= 70 && cita.barber) {
-      await enviarPush([cita.barber], "Próximo Cliente", `${nombreCliente} llegará en 1 hora (a las ${horaFormateada}h).`);
+    const { date, minutes: nowMinutes } = localNow(tenant.timezone);
+    const { data: bookings } = await db
+      .from("bookings")
+      .select("*")
+      .eq("business_id", businessId)
+      .eq("booking_date", date)
+      .neq("status", "cancelled");
+
+    const counts = { client: 0, barber: 0 };
+    const url = tenantUrl(tenant, null, "/#mis-citas");
+
+    for (const b of (bookings ?? []) as BookingRow[]) {
+      const [h, m] = b.booking_time.split(":").map(Number);
+      if (Number.isNaN(h) || Number.isNaN(m)) continue;
+      const remaining = h * 60 + m - nowMinutes;
+      const hora = b.booking_time.slice(0, 5);
+
+      if (b.user_id && remaining > CLIENT_WINDOW.from && remaining <= CLIENT_WINDOW.to) {
+        if (await acquireOnce(db, businessId, `reminder-client-${b.id}`, "push_reminder_client", b.user_id, b.id)) {
+          await sendPush(
+            tenant.push,
+            { userIds: [b.user_id] },
+            `Recordatorio de cita · ${tenant.name}`,
+            `Tu cita es en 1 hora y media (a las ${hora}h). ¡Te esperamos!`,
+            url,
+          );
+          counts.client++;
+        }
+      }
+
+      if (b.barber && remaining > BARBER_WINDOW.from && remaining <= BARBER_WINDOW.to) {
+        if (await acquireOnce(db, businessId, `reminder-barber-${b.id}`, "push_reminder_barber", b.barber, b.id)) {
+          await sendPush(
+            tenant.push,
+            { tags: [{ key: "barber_id", value: b.barber }, { key: "role", value: "barber" }] },
+            "Próximo cliente",
+            `${b.full_name || "El cliente"} llegará en 1 hora (a las ${hora}h).`,
+            tenantUrl(tenant, null, "/#admin"),
+          );
+          counts.barber++;
+        }
+      }
     }
+
+    summary[businessId] = counts;
   }
 
-  return new Response(JSON.stringify({ message: "Revisión completada exitosamente" }), {
-    status: 200,
-    headers: { "Content-Type": "application/json" },
-  });
+  return json({ message: "Revisión completada", summary });
 });
-
-async function enviarPush(users: string[], titulo: string, mensaje: string) {
-  if (!API_KEY || !APP_ID) return;
-  const authHeader = (API_KEY.startsWith("os_") || API_KEY.startsWith("key_"))
-    ? `Key ${API_KEY}`
-    : `Basic ${API_KEY}`;
-
-  try {
-    await fetch("https://onesignal.com/api/v1/notifications", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "Authorization": authHeader },
-      body: JSON.stringify({
-        app_id: APP_ID,
-        include_aliases: { external_id: users },
-        target_channel: "push",
-        contents: { en: mensaje, es: mensaje },
-        headings: { en: titulo, es: titulo }
-      })
-    });
-  } catch (err) {
-    console.warn("Error enviando push en cron-recordatorios:", err);
-  }
-}

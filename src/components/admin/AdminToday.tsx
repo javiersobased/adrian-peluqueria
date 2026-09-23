@@ -15,6 +15,7 @@ import {
   Users,
   Filter,
   XCircle,
+  CalendarPlus,
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { fetchAllBarbers } from '@/data/services';
@@ -29,6 +30,7 @@ import { getWhatsAppUrl, getCallUrl } from '@/lib/phoneActions';
 import { WhatsAppIcon } from '@/components/icons';
 import { notifyBookingCancelled } from '@/lib/notifications';
 import { ModalPortal } from '@/components/ui/ModalPortal';
+import { isDeveloper, getDeveloperProfile } from '@/lib/auth';
 
 interface AdminTodayProps {
   bookings: SavedBooking[];
@@ -103,8 +105,11 @@ export function AdminToday({
     return () => clearInterval(interval);
   }, []);
 
-  // Resolved barber profile currently in use
+  const isDev = isDeveloper(userRole?.email) || userRole?.barber_id === 'franciscojavier';
+
+  // Resolved barber profile currently in use for the active session card
   const activeBarberProfile = useMemo(() => {
+    if (isDev) return getDeveloperProfile();
     if (currentBarber) return currentBarber;
     if (selectedBarber && selectedBarber !== 'all') {
       const found = barbers.find((b) => b.id === selectedBarber);
@@ -113,13 +118,17 @@ export function AdminToday({
     const adrian = barbers.find((b) => b.id === 'adrian');
     if (adrian) return adrian;
     return barbers[0] || null;
-  }, [currentBarber, selectedBarber, barbers]);
+  }, [isDev, currentBarber, selectedBarber, barbers]);
 
   const activeBarberFirstName = activeBarberProfile?.name?.split(' ')[0] || 'Adrián';
-  const activeBarberSubtitle =
-    selectedBarber === 'all'
-      ? 'Salón Activo · Todo el salón'
-      : `Vista: ${activeBarberProfile?.name || 'Barbero'}`;
+
+  const activeBarberSubtitle = isDev
+    ? selectedBarber === 'all'
+      ? 'Desarrollador Web · Todo el salón'
+      : `Desarrollador Web · Vista: ${barbers.find((b) => b.id === selectedBarber)?.name || selectedBarber}`
+    : selectedBarber === 'all'
+    ? 'Salón Activo · Todo el salón'
+    : `Vista: ${activeBarberProfile?.name || 'Barbero'}`;
 
   // Today's total bookings across all barbers in the salon
   const totalSalonTodayCount = useMemo(() => {
@@ -129,12 +138,13 @@ export function AdminToday({
   }, [bookings, todayISO]);
 
   const welcomeName = useMemo(() => {
+    if (isDev) return 'Francisco Javier';
     if (userRole?.full_name) return userRole.full_name;
     if (selectedBarber !== 'all' && activeBarberProfile?.name) {
       return activeBarberProfile.name.split(' ')[0];
     }
     return activeBarberFirstName;
-  }, [userRole, selectedBarber, activeBarberProfile, activeBarberFirstName]);
+  }, [isDev, userRole, selectedBarber, activeBarberProfile, activeBarberFirstName]);
 
   // All active bookings for today
   const allTodayBookings = bookings
@@ -401,18 +411,24 @@ export function AdminToday({
                 </div>
 
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    {barber?.photo_url ? (
-                      <img src={barber.photo_url} alt="" className="h-6 w-6 rounded-full object-cover" />
-                    ) : barber ? (
-                      <span className="flex h-6 w-6 items-center justify-center rounded-full gold-gradient font-display text-[0.6rem] font-bold text-black">
-                        {barber.initials}
-                      </span>
-                    ) : null}
+                  <div className="flex items-center gap-2 flex-wrap">
                     <p className="truncate text-sm font-bold text-white">{b.full_name}</p>
                     {barber && (
-                      <span className="text-[0.65rem] text-zinc-400 bg-zinc-800/60 px-1.5 py-0.5 rounded">
-                        {barber.name}
+                      <span className="inline-flex items-center gap-1.5 rounded-md bg-white/5 px-2 py-0.5 text-xs font-medium text-zinc-300 border border-white/5">
+                        <span className="text-zinc-400 font-normal">Con</span>
+                        {barber.photo_url ? (
+                          <img src={barber.photo_url} alt="" className="h-4 w-4 rounded-full object-cover shrink-0" />
+                        ) : (
+                          <span className="flex h-4 w-4 items-center justify-center rounded-full gold-gradient font-display text-[0.45rem] font-bold text-black shrink-0">
+                            {barber.initials}
+                          </span>
+                        )}
+                        <span className="font-semibold text-zinc-200">{barber.name}</span>
+                      </span>
+                    )}
+                    {!b.user_id && (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-blue-500/15 px-2 py-0.5 text-[0.65rem] font-semibold text-blue-400 border border-blue-500/20">
+                        <CalendarPlus className="h-2.5 w-2.5" /> Manual
                       </span>
                     )}
                   </div>
@@ -505,8 +521,28 @@ export function AdminToday({
                       <span className="ml-0.5 text-[0.6rem] lowercase text-zinc-500">h</span>
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="truncate text-xs font-medium text-zinc-300">{b.full_name}</p>
-                      <p className="truncate text-[0.7rem] text-zinc-500">{b.service} {barber ? `· ${barber.name}` : ''}</p>
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <p className="truncate text-xs font-medium text-zinc-300">{b.full_name}</p>
+                        {barber && (
+                          <span className="inline-flex items-center gap-1 text-[0.68rem] text-zinc-400">
+                            <span className="text-zinc-500 font-normal">Con</span>
+                            {barber.photo_url ? (
+                              <img src={barber.photo_url} alt="" className="h-3.5 w-3.5 rounded-full object-cover shrink-0" />
+                            ) : (
+                              <span className="flex h-3.5 w-3.5 items-center justify-center rounded-full gold-gradient font-display text-[0.45rem] font-bold text-black shrink-0">
+                                {barber.initials}
+                              </span>
+                            )}
+                            <span className="font-medium text-zinc-300">{barber.name}</span>
+                          </span>
+                        )}
+                        {!b.user_id && (
+                          <span className="inline-flex items-center gap-0.5 rounded-full bg-blue-500/15 px-1.5 py-0.2 text-[0.6rem] font-semibold text-blue-400 border border-blue-500/20">
+                            <CalendarPlus className="h-2 w-2" /> Manual
+                          </span>
+                        )}
+                      </div>
+                      <p className="truncate text-[0.7rem] text-zinc-500">{b.service}</p>
                     </div>
                     <div className="flex items-center gap-1 shrink-0">
                       {b.phone && (

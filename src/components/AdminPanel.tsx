@@ -44,6 +44,7 @@ import {
 import { InstallAppButton } from '@/components/InstallAppButton';
 import { setActivePwaContext } from '@/lib/pwaContext';
 import { toISO, isBlockExpired } from '@/lib/schedule';
+import { isDeveloper, getDeveloperProfile } from '@/lib/auth';
 
 interface AdminPanelProps {
   userRole: UserRole;
@@ -363,7 +364,12 @@ export function AdminPanel({ userRole, onSignOut, onGoPublic }: AdminPanelProps)
   const panelTitle = isAdmin ? 'Panel de Administración' : 'Panel de Barbero';
 
   // Resolved barber profile for the bottom profile button
+  const isDev = isDeveloper(userRole.email) || userRole.barber_id === 'franciscojavier';
+
   const currentProfileBarber = useMemo(() => {
+    if (isDev) {
+      return getDeveloperProfile();
+    }
     if (activeBarber) return activeBarber;
     if (userRole.barber_id) {
       const found = barbers.find((b) => b.id === userRole.barber_id);
@@ -373,11 +379,21 @@ export function AdminPanel({ userRole, onSignOut, onGoPublic }: AdminPanelProps)
     const adrian = barbers.find((b) => b.id === 'adrian');
     if (adrian) return adrian;
     return barbers[0] || null;
-  }, [activeBarber, userRole.barber_id, barbers]);
+  }, [isDev, activeBarber, userRole.barber_id, barbers]);
 
-  const profileDisplayName = currentProfileBarber?.name || (isAdmin ? 'Adrián Millán' : 'Mi Perfil');
-  const profileRoleSubtitle = isAdmin ? 'Administrador' : currentProfileBarber?.role || 'Barbero';
-  const profileFilterSubtitle = isAdmin
+  const profileDisplayName = isDev
+    ? 'Francisco Javier'
+    : currentProfileBarber?.name || (isAdmin ? 'Adrián Millán' : 'Mi Perfil');
+
+  const profileRoleSubtitle = isDev
+    ? 'Desarrollador'
+    : isAdmin ? 'Administrador' : currentProfileBarber?.role || 'Barbero';
+
+  const profileFilterSubtitle = isDev
+    ? selectedBarber === 'all'
+      ? 'Desarrollador · Todo el salón'
+      : `Vista: ${activeBarber?.name || 'Barbero'}`
+    : isAdmin
     ? selectedBarber === 'all'
       ? 'Administrador · Todo el salón'
       : `Vista: ${activeBarber?.name || 'Barbero'}`

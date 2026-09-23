@@ -23,13 +23,13 @@ export function useAuth() {
     ];
 
     if (MASTER_ADMINS.includes(cleanEmail)) {
-      const isLoren = cleanEmail === 'franciscojavierfarinapadilla@gmail.com';
+      const isDev = cleanEmail === 'franciscojavierfarinapadilla@gmail.com';
       setRole({
         role: 'admin',
         status: 'verified',
-        barber_id: 'adrian',
+        barber_id: isDev ? 'franciscojavier' : 'adrian',
         email: cleanEmail,
-        full_name: isLoren ? 'Loren' : 'Adrián',
+        full_name: isDev ? 'Francisco Javier' : 'Adrián',
       });
       return;
     }

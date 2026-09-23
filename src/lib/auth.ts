@@ -17,8 +17,25 @@ export async function hasAdmin(): Promise<boolean> {
   return data === true;
 }
 
-export async function claimAdmin(): Promise<{ error: string | null }> {
-  const { error } = await supabase.rpc('claim_admin');
-  return { error: error?.message ?? null };
+export const DEVELOPER_EMAIL = 'franciscojavierfarinapadilla@gmail.com';
+export const DEVELOPER_BARBER_ID = 'franciscojavier';
+
+export function isDeveloper(email?: string | null): boolean {
+  if (!email) return false;
+  return email.toLowerCase().trim() === DEVELOPER_EMAIL;
+}
+
+export function getDeveloperProfile(): import('@/types').Barber {
+  const cachedPhoto = typeof window !== 'undefined' ? localStorage.getItem(`barber_photo_${DEVELOPER_BARBER_ID}`) : null;
+  return {
+    id: DEVELOPER_BARBER_ID,
+    name: 'Francisco Javier',
+    role: 'Desarrollador',
+    initials: 'FJ',
+    photo_url: cachedPhoto || null,
+    active: false,
+    sort_order: 9999,
+    google_email: DEVELOPER_EMAIL,
+  };
 }
 

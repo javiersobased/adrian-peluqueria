@@ -3,6 +3,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const APP_ID = Deno.env.get("ONESIGNAL_APP_ID");
 const API_KEY = Deno.env.get("ONESIGNAL_REST_API_KEY");
+const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -63,6 +64,28 @@ Deno.serve(async (req: Request) => {
           content: `¡Te esperamos el ${cita.booking_date} a las ${horaCita}h!`,
           url: "https://www.adrianmillan.es/#mis-citas",
         };
+      }
+    }
+
+    // Database idempotency lock to prevent duplicate push notifications
+    if (body.idempotency_key && supabaseUrl && supabaseKey) {
+      try {
+        const adminDb = createClient(supabaseUrl, supabaseKey);
+        const { data: acquired } = await adminDb.rpc('acquire_notification_idempotency', {
+          p_key: String(body.idempotency_key),
+          p_booking_id: body.record?.id || body.booking_id || null,
+          p_type: 'push',
+          p_recipient: body.push?.userIds?.join(',') || 'push_target',
+        });
+        if (acquired === false) {
+          console.log(`[Idempotency] Duplicate push notification suppressed: ${body.idempotency_key}`);
+          return new Response(JSON.stringify({ success: true, duplicate: true, message: "Duplicate push suppressed by idempotency lock" }), {
+            status: 200,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+      } catch (idempErr) {
+        console.warn('[Idempotency] Warning acquiring push idempotency:', idempErr);
       }
     }
 
@@ -129,6 +152,56 @@ Deno.serve(async (req: Request) => {
         results.push = await osRes.json();
       } catch (err: any) {
         results.pushError = err.message;
+      }
+    }
+
+    // 3. Email Dispatch via Resend (si está configurada la API key)
+    if (body.email && body.email.to && RESEND_API_KEY) {
+      const cleanTo = String(body.email.to).trim().toLowerCase();
+      const callerEmail = user.email?.trim().toLowerCase();
+
+      // Comprobar que no sea un relay a terceros no autorizados
+      let emailAllowed = (callerEmail && cleanTo === callerEmail);
+      if (!emailAllowed) {
+        const adminSupabase = createClient(supabaseUrl, supabaseKey);
+        const { data: staffCaller } = await adminSupabase
+          .from("staff")
+          .select("role, status")
+          .eq("email", callerEmail)
+          .eq("status", "verified")
+          .maybeSingle();
+        if (staffCaller) {
+          emailAllowed = true;
+        } else {
+          const { data: targetBarber } = await adminSupabase
+            .from("barbers")
+            .select("id")
+            .eq("google_email", cleanTo)
+            .maybeSingle();
+          if (targetBarber) emailAllowed = true;
+        }
+      }
+
+      if (emailAllowed) {
+        try {
+          const mailRes = await fetch("https://api.resend.com/emails", {
+            method: "POST",
+            headers: {
+              "Authorization": `Bearer ${RESEND_API_KEY}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              from: Deno.env.get("RESEND_FROM_EMAIL") || "Peluquería Adrián Millán <citas@adrianmillan.es>",
+              reply_to: Deno.env.get("RESEND_REPLY_TO") || "adrian.millan.peguero@hotmail.com",
+              to: body.email.to,
+              subject: body.email.subject,
+              html: body.email.html,
+            }),
+          });
+          results.email = await mailRes.json();
+        } catch (err: any) {
+          results.emailError = err.message;
+        }
       }
     }
 

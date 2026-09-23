@@ -44,8 +44,8 @@ export function ServiceStep({ onBack, onSelect }: ServiceStepProps) {
                     style={{ animationDelay: `${i * 0.05}s` }}
                     className="group flex w-full items-center gap-4 rounded-3xl glass-card p-4 text-left transition-all duration-300 hover:border-gold/30 hover:bg-zinc-850/80 active:scale-[0.98] animate-fade-up shadow-sm"
                   >
-                    <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-gold/20 via-gold/5 to-black/40 border border-gold/20 text-gold shadow-md shadow-gold/5 transition-all duration-300 group-hover:border-gold/40 group-hover:bg-gold/15">
-                      <BarberServiceIcon name={service.icon} serviceName={service.name} className="h-6 w-6 text-gold" />
+                    <div className="h-12 w-12 sm:h-13 sm:w-13 shrink-0 rounded-2xl overflow-hidden border border-gold/30 shadow-md shadow-black/50 transition-all duration-300 group-hover:border-gold/60 group-hover:scale-105">
+                      <BarberServiceIcon name={service.icon} serviceName={service.name} className="h-full w-full object-cover" />
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="font-display text-sm font-bold leading-tight text-white">{service.name}</p>

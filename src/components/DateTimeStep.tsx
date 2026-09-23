@@ -846,8 +846,8 @@ export function DateTimeStep({ barber, service, onBack, onContinue }: DateTimeSt
                 {/* Fila superior: Servicio, Precio y Rango Horario */}
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex items-center gap-3 min-w-0">
-                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-gold/20 via-gold/5 to-black/40 border border-gold/20 text-gold shadow-sm">
-                      <BarberServiceIcon name={currentServiceObj?.icon} serviceName={currentServiceObj?.name} className="h-5 w-5 text-gold" />
+                    <div className="h-9 w-9 shrink-0 rounded-xl overflow-hidden border border-gold/30 shadow-md shadow-black/50">
+                      <BarberServiceIcon name={currentServiceObj?.icon} serviceName={currentServiceObj?.name} className="h-full w-full object-cover" />
                     </div>
                     <div className="min-w-0">
                       <p className="font-display text-sm sm:text-base font-bold text-white truncate">

@@ -95,9 +95,9 @@ export function AdminServices() {
                 !s.active ? 'opacity-50' : ''
               }`}
             >
-              {/* Luxury Vector Icon Badge */}
-              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-gold/20 via-gold/5 to-black/40 border border-gold/25 text-gold shadow-md shadow-gold/5">
-                <BarberServiceIcon name={s.icon} serviceName={s.name} className="h-6 w-6 text-gold" />
+              {/* Luxury Framed Icon Badge */}
+              <div className="h-12 w-12 shrink-0 rounded-2xl overflow-hidden border border-gold/30 shadow-md shadow-black/50">
+                <BarberServiceIcon name={s.icon} serviceName={s.name} className="h-full w-full object-cover" />
               </div>
 
               <div className="flex-1 min-w-0">
@@ -327,17 +327,17 @@ function ServiceForm({
         <div className="flex items-center justify-between">
           <div>
             <p className="text-xs font-bold text-white tracking-tight">Galería de Iconos del Servicio</p>
-            <p className="text-[0.7rem] text-zinc-400">Iconografía vectorial exclusiva adaptada a barbería clásica y moderna</p>
+            <p className="text-[0.7rem] text-zinc-400">Iconos de lujo enmarcados con relieve dorado 3D</p>
           </div>
           <span className="text-[0.65rem] font-bold text-gold uppercase tracking-wider bg-gold/10 border border-gold/20 px-2 py-0.5 rounded-full">
-            12 Diseños
+            9 Diseños
           </span>
         </div>
 
         {/* Selected Icon Spotlight Banner */}
         <div className="flex items-center gap-3.5 rounded-2xl bg-gradient-to-r from-gold/15 via-gold/5 to-white/[0.02] border border-gold/30 p-3 shadow-md">
-          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl gold-gradient text-black shadow-md shadow-gold/20">
-            <BarberServiceIcon name={selectedIconMeta.id} className="h-6 w-6 text-black" />
+          <div className="h-14 w-14 shrink-0 rounded-2xl overflow-hidden border border-gold/40 shadow-md shadow-gold/20">
+            <BarberServiceIcon name={selectedIconMeta.id} className="h-full w-full object-cover" />
           </div>
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2">
@@ -374,7 +374,7 @@ function ServiceForm({
         </div>
 
         {/* Icon Grid */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 max-h-56 overflow-y-auto pr-1 no-scrollbar">
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 max-h-64 overflow-y-auto pr-1 no-scrollbar">
           {filteredIcons.map((opt) => {
             const isSelected = icon === opt.id;
             return (
@@ -382,29 +382,29 @@ function ServiceForm({
                 key={opt.id}
                 type="button"
                 onClick={() => setIcon(opt.id)}
-                className={`group flex items-center gap-2.5 rounded-xl p-2 text-left transition-all duration-150 ${
+                className={`group flex items-center gap-2.5 rounded-2xl p-2 text-left transition-all duration-150 ${
                   isSelected
-                    ? 'bg-gradient-to-r from-gold/25 via-gold/15 to-transparent border border-gold text-white shadow-sm ring-1 ring-gold/40'
+                    ? 'bg-gold/20 border border-gold text-white shadow-md ring-1 ring-gold/40'
                     : 'glass-card border border-white/5 text-zinc-300 hover:border-gold/30 hover:text-white hover:bg-white/[0.04]'
                 }`}
               >
                 <div
-                  className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl transition-all ${
+                  className={`h-11 w-11 shrink-0 rounded-xl overflow-hidden transition-all ${
                     isSelected
-                      ? 'gold-gradient text-black shadow-sm'
-                      : 'bg-gold/10 text-gold group-hover:bg-gold/15'
+                      ? 'border-2 border-gold shadow-md shadow-gold/30 scale-105'
+                      : 'border border-white/10 opacity-80 group-hover:opacity-100 group-hover:border-gold/30'
                   }`}
                 >
-                  <BarberServiceIcon name={opt.id} className="h-5 w-5" />
+                  <BarberServiceIcon name={opt.id} className="h-full w-full object-cover" />
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className="text-[0.7rem] font-bold leading-tight truncate">{opt.label}</p>
-                  <p className="text-[0.6rem] text-zinc-500 truncate leading-tight mt-0.5">
+                  <p className="text-[0.72rem] font-bold leading-tight truncate">{opt.label}</p>
+                  <p className="text-[0.6rem] text-zinc-400 truncate leading-tight mt-0.5">
                     {opt.category === 'corte'
                       ? 'Corte'
                       : opt.category === 'barba'
                       ? 'Barba'
-                      : 'Especial'}
+                      : 'Tratamiento'}
                   </p>
                 </div>
               </button>

@@ -117,6 +117,10 @@ export function AdminAgenda({ bookings, loading, onRefresh }: AdminAgendaProps) 
     if (!confirm('¿Cancelar esta cita?')) return;
     try {
       const target = bookings.find((b) => b.id === id) || (selectedBooking?.id === id ? selectedBooking : null);
+      if (target?.status === 'cancelled') {
+        notify.info('Cita ya cancelada', 'Esta cita ya se encuentra cancelada');
+        return;
+      }
       const { error } = await supabase.from('bookings').update({ status: 'cancelled' }).eq('id', id);
       if (error) throw error;
       notify.success('Cita cancelada', 'La cita fue marcada como cancelada');
@@ -124,8 +128,8 @@ export function AdminAgenda({ bookings, loading, onRefresh }: AdminAgendaProps) 
         setSelectedBooking((prev) => (prev ? { ...prev, status: 'cancelled' } : null));
       }
       if (target) {
-        const targetBarber = barbers.find((b) => b.id === target.barber);
-        notifyBookingCancelled(target, targetBarber).catch(console.error);
+        const targetBarber = barbers.find((b) => b.id === target.barber) || getBarber(target.barber);
+        await notifyBookingCancelled({ ...target, status: 'cancelled' }, targetBarber).catch(console.error);
       }
       onRefresh();
     } catch (err: any) {
@@ -150,11 +154,17 @@ export function AdminAgenda({ bookings, loading, onRefresh }: AdminAgendaProps) 
   const handlePermanentDelete = async (id: string) => {
     const target = bookings.find((b) => b.id === id) || (selectedBooking?.id === id ? selectedBooking : null);
     const clientLabel = target ? ` de ${target.full_name} (${target.email || target.phone})` : '';
-    if (!confirm(`¿Eliminar por completo la cita${clientLabel} de la base de datos?\n\nEsta acción es irreversible y enviará la notificación y correo de cancelación al cliente.`)) return;
+    const isAlreadyCancelled = target?.status === 'cancelled';
+    const confirmMsg = isAlreadyCancelled
+      ? `¿Eliminar por completo la cita${clientLabel} de la base de datos?\n\nEsta acción es irreversible.`
+      : `¿Eliminar por completo la cita${clientLabel} de la base de datos?\n\nEsta acción es irreversible y enviará la notificación y correo de cancelación al cliente.`;
+
+    if (!confirm(confirmMsg)) return;
     try {
-      if (target) {
+      // Solo notificar cancelación si la cita NO estaba previamente cancelada
+      if (target && !isAlreadyCancelled) {
         const targetBarber = barbers.find((b) => b.id === target.barber) || getBarber(target.barber);
-        await notifyBookingCancelled(target, targetBarber, 'Cita eliminada de la agenda por la administración').catch((err) => {
+        await notifyBookingCancelled({ ...target, status: 'cancelled' }, targetBarber, 'Cita eliminada de la agenda por la administración').catch((err) => {
           console.warn('[handlePermanentDelete] Error notificando al cliente:', err);
         });
       }
@@ -162,9 +172,7 @@ export function AdminAgenda({ bookings, loading, onRefresh }: AdminAgendaProps) 
       if (error) throw error;
       notify.success(
         'Cita eliminada definitivamente',
-        target?.email
-          ? `El registro se ha borrado y se notificó por correo a ${target.email}`
-          : 'El registro se ha borrado y se notificó al cliente'
+        'El registro se ha borrado correctamente de la base de datos'
       );
       if (selectedBooking?.id === id) {
         setSelectedBooking(null);

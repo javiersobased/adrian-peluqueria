@@ -30,6 +30,10 @@ interface RequestBody {
   html?: string | null;
 }
 
+// In-memory sliding window cache to prevent duplicate email dispatches (60 second window)
+const recentDispatches = new Map<string, number>();
+const SERVER_DEDUP_WINDOW_MS = 60000;
+
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { status: 200, headers: corsHeaders });
@@ -152,6 +156,24 @@ Deno.serve(async (req: Request) => {
           status: 403,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
+      }
+
+      // Server-side sliding deduplication to guarantee zero duplicate emails
+      const dedupKey = `${cleanTo}::${subject.trim()}`;
+      const now = Date.now();
+      const lastSent = recentDispatches.get(dedupKey);
+
+      if (lastSent && now - lastSent < SERVER_DEDUP_WINDOW_MS) {
+        console.warn(`[send-booking-email] Duplicate email suppressed on server (${now - lastSent}ms ago):`, dedupKey);
+        return new Response(JSON.stringify({ success: true, dedup: true }), {
+          status: 200,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      recentDispatches.set(dedupKey, now);
+      for (const [k, ts] of recentDispatches.entries()) {
+        if (now - ts > 120000) recentDispatches.delete(k);
       }
 
       const ok = await sendResendEmail(to, subject, html);

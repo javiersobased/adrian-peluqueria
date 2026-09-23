@@ -64,9 +64,14 @@ function isTodayWithinNextHours(
   return diffMinutes >= -30 && diffMinutes <= hoursThreshold * 60;
 }
 
-// In-memory sliding window cache to prevent duplicate email dispatches (15 second window)
+// In-memory sliding window cache to prevent duplicate email dispatches (60 second window)
 const recentEmailDispatches = new Map<string, number>();
-const EMAIL_DEDUP_WINDOW_MS = 15000;
+const EMAIL_DEDUP_WINDOW_MS = 60000;
+
+// Idempotency sets for booking actions to prevent duplicate sends across components/events
+const handledConfirmedBookings = new Set<string>();
+const handledCancelledBookings = new Set<string>();
+const handledRescheduledBookings = new Map<string, number>();
 
 /**
  * Sends a notification payload to Supabase Edge Function to dispatch push and/or email.
@@ -91,17 +96,36 @@ async function dispatchNotification(payload: {
     // 1. Send email via send-booking-email Edge Function (Resend) with strict deduplication
     if (payload.email && payload.email.to) {
       const cleanTo = payload.email.to.trim().toLowerCase();
-      const dedupKey = `${cleanTo}::${payload.email.subject.trim()}`;
+      const cleanSubject = payload.email.subject.trim();
+      const dedupKey = `${cleanTo}::${cleanSubject}`;
       const now = Date.now();
       const lastSent = recentEmailDispatches.get(dedupKey);
 
-      if (lastSent && now - lastSent < EMAIL_DEDUP_WINDOW_MS) {
-        console.warn(`[Notifications] Duplicate email dispatch suppressed within ${EMAIL_DEDUP_WINDOW_MS}ms:`, dedupKey);
+      // Check session storage to avoid re-sends across component remounts
+      let sessionBlocked = false;
+      const sessionKey = `email_dedup_${encodeURIComponent(dedupKey).slice(0, 80)}`;
+      if (typeof window !== 'undefined') {
+        try {
+          const stored = sessionStorage.getItem(sessionKey);
+          if (stored && now - Number(stored) < EMAIL_DEDUP_WINDOW_MS) {
+            sessionBlocked = true;
+          }
+        } catch {}
+      }
+
+      if ((lastSent && now - lastSent < EMAIL_DEDUP_WINDOW_MS) || sessionBlocked) {
+        console.warn(`[Notifications] Duplicate email dispatch suppressed (${dedupKey})`);
       } else {
         recentEmailDispatches.set(dedupKey, now);
+        if (typeof window !== 'undefined') {
+          try {
+            sessionStorage.setItem(sessionKey, String(now));
+          } catch {}
+        }
+
         // Clean up old entries
         for (const [k, ts] of recentEmailDispatches.entries()) {
-          if (now - ts > 60000) recentEmailDispatches.delete(k);
+          if (now - ts > 120000) recentEmailDispatches.delete(k);
         }
 
         try {
@@ -193,6 +217,23 @@ async function resolveTargetEmail(booking: SavedBooking): Promise<string | null>
  *   (Regla estricta: evitar spam de citas futuras y evitar que barberos reciban emails de confirmación de clientes)
  */
 export async function notifyBookingConfirmed(booking: SavedBooking, barber?: Barber | null) {
+  if (!booking?.id) return;
+  const bookingKey = `booking_confirmed_notif_${booking.id}`;
+  if (handledConfirmedBookings.has(booking.id)) {
+    console.log(`[Notifications] Confirmation for booking ${booking.id} already processed. Skipping duplicate.`);
+    return;
+  }
+  if (typeof window !== 'undefined') {
+    try {
+      if (sessionStorage.getItem(bookingKey)) {
+        console.log(`[Notifications] Confirmation for booking ${booking.id} already in sessionStorage. Skipping.`);
+        return;
+      }
+      sessionStorage.setItem(bookingKey, '1');
+    } catch {}
+  }
+  handledConfirmedBookings.add(booking.id);
+
   try {
     const hora = booking.booking_time.slice(0, 5);
     const clientName = booking.full_name.trim();
@@ -266,6 +307,23 @@ export async function notifyBookingCancelled(
   barber?: Barber | null,
   reason?: string
 ) {
+  if (!booking?.id) return;
+  const bookingKey = `booking_cancelled_notif_${booking.id}`;
+  if (handledCancelledBookings.has(booking.id)) {
+    console.log(`[Notifications] Cancellation for booking ${booking.id} already processed. Skipping duplicate.`);
+    return;
+  }
+  if (typeof window !== 'undefined') {
+    try {
+      if (sessionStorage.getItem(bookingKey)) {
+        console.log(`[Notifications] Cancellation for booking ${booking.id} already in sessionStorage. Skipping.`);
+        return;
+      }
+      sessionStorage.setItem(bookingKey, '1');
+    } catch {}
+  }
+  handledCancelledBookings.add(booking.id);
+
   try {
     const hora = booking.booking_time.slice(0, 5);
     const clientName = booking.full_name.trim();
@@ -335,6 +393,15 @@ export async function notifyBookingRescheduled(
   reason?: string,
   barber?: Barber | null
 ) {
+  if (!booking?.id) return;
+  const slotKey = `${booking.id}_${booking.booking_date}_${booking.booking_time}`;
+  const lastRescheduled = handledRescheduledBookings.get(slotKey);
+  const now = Date.now();
+  if (lastRescheduled && now - lastRescheduled < 30000) {
+    console.log(`[Notifications] Reschedule notification for ${slotKey} recently dispatched. Skipping.`);
+    return;
+  }
+  handledRescheduledBookings.set(slotKey, now);
   try {
     const hora = booking.booking_time.slice(0, 5);
     const clientName = booking.full_name.trim();

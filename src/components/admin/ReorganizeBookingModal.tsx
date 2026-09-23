@@ -240,8 +240,8 @@ Por ${selectedReason.toLowerCase()}, nos gustaría proponerte mover tu turno par
           .update({ status: 'cancelled' })
           .eq('id', booking.id);
         if (error) throw error;
+        await notifyBookingCancelled({ ...booking, status: 'cancelled' }, targetBarberObj);
       }
-      notifyBookingCancelled(booking, targetBarberObj);
       notify.success('Cita cancelada', 'La cita se ha marcado como cancelada.');
       onUpdated();
       onClose();

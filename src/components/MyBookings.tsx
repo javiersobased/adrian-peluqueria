@@ -74,16 +74,21 @@ export function MyBookings({ onBack, userEmail, userId, onSignOut }: MyBookingsP
   };
 
   const handleCancel = useCallback(async (id: string) => {
+    if (cancellingId === id) return;
     if (!confirm('¿Seguro que quieres cancelar esta cita?')) return;
     const target = bookings.find((b) => b.id === id);
+    if (target?.status === 'cancelled') return;
     setCancellingId(id);
-    await supabase.from('bookings').update({ status: 'cancelled' }).eq('id', id);
-    setBookings((prev) => prev.filter((b) => b.id !== id));
-    setCancellingId(null);
-    if (target) {
-      notifyBookingCancelled(target, getBarber(target.barber)).catch(console.error);
+    try {
+      await supabase.from('bookings').update({ status: 'cancelled' }).eq('id', id);
+      setBookings((prev) => prev.filter((b) => b.id !== id));
+      if (target) {
+        await notifyBookingCancelled({ ...target, status: 'cancelled' }, getBarber(target.barber)).catch(console.error);
+      }
+    } finally {
+      setCancellingId(null);
     }
-  }, [bookings, getBarber]);
+  }, [bookings, getBarber, cancellingId]);
 
   const handleRescheduleContinue = useCallback(
     async (newDate: string, newTime: string) => {

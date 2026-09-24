@@ -397,6 +397,13 @@ export function AdminPanel({ userRole, onSignOut, onGoPublic }: AdminPanelProps)
   // Francisco Javier is the super admin — hidden from public but has full control
   const isSuperAdmin = isSuperAdminEmail(userRole.email);
 
+  const totalSalonTodayCount = useMemo(() => {
+    const todayISO = toISO(new Date());
+    return bookings.filter(
+      (b) => b.booking_date === todayISO && b.status !== 'cancelled'
+    ).length;
+  }, [bookings]);
+
   const handleNav = (id: AdminTab) => {
     setTab(id);
     closeSidebar();
@@ -554,14 +561,14 @@ export function AdminPanel({ userRole, onSignOut, onGoPublic }: AdminPanelProps)
         )}
 
         {/* Scrollable Navigation Area */}
-        <div data-lenis-prevent className="flex-1 overflow-y-auto overflow-x-hidden px-2 py-2 space-y-4 no-scrollbar">
+        <div data-lenis-prevent className="flex-1 overflow-y-auto overflow-x-hidden px-2 py-2 space-y-2 scrollbar-thin scrollbar-thumb-white/10 hover:scrollbar-thumb-white/20">
           {/* Top Quick Links: Inbox & Notifications */}
-          <div className="space-y-1">
+          <div className="space-y-0.5">
             {/* Inbox (Citas de Hoy) */}
             <button
               onClick={() => handleNav('today')}
               title={isCollapsed ? `Citas de hoy (${todayCount})` : undefined}
-              className={`group flex w-full items-center gap-3 rounded-xl px-2.5 py-2 text-xs font-semibold transition-all ${
+              className={`group flex w-full items-center gap-2.5 rounded-xl px-2.5 py-1.5 text-xs font-semibold transition-all ${
                 tab === 'today'
                   ? 'bg-gold/15 text-gold border border-gold/30 shadow-sm'
                   : 'text-zinc-400 hover:bg-white/5 hover:text-zinc-200'
@@ -595,7 +602,7 @@ export function AdminPanel({ userRole, onSignOut, onGoPublic }: AdminPanelProps)
             <button
               onClick={() => handleNav('notifications')}
               title={isCollapsed ? `Notificaciones (${unreadNotifsCount})` : undefined}
-              className={`group flex w-full items-center gap-3 rounded-xl px-2.5 py-2 text-xs font-semibold transition-all ${
+              className={`group flex w-full items-center gap-2.5 rounded-xl px-2.5 py-1.5 text-xs font-semibold transition-all ${
                 tab === 'notifications'
                   ? 'bg-gold/15 text-gold border border-gold/30 shadow-sm'
                   : 'text-zinc-400 hover:bg-white/5 hover:text-zinc-200'
@@ -638,7 +645,7 @@ export function AdminPanel({ userRole, onSignOut, onGoPublic }: AdminPanelProps)
                     key={item.id}
                     onClick={() => handleNav(item.id)}
                     title={isCollapsed ? item.label : undefined}
-                    className={`flex w-full items-center gap-3 rounded-xl px-2.5 py-2 text-xs font-medium transition-all ${
+                    className={`flex w-full items-center gap-2.5 rounded-xl px-2.5 py-1.5 text-xs font-medium transition-all ${
                       active
                         ? 'bg-gold/15 text-gold font-semibold border border-gold/30'
                         : 'text-zinc-400 hover:bg-white/5 hover:text-zinc-200'
@@ -656,22 +663,20 @@ export function AdminPanel({ userRole, onSignOut, onGoPublic }: AdminPanelProps)
         {/* =========================================================================
             BOTTOM ACTIONS & UTILITIES (Directamente encima del perfil)
             ========================================================================= */}
-        <div className="shrink-0 p-2 space-y-2 border-t border-white/5 bg-zinc-950/40">
-
-          {/* Secondary Utilities List */}
-          <div className="pt-1 border-t border-white/5 space-y-0.5">
+        <div className="shrink-0 p-1.5 border-t border-white/5 bg-zinc-950/40">
+          <div className="space-y-0.5">
             {/* Dark mode / Light mode toggle */}
             <button
               onClick={toggleTheme}
               title={isCollapsed ? (isLightMode ? 'Modo Oscuro' : 'Modo Claro') : undefined}
-              className={`flex w-full items-center gap-3 rounded-xl px-2.5 py-1.5 text-xs text-zinc-400 hover:bg-white/5 hover:text-zinc-200 transition-colors ${
+              className={`flex w-full items-center gap-2.5 rounded-lg px-2 py-1 text-[0.72rem] text-zinc-400 hover:bg-white/5 hover:text-zinc-200 transition-colors ${
                 isCollapsed ? 'justify-center px-0' : ''
               }`}
             >
               {isLightMode ? (
-                <Moon className="h-4 w-4 shrink-0" />
+                <Moon className="h-3.5 w-3.5 shrink-0" />
               ) : (
-                <Sun className="h-4 w-4 shrink-0" />
+                <Sun className="h-3.5 w-3.5 shrink-0" />
               )}
               {!isCollapsed && (
                 <span className="flex-1 text-left">
@@ -685,11 +690,11 @@ export function AdminPanel({ userRole, onSignOut, onGoPublic }: AdminPanelProps)
               onClick={handleManualRefresh}
               disabled={refreshing}
               title={isCollapsed ? 'Actualizar agenda' : undefined}
-              className={`flex w-full items-center gap-3 rounded-xl px-2.5 py-1.5 text-xs text-zinc-400 hover:bg-white/5 hover:text-zinc-200 transition-colors ${
+              className={`flex w-full items-center gap-2.5 rounded-lg px-2 py-1 text-[0.72rem] text-zinc-400 hover:bg-white/5 hover:text-zinc-200 transition-colors ${
                 isCollapsed ? 'justify-center px-0' : ''
               }`}
             >
-              <RotateCw className={`h-4 w-4 shrink-0 ${refreshing ? 'animate-spin text-gold' : ''}`} />
+              <RotateCw className={`h-3.5 w-3.5 shrink-0 ${refreshing ? 'animate-spin text-gold' : ''}`} />
               {!isCollapsed && <span className="flex-1 text-left">Actualizar</span>}
             </button>
 
@@ -697,11 +702,11 @@ export function AdminPanel({ userRole, onSignOut, onGoPublic }: AdminPanelProps)
             <button
               onClick={onGoPublic}
               title={isCollapsed ? 'Volver a la web' : undefined}
-              className={`flex w-full items-center gap-3 rounded-xl px-2.5 py-1.5 text-xs text-zinc-400 hover:bg-white/5 hover:text-gold transition-colors ${
+              className={`flex w-full items-center gap-2.5 rounded-lg px-2 py-1 text-[0.72rem] text-zinc-400 hover:bg-white/5 hover:text-gold transition-colors ${
                 isCollapsed ? 'justify-center px-0' : ''
               }`}
             >
-              <Globe className="h-4 w-4 shrink-0" />
+              <Globe className="h-3.5 w-3.5 shrink-0" />
               {!isCollapsed && <span className="flex-1 text-left">Ver web pública</span>}
             </button>
           </div>
@@ -1263,41 +1268,96 @@ export function AdminPanel({ userRole, onSignOut, onGoPublic }: AdminPanelProps)
         </header>
 
         {/* Desktop Top Header Bar */}
-        <header className="sticky top-0 z-20 hidden items-center justify-between border-b border-white/5 bg-zinc-950/60 px-6 py-3 backdrop-blur-xl md:flex md:shrink-0">
-          <div>
-            <p className="text-[0.6rem] uppercase tracking-[0.2em] text-gold">{panelTitle}</p>
-            <h1 className="font-display text-2xl font-bold text-white">
-              {tab === 'today'
-                ? 'Citas de Hoy'
-                : tab === 'notifications'
-                ? 'Centro de Notificaciones'
-                : tab === 'profile'
-                ? 'Mi Perfil de Barbero'
-                : menuItems.find((n) => n.id === tab)?.label}
-            </h1>
+        <header className="sticky top-0 z-20 hidden items-center justify-between border-b border-white/5 bg-zinc-950/60 px-6 py-2.5 backdrop-blur-xl md:flex md:shrink-0 gap-4">
+          <div className="flex items-center gap-4 lg:gap-6 min-w-0">
+            <div className="shrink-0">
+              <p className="text-[0.6rem] uppercase tracking-[0.2em] text-gold">{panelTitle}</p>
+              <h1 className="font-display text-xl lg:text-2xl font-bold text-white whitespace-nowrap">
+                {tab === 'today'
+                  ? 'Citas de Hoy'
+                  : tab === 'notifications'
+                  ? 'Centro de Notificaciones'
+                  : tab === 'profile'
+                  ? 'Mi Perfil de Barbero'
+                  : menuItems.find((n) => n.id === tab)?.label}
+              </h1>
+            </div>
+
+            {/* In "Citas de hoy": Barber Filter Bar placed immediately to the right of "Citas de hoy" title */}
+            {tab === 'today' && barbers.length > 0 && (
+              <div className="flex items-center gap-1.5 p-1 rounded-2xl bg-zinc-900/90 border border-white/5 shadow-inner overflow-x-auto no-scrollbar">
+                <button
+                  type="button"
+                  onClick={() => handleSelectBarber('all')}
+                  className={`inline-flex items-center gap-1.5 rounded-xl px-2.5 py-1 text-xs font-semibold transition-all shrink-0 ${
+                    selectedBarber === 'all'
+                      ? 'bg-gold/20 text-gold border border-gold/40 shadow-sm'
+                      : 'text-zinc-400 hover:text-white hover:bg-white/5 border border-transparent'
+                  }`}
+                >
+                  <Users className="h-3.5 w-3.5" />
+                  <span>Todo el salón</span>
+                  <span className="rounded-full bg-black/40 px-1.5 py-0.2 text-[0.65rem] font-bold">
+                    {totalSalonTodayCount}
+                  </span>
+                </button>
+
+                {barbers.map((b) => {
+                  const todayISO = toISO(new Date());
+                  const count = bookings.filter(
+                    (x) => x.booking_date === todayISO && x.status !== 'cancelled' && x.barber === b.id
+                  ).length;
+                  const isSelected = selectedBarber === b.id;
+                  return (
+                    <button
+                      key={b.id}
+                      type="button"
+                      onClick={() => handleSelectBarber(b.id)}
+                      className={`inline-flex items-center gap-1.5 rounded-xl px-2.5 py-1 text-xs font-semibold transition-all shrink-0 ${
+                        isSelected
+                          ? 'bg-gold/20 text-gold border border-gold/40 shadow-sm'
+                          : 'text-zinc-400 hover:text-white hover:bg-white/5 border border-transparent'
+                      }`}
+                    >
+                      {b.photo_url ? (
+                        <img src={b.photo_url} alt="" className="h-3.5 w-3.5 rounded-full object-cover shrink-0" />
+                      ) : (
+                        <Scissors className="h-3 w-3 shrink-0" />
+                      )}
+                      <span>{b.name}</span>
+                      <span className="rounded-full bg-black/40 px-1.5 py-0.2 text-[0.65rem] font-bold">
+                        {count}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
           </div>
 
-          <div className="flex items-center gap-3">
-            {/* Active barber indicator badge */}
-            {activeBarber ? (
-              <div className="flex items-center gap-2.5 rounded-full glass-card px-3 py-1.5">
-                {activeBarber.photo_url ? (
-                  <img
-                    src={activeBarber.photo_url}
-                    alt=""
-                    className="h-6 w-6 rounded-full object-cover ring-1 ring-gold/30"
-                  />
-                ) : (
-                  <div className="flex h-6 w-6 items-center justify-center rounded-full gold-gradient font-display text-[0.6rem] font-bold text-black">
-                    {activeBarber.initials}
-                  </div>
-                )}
-                <span className="text-xs font-semibold text-zinc-300">{activeBarber.name}</span>
-              </div>
-            ) : (
-              <span className="rounded-full glass-card px-3 py-1.5 text-xs font-medium text-zinc-400">
-                Todos los barberos
-              </span>
+          <div className="flex items-center gap-3 shrink-0">
+            {/* Active barber indicator badge - hide when tab === 'today' because the filter bar is already on top! */}
+            {tab !== 'today' && (
+              activeBarber ? (
+                <div className="flex items-center gap-2.5 rounded-full glass-card px-3 py-1.5">
+                  {activeBarber.photo_url ? (
+                    <img
+                      src={activeBarber.photo_url}
+                      alt=""
+                      className="h-6 w-6 rounded-full object-cover ring-1 ring-gold/30"
+                    />
+                  ) : (
+                    <div className="flex h-6 w-6 items-center justify-center rounded-full gold-gradient font-display text-[0.6rem] font-bold text-black">
+                      {activeBarber.initials}
+                    </div>
+                  )}
+                  <span className="text-xs font-semibold text-zinc-300">{activeBarber.name}</span>
+                </div>
+              ) : (
+                <span className="rounded-full glass-card px-3 py-1.5 text-xs font-medium text-zinc-400">
+                  Todos los barberos
+                </span>
+              )
             )}
 
             <InstallAppButton appName="Admin Adrián Millán" compact />
@@ -1326,8 +1386,8 @@ export function AdminPanel({ userRole, onSignOut, onGoPublic }: AdminPanelProps)
         </header>
 
         {/* Dynamic Tab Body Container */}
-        <div className="w-full min-w-0 px-2.5 py-3 sm:px-4 md:px-6 md:py-4 md:flex-1 md:min-h-0 flex flex-col md:overflow-hidden pb-6 md:pb-6">
-          <div className="admin-embed w-full min-w-0 flex-1 min-h-0 flex flex-col rounded-2xl p-3 sm:rounded-3xl sm:p-4 md:p-5 overflow-hidden shadow-2xl relative">
+        <div className="w-full min-w-0 px-2 sm:px-4 md:px-5 md:py-3 md:flex-1 md:min-h-0 flex flex-col md:overflow-hidden pb-3 md:pb-4">
+          <div className="admin-embed w-full min-w-0 flex-1 min-h-0 flex flex-col rounded-2xl p-3 sm:rounded-3xl sm:p-4 md:p-5 overflow-y-auto overflow-x-hidden scrollbar-thin scrollbar-thumb-white/10 hover:scrollbar-thumb-white/20 shadow-2xl relative">
             {tab === 'today' && (
               <AdminToday
                 bookings={bookings}

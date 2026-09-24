@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react';
 import { ChevronLeft, ChevronRight, X, CalendarDays } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
 import { toISO, MONTH_NAMES } from '@/lib/schedule';
+import { ModalPortal } from '@/components/ui/ModalPortal';
 
 // Availability indicator dot
 type AvailStatus = 'green' | 'yellow' | 'red' | 'none' | 'loading' | 'unknown';
@@ -123,7 +124,8 @@ export function CalendarPickerModal({
   };
 
   return (
-    <AnimatePresence>
+    <ModalPortal>
+      <AnimatePresence>
       {/* Backdrop */}
       <motion.div
         key="cal-backdrop"
@@ -264,6 +266,7 @@ export function CalendarPickerModal({
         </div>
       </motion.div>
     </AnimatePresence>
+    </ModalPortal>
   );
 }
 

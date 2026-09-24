@@ -5,6 +5,7 @@ import { LAYOUT_KEYS, type BusinessPublicConfig, type LayoutKey } from '@/lib/bu
 import { getThemeOverrides } from '@/lib/businessContent';
 import { applyBusinessHead } from '@/lib/documentHead';
 import { SAAS_MODE_ENABLED } from '@/lib/featureFlags';
+import { setSlotIntervalMinutes } from '@/lib/schedule';
 import { setCurrentBusinessId } from '@/lib/tenant';
 
 type State =
@@ -68,6 +69,7 @@ export function BusinessProvider({ children }: { children: ReactNode }) {
 
   if (business) {
     setCurrentBusinessId(business.id);
+    setSlotIntervalMinutes(business.slotIntervalMinutes);
     return <BusinessContext.Provider value={business}>{children}</BusinessContext.Provider>;
   }
 

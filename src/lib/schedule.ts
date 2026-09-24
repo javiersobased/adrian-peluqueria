@@ -1,6 +1,16 @@
 import type { BarberSchedule, BarberBlock, BarberVacation } from '@/types';
 
-export const SLOT_INTERVAL_MINUTES = 10;
+// Intervalo entre horas de reserva del negocio activo (businesses.slot_interval_minutes).
+// BusinessProvider lo fija antes de renderizar la app.
+let slotIntervalMinutes = 10;
+
+export function setSlotIntervalMinutes(minutes: number): void {
+  slotIntervalMinutes = minutes;
+}
+
+export function getSlotIntervalMinutes(): number {
+  return slotIntervalMinutes;
+}
 
 export function timeToMinutes(time: string): number {
   const [h, m] = time.split(':').map(Number);
@@ -35,7 +45,7 @@ export function generateSlotsForShift(start: string | null, end: string | null):
   const endMin = timeToMinutes(end);
   if (endMin <= startMin) return [];
   const slots: string[] = [];
-  for (let t = startMin; t < endMin; t += SLOT_INTERVAL_MINUTES) {
+  for (let t = startMin; t < endMin; t += slotIntervalMinutes) {
     slots.push(minutesToTime(t));
   }
   return slots;
@@ -220,21 +230,15 @@ export const MONTH_SHORT = [
   'jul', 'ago', 'sep', 'oct', 'nov', 'dic',
 ];
 
-export const ALL_TIME_SLOTS: string[] = (() => {
-  const slots: string[] = [];
-  for (let t = 9 * 60 + 30; t < 13 * 60 + 30; t += SLOT_INTERVAL_MINUTES) slots.push(minutesToTime(t));
-  for (let t = 16 * 60 + 30; t < 20 * 60 + 30; t += SLOT_INTERVAL_MINUTES) slots.push(minutesToTime(t));
-  return slots;
-})();
+export function getBlockStartSlots(): string[] {
+  return [...generateSlotsForShift('09:30', '13:30'), ...generateSlotsForShift('16:30', '20:30')];
+}
 
-export const BLOCK_START_SLOTS: string[] = ALL_TIME_SLOTS;
-
-export const BLOCK_END_SLOTS: string[] = (() => {
-  const slots: string[] = [];
-  for (let t = 9 * 60 + 30 + SLOT_INTERVAL_MINUTES; t <= 13 * 60 + 30; t += SLOT_INTERVAL_MINUTES) slots.push(minutesToTime(t));
-  for (let t = 16 * 60 + 30 + SLOT_INTERVAL_MINUTES; t <= 20 * 60 + 30; t += SLOT_INTERVAL_MINUTES) slots.push(minutesToTime(t));
-  return slots;
-})();
+export function getBlockEndSlots(): string[] {
+  const shiftEnds = (start: string, end: string) =>
+    generateSlotsForShift(start, end).map((s) => minutesToTime(timeToMinutes(s) + slotIntervalMinutes));
+  return [...shiftEnds('09:30', '13:30'), ...shiftEnds('16:30', '20:30')];
+}
 
 /**
  * Checks if a barber block has expired (passed its end date or end time).

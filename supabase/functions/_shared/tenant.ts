@@ -146,9 +146,7 @@ export async function resolveBusiness(
 
   if (requested) return { businessId: requested, booking: null };
 
-  const { data: legacyId } = await db.rpc("legacy_business_id");
-  if (typeof legacyId !== "string") return { error: "Business could not be resolved", status: 400 };
-  return { businessId: legacyId, booking: null };
+  return { error: "Business could not be resolved", status: 400 };
 }
 
 export interface StaffMembership {

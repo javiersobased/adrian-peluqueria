@@ -20,7 +20,7 @@ import {
   Ban,
   Sparkles,
 } from 'lucide-react';
-import { BLOCK_START_SLOTS, BLOCK_END_SLOTS, toISO, isBlockExpired, isVacationExpired, timeToMinutes, WEEKDAY_SHORT, MONTH_SHORT } from '@/lib/schedule';
+import { getBlockStartSlots, getBlockEndSlots, toISO, isBlockExpired, isVacationExpired, timeToMinutes, WEEKDAY_SHORT, MONTH_SHORT } from '@/lib/schedule';
 import { notify } from '@/lib/notify';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import {
@@ -47,6 +47,8 @@ interface ConflictState {
 }
 
 export function AdminAvailability({ blocks: initialBlocks, onRefresh }: AdminAvailabilityProps) {
+  const blockStartSlots = useMemo(() => getBlockStartSlots(), []);
+  const blockEndSlots = useMemo(() => getBlockEndSlots(), []);
   const [barbers, setBarbers] = useState<Barber[]>([]);
   const [barber, setBarber] = useState('');
   const [mode, setMode] = useState<BlockMode>('day_full');
@@ -450,14 +452,14 @@ export function AdminAvailability({ blocks: initialBlocks, onRefresh }: AdminAva
                       const newStart = e.target.value;
                       setStartTime(newStart);
                       if (endTime && newStart && endTime <= newStart) {
-                        const nextEnd = BLOCK_END_SLOTS.find((s) => s > newStart);
+                        const nextEnd = blockEndSlots.find((s) => s > newStart);
                         setEndTime(nextEnd ?? '');
                       }
                     }}
                     className="w-full rounded-xl glass-card px-4 py-3 text-sm text-white focus:border-gold/30 focus:outline-none"
                   >
                     <option value="" className="bg-zinc-900">Inicio</option>
-                    {BLOCK_START_SLOTS.map((s) => (
+                    {blockStartSlots.map((s) => (
                       <option key={s} value={s} className="bg-zinc-900">{s}</option>
                     ))}
                   </select>
@@ -471,8 +473,8 @@ export function AdminAvailability({ blocks: initialBlocks, onRefresh }: AdminAva
                   >
                     <option value="" className="bg-zinc-900">Fin (hasta cierre 20:30)</option>
                     {(startTime
-                      ? BLOCK_END_SLOTS.filter((s) => s > startTime)
-                      : BLOCK_END_SLOTS
+                      ? blockEndSlots.filter((s) => s > startTime)
+                      : blockEndSlots
                     ).map((s) => (
                       <option key={s} value={s} className="bg-zinc-900">
                         {s === '20:30' ? '20:30 (Cierre tarde)' : s === '13:30' ? '13:30 (Cierre mañana)' : s}

@@ -11,6 +11,7 @@ import {
   getServiceDurationMinutes,
   timeToMinutes,
   minutesToTime,
+  getSlotIntervalMinutes,
   toISO,
 } from '@/lib/schedule';
 
@@ -176,7 +177,7 @@ export async function getBarberAvailableSlots(
     { clientName?: string; service?: string; startTime: string; duration: number }
   >();
 
-  // Helper para registrar un intervalo de cita y marcar todos sus slots de 10 min como ocupados
+  // Helper para registrar un intervalo de cita y marcar como ocupados todos los slots que cubre
   const registerBookingInterval = (
     startTime: string,
     duration: number,
@@ -193,8 +194,9 @@ export async function getBarberAvailableSlots(
     const bStartMin = timeToMinutes(cleanStart);
     const bEndMin = bStartMin + bDuration;
 
-    // Cubrir cada franja de 10 min de la cita (ej. 16:30 de 20 min cubre 16:30 y 16:40)
-    for (let t = bStartMin; t < bEndMin; t += 10) {
+    // Cubrir cada franja de la cita (ej. con intervalo de 10 min, 16:30 de 20 min cubre 16:30 y 16:40)
+    const step = getSlotIntervalMinutes();
+    for (let t = bStartMin; t < bEndMin; t += step) {
       const slotStr = minutesToTime(t);
       occupiedTimes.add(slotStr);
       if (!bookedSlotsMap.has(slotStr)) {
@@ -247,7 +249,7 @@ export async function getBarberAvailableSlots(
   const isDateToday = dateIso === todayIso;
   const nowMinutes = now.getHours() * 60 + now.getMinutes();
 
-  // Función constructora del estado de cada slot de 10 min
+  // Función constructora del estado de cada slot
   const createSlotDetails = (slot: string, shiftEnd: string): SlotDetails => {
     const slotMin = timeToMinutes(slot);
     const isPast = isDateToday && slotMin <= nowMinutes;

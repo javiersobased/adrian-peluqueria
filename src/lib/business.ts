@@ -10,6 +10,7 @@ export const LEGACY_BUSINESS: BusinessPublicConfig = {
   locale: 'es-ES',
   currency: 'EUR',
   layoutKey: 'classic',
+  slotIntervalMinutes: 10,
   theme: {},
   publicConfig: LEGACY_PUBLIC_CONFIG,
   contact: LEGACY_CONTACT,

@@ -4,6 +4,10 @@
 export const LAYOUT_KEYS = ['classic', 'editorial', 'minimal'] as const;
 export type LayoutKey = (typeof LAYOUT_KEYS)[number];
 
+// Debe coincidir con businesses_slot_interval_check en la base de datos.
+export const SLOT_INTERVALS = [5, 10, 15, 20, 30, 60] as const;
+export const DEFAULT_SLOT_INTERVAL = 10;
+
 export interface BusinessPublicConfig {
   id: string;
   slug: string;
@@ -12,6 +16,7 @@ export interface BusinessPublicConfig {
   locale: string;
   currency: string;
   layoutKey: LayoutKey;
+  slotIntervalMinutes: number;
   theme: Record<string, unknown>;
   publicConfig: Record<string, unknown>;
   contact: Record<string, unknown>;
@@ -24,6 +29,10 @@ export function normalizeHostname(rawHost: string): string {
 
 function asRecord(value: unknown): Record<string, unknown> {
   return value && typeof value === 'object' && !Array.isArray(value) ? (value as Record<string, unknown>) : {};
+}
+
+function asSlotInterval(value: unknown): number {
+  return SLOT_INTERVALS.includes(value as (typeof SLOT_INTERVALS)[number]) ? (value as number) : DEFAULT_SLOT_INTERVAL;
 }
 
 function asLayoutKey(value: unknown): LayoutKey {
@@ -43,6 +52,7 @@ export function parseBusinessRow(data: unknown): BusinessPublicConfig | null {
     locale: typeof raw.locale === 'string' ? raw.locale : 'es-ES',
     currency: typeof raw.currency === 'string' ? raw.currency : 'EUR',
     layoutKey: asLayoutKey(raw.layout_key),
+    slotIntervalMinutes: asSlotInterval(raw.slot_interval_minutes),
     theme: asRecord(raw.theme),
     publicConfig: asRecord(raw.public_config),
     contact: asRecord(raw.contact),

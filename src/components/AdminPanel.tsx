@@ -45,6 +45,7 @@ import {
 import { InstallAppButton } from '@/components/InstallAppButton';
 import { setActivePwaContext } from '@/lib/pwaContext';
 import { useBusiness } from '@/context/BusinessContext';
+import type { FeatureKey } from '@/lib/features';
 import { toISO, isBlockExpired } from '@/lib/schedule';
 import { isDeveloper, getDeveloperProfile, isSuperAdminEmail, isMasterAdminEmail } from '@/lib/auth';
 
@@ -72,6 +73,8 @@ interface NavItem {
   icon: LucideIcon;
   adminOnly?: boolean;
   barberOnly?: boolean;
+  // Módulo del plan que habilita la sección (el servidor lo aplica igualmente en RLS).
+  requires?: FeatureKey;
 }
 
 export const TEST_EMAILS = [
@@ -365,7 +368,7 @@ export function AdminPanel({ userRole, onSignOut, onGoPublic }: AdminPanelProps)
   const menuItems: NavItem[] = useMemo(
     () => [
       { id: 'agenda', label: 'Agenda Completa', icon: CalendarRange },
-      { id: 'manual', label: 'Cita Manual', icon: CalendarPlus },
+      { id: 'manual', label: 'Cita Manual', icon: CalendarPlus, requires: 'allow_manual_booking' },
       { id: 'availability', label: 'Horarios y Bloqueos', icon: CalendarOff, adminOnly: true },
       { id: 'schedule', label: 'Horarios Semanales', icon: CalendarClock, adminOnly: true },
       { id: 'customers', label: 'Clientes', icon: Contact2 },
@@ -376,11 +379,13 @@ export function AdminPanel({ userRole, onSignOut, onGoPublic }: AdminPanelProps)
   );
 
   const filteredMenuItems = useMemo(() => {
-    const allowed = menuItems.filter((item) => (isAdmin ? true : !item.adminOnly));
+    const allowed = menuItems.filter(
+      (item) => (isAdmin || !item.adminOnly) && (!item.requires || business.features[item.requires]),
+    );
     if (!search.trim()) return allowed;
     const q = search.toLowerCase().trim();
     return allowed.filter((item) => item.label.toLowerCase().includes(q));
-  }, [menuItems, isAdmin, search]);
+  }, [menuItems, isAdmin, search, business.features]);
 
   const activeBarber = barbers.find((b) => b.id === selectedBarber) ?? null;
   const todayCount = useMemo(() => {
@@ -1356,7 +1361,7 @@ export function AdminPanel({ userRole, onSignOut, onGoPublic }: AdminPanelProps)
               <AdminAgenda bookings={bookings} loading={loading} onRefresh={refresh} />
             )}
 
-            {tab === 'manual' && (
+            {tab === 'manual' && business.features.allow_manual_booking && (
               <AdminManualBooking onCreated={refresh} />
             )}
 

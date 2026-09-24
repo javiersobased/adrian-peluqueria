@@ -4,7 +4,8 @@
 //
 // Autocontenido a propósito: Vercel compila este archivo con resolución `nodenext` y sin empaquetar
 // imports relativos, así que no puede importar módulos de src/ (fallaría al cargar en el edge).
-// La lectura de public_config replica la de src/lib/businessContent.ts.
+// La lectura de public_config replica la de src/lib/businessContent.ts y la de las fuentes la de
+// src/themes/engine/designTokens.ts.
 import { next } from '@vercel/functions/middleware';
 
 export const config = {
@@ -14,11 +15,15 @@ export const config = {
 
 const LEGACY_HOSTS = new Set(['www.adrianmillan.es', 'adrianmillan.es']);
 const LEGACY_BUSINESS_ID = 'f67af497-5e58-48a2-8bea-022c4f1d7e1a';
-const LAYOUT_KEYS = ['classic', 'editorial', 'minimal'];
+const LAYOUT_KEYS = ['classic', 'editorial', 'minimal', 'playful'];
 const CACHE_TTL_MS = 60_000;
-const FONT_LINKS: Record<string, string> = {
-  editorial: 'https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;1,9..144,400&display=swap',
-};
+const FONT_FAMILIES = new Set([
+  'Inter', 'Plus Jakarta Sans', 'Manrope', 'DM Sans', 'Space Grotesk', 'Archivo', 'Syne',
+  'Josefin Sans', 'Poppins', 'Nunito', 'Quicksand', 'Fredoka', 'Baloo 2', 'Oswald', 'Bebas Neue',
+  'Fraunces', 'Playfair Display', 'Cormorant Garamond', 'DM Serif Display', 'Lora',
+]);
+const PRELOADED_FONTS = new Set(['Inter', 'Plus Jakarta Sans']);
+const SINGLE_WEIGHT_FONTS = new Set(['Bebas Neue', 'DM Serif Display']);
 
 type Json = Record<string, unknown>;
 
@@ -28,6 +33,10 @@ interface Business {
   name: string;
   locale: string;
   layoutKey: string;
+  layoutVariant: string | null;
+  fonts: string[];
+  surfaceColor: string | null;
+  seoAdvanced: boolean;
   publicConfig: Json;
   contact: Json;
   hostname: string | null;
@@ -68,12 +77,21 @@ function esc(value: string): string {
 function parseBusiness(data: unknown): Business | null {
   const raw = record(data);
   if (typeof raw.id !== 'string' || typeof raw.slug !== 'string') return null;
+  const tokens = record(raw.design_tokens);
+  const fonts = record(tokens.fonts);
+  const surface = record(tokens.palette).surface;
+  const features = record(raw.active_features);
   return {
     id: raw.id,
     slug: raw.slug,
     name: typeof raw.name === 'string' ? raw.name : raw.slug,
     locale: typeof raw.locale === 'string' ? raw.locale : 'es-ES',
     layoutKey: LAYOUT_KEYS.includes(raw.layout_key as string) ? (raw.layout_key as string) : 'classic',
+    layoutVariant: typeof raw.layout_variant === 'string' && /^[a-z]+_[a-z]+$/.test(raw.layout_variant) ? raw.layout_variant : null,
+    fonts: [...new Set([fonts.display, fonts.body])].filter((f): f is string => FONT_FAMILIES.has(f as string)),
+    surfaceColor: typeof surface === 'string' && /^#[0-9a-f]{6}$/i.test(surface) ? surface : null,
+    // Sin la clave (API anterior al motor de temas) se conserva el comportamiento completo.
+    seoAdvanced: raw.active_features === undefined || features.enable_seo_advanced === true,
     publicConfig: record(raw.public_config),
     contact: record(raw.contact),
     hostname: typeof raw.hostname === 'string' ? raw.hostname : null,
@@ -84,6 +102,15 @@ function monogramIcon(name: string): string {
   const letter = (name.trim()[0] ?? '·').toUpperCase().replace(/[<>&"']/g, '');
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="14" fill="#111"/><text x="32" y="43" font-family="Georgia,serif" font-size="34" text-anchor="middle" fill="#fff">${letter}</text></svg>`;
   return `data:image/svg+xml,${encodeURIComponent(svg)}`;
+}
+
+function googleFontsHref(families: string[]): string | null {
+  const toLoad = families.filter((family) => !PRELOADED_FONTS.has(family));
+  if (toLoad.length === 0) return null;
+  const query = toLoad
+    .map((family) => `family=${family.replace(/ /g, '+')}:wght@${SINGLE_WEIGHT_FONTS.has(family) ? '400' : '400;500;600;700'}`)
+    .join('&');
+  return `https://fonts.googleapis.com/css2?${query}&display=swap`;
 }
 
 function meta(attr: 'name' | 'property', key: string, value: string | null): string {
@@ -101,7 +128,7 @@ function buildHead(business: Business, origin: string): string {
   const siteName = text(seo.siteName, 120) ?? business.name;
   const appTitle = text(seo.appTitle, 40) ?? business.name;
   const shortName = text(brand.shortName, 40) ?? business.name;
-  const themeColor = text(brand.themeColor, 7);
+  const themeColor = text(brand.themeColor, 7) ?? business.surfaceColor;
   const ogImage = safeUrl(seo.ogImage);
   const image = ogImage?.startsWith('/') ? `${origin}${ogImage}` : ogImage;
   const icon = safeUrl(brand.faviconUrl) ?? monogramIcon(shortName);
@@ -117,7 +144,7 @@ function buildHead(business: Business, origin: string): string {
     ...(phone ? { telephone: phone } : {}),
     ...(address ? { address } : {}),
   }).replace(/</g, '\\u003c');
-  const font = FONT_LINKS[business.layoutKey];
+  const font = googleFontsHref(business.fonts);
 
   return [
     '    <!-- tenant-head:start -->',
@@ -143,7 +170,8 @@ function buildHead(business: Business, origin: string): string {
     meta('name', 'twitter:description', twitterDescription),
     meta('name', 'twitter:image', image),
     font ? `    <link href="${esc(font)}" rel="stylesheet" />` : '',
-    `    <script type="application/ld+json" data-business="${esc(business.slug)}">${jsonLd}</script>`,
+    // Los datos estructurados forman parte del módulo de SEO avanzado.
+    business.seoAdvanced ? `    <script type="application/ld+json" data-business="${esc(business.slug)}">${jsonLd}</script>` : '',
     '    <!-- tenant-head:end -->',
   ]
     .filter(Boolean)
@@ -181,7 +209,7 @@ function rewriteIndexHtml(html: string, business: Business, origin: string): str
   return html
     .replace(head, () => buildHead(business, origin))
     .replace(body, () => buildNoscript(business))
-    .replace(/<html\b[^>]*>/, `<html lang="${lang}" data-business="${esc(business.slug)}" data-layout="${business.layoutKey}">`);
+    .replace(/<html\b[^>]*>/, `<html lang="${lang}" data-business="${esc(business.slug)}" data-layout="${business.layoutKey}"${business.layoutVariant ? ` data-variant="${business.layoutVariant}"` : ''}>`);
 }
 
 function supabaseConfig(): { url: string; key: string } | null {

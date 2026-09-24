@@ -146,25 +146,3 @@ export function businessJsonLd(business: BusinessPublicConfig, origin: string): 
     ...(contact.address ? { address: contact.address } : {}),
   };
 }
-
-const THEME_TOKENS: Record<string, string> = {
-  accent: '--color-accent',
-  accentLight: '--color-accent-light',
-  accentDark: '--color-accent-dark',
-  surface: '--color-surface',
-  surfaceSoft: '--color-surface-soft',
-  surfaceMuted: '--color-surface-muted',
-};
-
-// Solo colores hex válidos de una lista cerrada de tokens; nunca CSS arbitrario.
-export function getThemeOverrides(business: BusinessPublicConfig): Record<string, string> {
-  const overrides: Record<string, string> = {};
-  for (const [key, cssVar] of Object.entries(THEME_TOKENS)) {
-    const value = text(business.theme[key], 7);
-    const match = value?.match(/^#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i);
-    if (match) {
-      overrides[cssVar] = match.slice(1).map((h) => parseInt(h, 16)).join(' ');
-    }
-  }
-  return overrides;
-}

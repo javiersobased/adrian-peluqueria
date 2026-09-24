@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef, lazy, Suspense } from 'react';
 import { useBooking } from '@/hooks/useBooking';
 import { useAuth } from '@/hooks/useAuth';
-import { LANDING_LAYOUTS } from '@/layouts/registry';
+import { landingFor } from '@/themes/layouts/registry';
 import { useBusiness } from '@/context/BusinessContext';
 import { isLegacyBusiness } from '@/lib/business';
 import { pageTitle, type PageKey } from '@/lib/documentHead';
@@ -35,7 +35,8 @@ type View = 'public' | 'admin' | 'my-bookings' | 'catalog' | 'gallery';
 function App() {
   const business = useBusiness();
   const isLegacy = isLegacyBusiness(business);
-  const LandingLayout = LANDING_LAYOUTS[business.layoutKey];
+  const LandingLayout = landingFor(business);
+  const { has_store: hasStore, has_gallery: hasGallery } = business.features;
   const booking = useBooking();
   const auth = useAuth();
   const [view, setView] = useState<View>('public');
@@ -330,6 +331,20 @@ function App() {
 
   const isVerifiedStaff = auth.role?.role && auth.role?.status === 'verified';
 
+  // Solo en desarrollo (Vite elimina la rama en producción): ?devAdmin previsualiza la maquetación
+  // del panel sin sesión, para revisar la marca blanca de cada variante. RLS no devuelve datos.
+  if (import.meta.env.DEV && new URLSearchParams(window.location.search).has('devAdmin')) {
+    return (
+      <Suspense fallback={<ScreenLoader message="Cargando panel de gestión..." />}>
+        <AdminPanel
+          userRole={{ role: 'admin', status: 'verified', barber_id: null, email: 'preview@localhost' }}
+          onSignOut={async () => {}}
+          onGoPublic={goPublic}
+        />
+      </Suspense>
+    );
+  }
+
   // Admin panel is full-screen, no width constraint
   if (view === 'admin' && isVerifiedStaff) {
     return (
@@ -346,7 +361,8 @@ function App() {
   }
 
   // Catalog view — same fluid layout as public
-  if (view === 'catalog') {
+  // Tienda y galería solo existen si el plan del negocio las incluye.
+  if (view === 'catalog' && hasStore) {
     return (
       <div className="relative min-h-screen bg-ink text-zinc-200">
         <AppBackdrop />
@@ -383,7 +399,7 @@ function App() {
   }
 
   // Haircuts Gallery view
-  if (view === 'gallery') {
+  if (view === 'gallery' && hasGallery) {
     return (
       <div className="relative min-h-screen bg-ink text-zinc-200">
         <AppBackdrop />
@@ -419,8 +435,8 @@ function App() {
               role={auth.role}
               onSignOut={auth.signOut}
               onGoToMyBookings={auth.user ? goMyBookings : undefined}
-              onGoToCatalog={goCatalog}
-              onGoToGallery={goGallery}
+              onGoToCatalog={hasStore ? goCatalog : undefined}
+              onGoToGallery={hasGallery ? goGallery : undefined}
               onSelectService={(service) => {
                 // pushState no dispara hashchange: evita que el manejador de #reservas reinicie la reserva.
                 history.pushState(null, '', '#reservas');

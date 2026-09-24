@@ -1,9 +1,10 @@
 import { useEffect, useLayoutEffect, useMemo, useState, type ReactNode } from 'react';
 import { BusinessContext } from '@/context/BusinessContext';
 import { fetchBusinessByHost, LEGACY_BUSINESS, lookupHostFor } from '@/lib/business';
-import { LAYOUT_KEYS, type BusinessPublicConfig, type LayoutKey } from '@/lib/businessModel';
-import { getThemeOverrides } from '@/lib/businessContent';
+import type { BusinessPublicConfig } from '@/lib/businessModel';
 import { applyBusinessHead } from '@/lib/documentHead';
+import { applyTheme } from '@/themes/engine/applyTheme';
+import { useDevVariantPreview } from '@/themes/engine/devPreview';
 import { SAAS_MODE_ENABLED } from '@/lib/featureFlags';
 import { setSlotIntervalMinutes } from '@/lib/schedule';
 import { setCurrentBusinessId } from '@/lib/tenant';
@@ -44,10 +45,11 @@ export function BusinessProvider({ children }: { children: ReactNode }) {
   }, [attempt]);
 
   const resolved = state.status === 'ready' ? state.business : null;
-  const business = useMemo(() => {
-    const previewLayout = devPreviewLayout();
-    return resolved && previewLayout ? { ...resolved, layoutKey: previewLayout } : resolved;
-  }, [resolved]);
+  const variantPreview = useDevVariantPreview();
+  const business = useMemo(
+    () => (resolved && variantPreview ? { ...resolved, ...variantPreview } : resolved),
+    [resolved, variantPreview],
+  );
 
   // Antes de pintar: atributos de layout/negocio y tokens del tema, sin destello del layout por defecto.
   useLayoutEffect(() => {
@@ -59,12 +61,9 @@ export function BusinessProvider({ children }: { children: ReactNode }) {
     }
     root.dataset.business = business.slug;
     root.dataset.layout = business.layoutKey;
-    const overrides = getThemeOverrides(business);
-    for (const [cssVar, value] of Object.entries(overrides)) root.style.setProperty(cssVar, value);
+    const undoTheme = applyTheme(root, business);
     applyBusinessHead(business);
-    return () => {
-      for (const cssVar of Object.keys(overrides)) root.style.removeProperty(cssVar);
-    };
+    return undoTheme;
   }, [business]);
 
   if (business) {
@@ -93,13 +92,6 @@ export function BusinessProvider({ children }: { children: ReactNode }) {
       action={{ label: 'Reintentar', onClick: () => { setState({ status: 'loading' }); setAttempt((n) => n + 1); } }}
     />
   );
-}
-
-// Solo en desarrollo: ?layout=editorial|minimal previsualiza otro layout sobre el negocio resuelto.
-function devPreviewLayout(): LayoutKey | null {
-  if (!import.meta.env.DEV) return null;
-  const value = new URLSearchParams(window.location.search).get('layout');
-  return LAYOUT_KEYS.includes(value as LayoutKey) ? (value as LayoutKey) : null;
 }
 
 function StatusScreen({

@@ -1,40 +1,49 @@
 import { useEffect, useState } from 'react';
 import { fetchBarbers, fetchServices } from '@/data/services';
+import type { BusinessFeatures } from '@/lib/features';
 import { tenantFrom } from '@/lib/tenant';
-import type { Barber, GalleryPhoto, Service } from '@/types';
+import type { Barber, GalleryPhoto, Service, StoreProduct } from '@/types';
 
 export interface LandingData {
   services: Service[];
   barbers: Barber[];
   photos: GalleryPhoto[];
+  products: StoreProduct[];
   loading: boolean;
 }
 
-// Datos del escaparate para layouts no heredados: sin fotos ni contenido de ejemplo de otro negocio.
-export function useLandingData(photoLimit = 6): LandingData {
-  const [data, setData] = useState<LandingData>({ services: [], barbers: [], photos: [], loading: true });
+const EMPTY = { data: [] as unknown[] };
+
+// Datos del escaparate. Solo se piden los módulos que el plan del negocio incluye.
+export function useLandingData(features: BusinessFeatures, photoLimit = 7, productLimit = 3): LandingData {
+  const [data, setData] = useState<LandingData>({ services: [], barbers: [], photos: [], products: [], loading: true });
+  const { has_gallery: withGallery, has_store: withStore } = features;
 
   useEffect(() => {
     let cancelled = false;
     Promise.all([
       fetchServices(),
       fetchBarbers(),
-      photoLimit > 0
+      withGallery
         ? tenantFrom('gallery_photos').select('*').order('created_at', { ascending: false }).limit(photoLimit)
-        : Promise.resolve({ data: [] }),
-    ]).then(([services, barbers, gallery]) => {
+        : Promise.resolve(EMPTY),
+      withStore
+        ? tenantFrom('store_products').select('*').eq('active', true).order('sort_order', { ascending: true }).limit(productLimit)
+        : Promise.resolve(EMPTY),
+    ]).then(([services, barbers, gallery, store]) => {
       if (cancelled) return;
       setData({
         services,
         barbers,
         photos: (gallery.data as GalleryPhoto[] | null) ?? [],
+        products: (store.data as StoreProduct[] | null) ?? [],
         loading: false,
       });
     });
     return () => {
       cancelled = true;
     };
-  }, [photoLimit]);
+  }, [withGallery, withStore, photoLimit, productLimit]);
 
   return data;
 }

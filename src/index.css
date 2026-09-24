@@ -17,6 +17,29 @@
     --color-marble-dark: 232 229 224;
     --font-display: 'Plus Jakarta Sans', Inter, system-ui, sans-serif;
     --font-body: Inter, system-ui, sans-serif;
+    --color-accent-contrast: 10 10 10;
+    --color-text: 228 228 231;
+    --color-text-muted: 161 161 170;
+    --color-border: 39 39 42;
+    --radius-card: 1.75rem;
+    --radius-control: 1rem;
+    --shadow-card: 0 10px 30px -12px rgb(0 0 0 / 0.25);
+    --section-py: 5rem;
+
+    /* Escala neutra de Tailwind (zinc + blanco). El motor de temas la tiñe con la marca. */
+    --white: 255 255 255;
+    --zinc-50: 250 250 250;
+    --zinc-100: 244 244 245;
+    --zinc-200: 228 228 231;
+    --zinc-300: 212 212 216;
+    --zinc-400: 161 161 170;
+    --zinc-500: 113 113 122;
+    --zinc-600: 82 82 91;
+    --zinc-700: 63 63 70;
+    --zinc-800: 39 39 42;
+    --zinc-850: 28 28 30;
+    --zinc-900: 24 24 27;
+    --zinc-950: 12 12 14;
 
     --ink: rgb(var(--color-surface));
     --ink-soft: rgb(var(--color-surface-soft));
@@ -80,7 +103,7 @@
   body {
     font-family: var(--font-body);
     background-color: var(--ink);
-    color: #e4e4e7;
+    color: rgb(var(--color-text));
   }
 
   ::selection {
@@ -1047,3 +1070,127 @@ html.light-mode .barber-icon-svg .icon-outline {
   stroke-width: inherit;
 }
 
+
+/* ==========================================================================
+   MOTOR DE TEMAS (white-label)
+   html[data-brand] solo existe cuando el negocio tiene una marca propia (escala neutra teñida).
+   La web clásica de Adrián Millán no lo lleva y conserva exactamente los estilos de arriba.
+   ========================================================================== */
+
+html[data-brand] .glass-panel {
+  background: rgb(var(--zinc-900) / 0.78);
+  border-color: rgb(var(--white) / 0.08);
+  box-shadow: var(--shadow-card);
+}
+
+html[data-brand] .glass-card {
+  background: rgb(var(--zinc-850) / 0.85);
+  border-color: rgb(var(--white) / 0.08);
+}
+
+html[data-brand] .glass-light {
+  background: rgb(var(--white) / 0.04);
+  border-color: rgb(var(--white) / 0.1);
+}
+
+html[data-brand] .admin-embed {
+  background: rgb(var(--zinc-900) / 0.8);
+  border-color: rgb(var(--white) / 0.08);
+  box-shadow: var(--shadow-card);
+}
+
+html[data-brand] .dock-panel,
+html[data-brand] .dock-item,
+html[data-brand] .dock-label {
+  background-color: rgb(var(--zinc-900) / 0.92);
+  border-color: rgb(var(--white) / 0.08);
+}
+
+html[data-brand] .glass-surface--fallback {
+  background: rgb(var(--white) / 0.06);
+  border-color: rgb(var(--white) / 0.1);
+}
+
+html[data-brand] .theme-toggle-btn {
+  background-color: rgb(var(--zinc-900) / 0.9);
+  border-color: rgb(var(--white) / 0.12);
+  color: rgb(var(--zinc-300));
+}
+
+html[data-brand][data-tone='light'] [data-sileo-description] {
+  color: rgb(var(--color-text-muted)) !important;
+}
+
+/* El texto sobre el color de acento usa el contraste definido por la marca. */
+html[data-brand] .gold-gradient,
+html[data-brand] .gold-gradient .text-black,
+html[data-brand] .gold-gradient.text-black,
+html[data-brand] .bg-gold.text-black,
+html[data-brand] .bg-gold .text-black,
+html[data-brand] .bg-accent.text-black {
+  color: rgb(var(--color-accent-contrast));
+}
+
+html[data-brand] ::selection {
+  background-color: rgb(var(--color-accent));
+  color: rgb(var(--color-accent-contrast));
+}
+
+/* Superficies de los layouts del motor según el material de la variante. */
+.theme-card {
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
+  background: rgb(var(--color-surface-soft));
+  border: 1px solid rgb(var(--color-border));
+}
+
+html[data-material='glass'] .theme-card {
+  background: rgb(var(--color-surface-soft) / 0.6);
+  border-color: rgb(var(--color-text) / 0.1);
+  backdrop-filter: blur(18px) saturate(140%);
+  -webkit-backdrop-filter: blur(18px) saturate(140%);
+}
+
+html[data-material='paper'] .theme-card {
+  background: rgb(var(--color-surface-soft));
+  border-color: rgb(var(--color-border));
+  background-image: linear-gradient(rgb(var(--color-text) / 0.015), rgb(var(--color-text) / 0.015));
+}
+
+html[data-material='metal'] .theme-card {
+  background: linear-gradient(160deg, rgb(var(--color-surface-muted)) 0%, rgb(var(--color-surface-soft)) 55%, rgb(var(--color-surface)) 100%);
+  border-color: rgb(var(--color-text) / 0.14);
+}
+
+html[data-material='neon'] .theme-card {
+  background: rgb(var(--color-surface-soft) / 0.8);
+  border-color: rgb(var(--color-accent) / 0.55);
+}
+
+html[data-material='matte'] .theme-card {
+  border-color: transparent;
+}
+
+.theme-button {
+  border-radius: var(--radius-control);
+  background: rgb(var(--color-accent));
+  color: rgb(var(--color-accent-contrast));
+  transition: background-color 0.2s, transform 0.2s, box-shadow 0.2s;
+}
+
+.theme-button:hover {
+  background: rgb(var(--color-accent-light));
+}
+
+html[data-material='neon'] .theme-button {
+  box-shadow: 0 0 24px -4px rgb(var(--color-accent) / 0.7);
+}
+
+html[data-material='glass'] .theme-button {
+  box-shadow: 0 8px 24px -10px rgb(var(--color-accent) / 0.8);
+}
+
+.theme-chip {
+  border-radius: var(--radius-control);
+  border: 1px solid rgb(var(--color-border));
+}

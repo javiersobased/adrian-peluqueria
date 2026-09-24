@@ -5,7 +5,7 @@ import { pageTitle } from '@/lib/documentHead';
 export type PwaContext = 'booking' | 'admin';
 
 // Los manifests estáticos de /public describen al tenant heredado; otros negocios no ofrecen
-// instalación hasta disponer de manifest propio.
+// instalación hasta disponer de manifest propio. Sin el módulo enable_pwa no hay manifest.
 const LEGACY_MANIFESTS: Record<PwaContext, string> = {
   booking: '/manifest-booking.json',
   admin: '/manifest-admin.json',
@@ -22,7 +22,7 @@ export function setActivePwaContext(context: PwaContext, business: BusinessPubli
   const title = pageTitle(business, context === 'admin' ? 'admin' : 'home');
 
   let link = document.querySelector<HTMLLinkElement>('link[rel="manifest"]');
-  if (isLegacyBusiness(business)) {
+  if (isLegacyBusiness(business) && business.features.enable_pwa) {
     const manifest = LEGACY_MANIFESTS[context];
     if (!link) {
       link = document.createElement('link');

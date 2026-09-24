@@ -34,6 +34,7 @@ import {
   type ReassignmentDecision,
 } from '@/lib/reassignment';
 import { ModalPortal } from '@/components/ui/ModalPortal';
+import { AdminRoleToggle, PlatformOnboarding, useStaffAccess } from '@/components/admin/AdminStaffAccess';
 
 const MASTER_ADMINS = [
   { name: 'Adrián Millán (Dueño - Hotmail)', email: 'adrian.millan.peguero@hotmail.com' },
@@ -61,13 +62,16 @@ export function AdminStaff() {
   const [deletionConflict, setDeletionConflict] = useState<DeletionConflictState | null>(null);
   const [calculatingCascade, setCalculatingCascade] = useState(false);
   const [executingCascade, setExecutingCascade] = useState(false);
+  const staffAccess = useStaffAccess();
+  const { reload: reloadAccess } = staffAccess;
 
   const load = useCallback(async () => {
     setLoading(true);
     const data = await fetchAllBarbers();
     setBarbers(data);
     setLoading(false);
-  }, []);
+    reloadAccess();
+  }, [reloadAccess]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -219,6 +223,13 @@ export function AdminStaff() {
 
   return (
     <div className="mx-auto max-w-6xl w-full min-w-0 space-y-6">
+      {staffAccess.isPlatformAdmin && (
+        <PlatformOnboarding
+          owners={Object.values(staffAccess.access).filter((row) => row.is_owner)}
+          onGranted={reloadAccess}
+        />
+      )}
+
       {/* Barbers / Staff List */}
       <div className="space-y-4">
         <div className="flex items-center justify-between">
@@ -279,6 +290,9 @@ export function AdminStaff() {
                 ) : (
                   <p className="text-[0.65rem] text-zinc-600">Sin acceso a panel asignado</p>
                 )}
+                <div className="mt-2">
+                  <AdminRoleToggle barber={b} access={staffAccess.accessFor(b)} onChanged={reloadAccess} />
+                </div>
               </div>
               <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
                 <button

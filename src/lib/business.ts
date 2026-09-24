@@ -1,6 +1,7 @@
 import { supabase } from '@/lib/supabase';
 import { LEGACY_CONTACT, LEGACY_PUBLIC_CONFIG } from '@/lib/legacyBusinessContent';
 import { normalizeHostname, parseBusinessRow, type BusinessPublicConfig } from '@/lib/businessModel';
+import { ALL_FEATURES } from '@/lib/features';
 
 export const LEGACY_BUSINESS: BusinessPublicConfig = {
   id: 'f67af497-5e58-48a2-8bea-022c4f1d7e1a',
@@ -10,6 +11,9 @@ export const LEGACY_BUSINESS: BusinessPublicConfig = {
   locale: 'es-ES',
   currency: 'EUR',
   layoutKey: 'classic',
+  layoutVariant: 'classic_prestige',
+  designTokens: null,
+  features: ALL_FEATURES,
   slotIntervalMinutes: 10,
   theme: {},
   publicConfig: LEGACY_PUBLIC_CONFIG,

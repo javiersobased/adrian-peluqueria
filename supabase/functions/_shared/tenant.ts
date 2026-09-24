@@ -74,6 +74,7 @@ interface IntegrationRow {
   status: string;
   timezone: string;
   is_legacy: boolean;
+  features: Record<string, boolean> | null;
   email_from: string | null;
   email_reply_to: string | null;
   site_url: string | null;
@@ -102,7 +103,8 @@ export async function loadTenant(db: SupabaseClient, businessId: string): Promis
     timezone: row.timezone || "Europe/Madrid",
     isLegacy: row.is_legacy,
     siteUrl: row.site_url,
-    email: resendKey && from ? { apiKey: resendKey, from, replyTo } : null,
+    // Los emails automáticos son un módulo del plan (enable_emails).
+    email: row.features?.enable_emails !== false && resendKey && from ? { apiKey: resendKey, from, replyTo } : null,
     push: pushAppId && pushKey ? { appId: pushAppId, apiKey: pushKey } : null,
   };
 }

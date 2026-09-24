@@ -72,10 +72,6 @@ function setLink(rel: string, href: string) {
   if (el.getAttribute('href') !== href) el.setAttribute('href', href);
 }
 
-const LAYOUT_FONTS: Partial<Record<BusinessPublicConfig['layoutKey'], string>> = {
-  editorial: 'https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;1,9..144,400&display=swap',
-};
-
 export function applyBusinessHead(business: BusinessPublicConfig) {
   const seo = getSeo(business);
   const brand = getBrand(business);
@@ -110,8 +106,12 @@ export function applyBusinessHead(business: BusinessPublicConfig) {
   setLink('icon', icon);
   setLink('apple-touch-icon', icon);
 
-  if (!legacy) {
-    let script = document.head.querySelector<HTMLScriptElement>('script[data-business]');
+  // Los datos estructurados (schema.org) forman parte del módulo de SEO avanzado.
+  const structured = document.head.querySelector<HTMLScriptElement>('script[data-business]');
+  if (!business.features.enable_seo_advanced) {
+    structured?.remove();
+  } else if (!legacy) {
+    let script = structured;
     if (!script) {
       script = document.createElement('script');
       script.type = 'application/ld+json';
@@ -121,11 +121,4 @@ export function applyBusinessHead(business: BusinessPublicConfig) {
     script.textContent = JSON.stringify(businessJsonLd(business, origin));
   }
 
-  const fontHref = LAYOUT_FONTS[business.layoutKey];
-  if (fontHref && !document.head.querySelector(`link[href="${fontHref}"]`)) {
-    const link = document.createElement('link');
-    link.rel = 'stylesheet';
-    link.href = fontHref;
-    document.head.appendChild(link);
-  }
 }

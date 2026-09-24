@@ -24,6 +24,7 @@ import { hasAcceptedTerms, acceptUserTerms } from '@/lib/terms';
 import { initOneSignal, syncOneSignalUser } from '@/lib/onesignal';
 import { lazyWithRetry } from '@/lib/lazyWithRetry';
 import { AdminErrorBoundary } from '@/components/AdminErrorBoundary';
+import { ThemeDemoBar } from '@/components/ThemeDemoBar';
 
 const AdminPanel = lazyWithRetry(() => import('@/components/AdminPanel').then(m => ({ default: m.AdminPanel })), 'AdminPanel');
 const Catalog = lazyWithRetry(() => import('@/components/Catalog').then(m => ({ default: m.Catalog })), 'Catalog');
@@ -481,6 +482,8 @@ function App() {
       </div>
 
       {booking.step === 'landing' && view === 'public' && isLegacy && business.layoutKey === 'classic' && <FloatingButtons />}
+
+      <ThemeDemoBar />
 
 
 

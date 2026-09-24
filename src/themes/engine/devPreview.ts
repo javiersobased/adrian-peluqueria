@@ -11,7 +11,14 @@ export function useDevVariantPreview(): VariantPreview | null {
   const [preview, setPreview] = useState<VariantPreview | null>(null);
 
   useEffect(() => {
-    if (!import.meta.env.DEV) return;
+    const isAllowedHost =
+      import.meta.env.DEV ||
+      (typeof window !== 'undefined' &&
+        (window.location.hostname.includes('vercel.app') ||
+          window.location.search.includes('variant=') ||
+          window.location.search.includes('preview=')));
+    if (!isAllowedHost) return;
+
     const variant = new URLSearchParams(window.location.search).get('variant');
     const layoutKey = variant?.split('_')[0] as LayoutKey | undefined;
     if (!variant || !layoutKey || !LAYOUT_KEYS.includes(layoutKey) || !isVariantOf(layoutKey, variant)) return;

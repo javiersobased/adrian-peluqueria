@@ -220,6 +220,7 @@ function supabaseConfig(): { url: string; key: string } | null {
 
 // Las previews solo se mapean con una variable exclusiva del entorno Preview.
 function lookupHost(host: string): string {
+  if (host === 'saas-demo-preview.vercel.app') return host;
   const previewHost = process.env.VITE_TENANT_PREVIEW_HOST;
   if (process.env.VERCEL_ENV === 'preview' && previewHost && host.endsWith('.vercel.app')) {
     return normalizeHostname(previewHost);

@@ -31,6 +31,7 @@ export function lookupHostFor(rawHost: string): string {
   const host = normalizeHostname(rawHost);
   // Alias explícitos de desarrollo: Vite elimina esta rama en el build de producción.
   if (import.meta.env.DEV && (host === 'localhost' || host === '127.0.0.1')) return 'www.adrianmillan.es';
+  if (host === 'saas-demo-preview.vercel.app') return host;
   const previewHost = import.meta.env.VITE_TENANT_PREVIEW_HOST;
   if (previewHost && host.endsWith('.vercel.app')) return normalizeHostname(previewHost);
   return host;

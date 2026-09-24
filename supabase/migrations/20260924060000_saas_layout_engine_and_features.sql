@@ -245,6 +245,11 @@ ALTER TABLE public.businesses
   ADD CONSTRAINT businesses_layout_variant_fkey
     FOREIGN KEY (layout_key, layout_variant) REFERENCES public.layout_variants (layout_key, key) ON UPDATE CASCADE;
 
+-- Adrián vuelve a su web clásica (la prueba con editorial queda descartada).
+UPDATE public.businesses
+SET layout_key = 'classic', layout_variant = 'classic_prestige', updated_at = now()
+WHERE id = 'f67af497-5e58-48a2-8bea-022c4f1d7e1a';
+
 ALTER TABLE public.businesses
   ADD COLUMN design_tokens jsonb NOT NULL DEFAULT '{}'::jsonb
   CONSTRAINT businesses_design_tokens_check CHECK (public.is_valid_design_tokens(design_tokens));
@@ -452,6 +457,10 @@ BEGIN
      OR v_resolved -> 'design_tokens' <> (SELECT default_tokens FROM public.layout_variants WHERE key = v_resolved ->> 'layout_variant')
      OR NOT public.is_complete_design_tokens(v_resolved -> 'design_tokens') THEN
     RAISE EXCEPTION 'gate: el negocio heredado no recibe los tokens de su variante: %', v_resolved;
+  END IF;
+  IF v_resolved ->> 'layout_key' <> 'classic' OR v_resolved ->> 'layout_variant' <> 'classic_prestige'
+     OR v_resolved #>> '{design_tokens,palette,accent}' <> '#d4af37' THEN
+    RAISE EXCEPTION 'gate: Adrián no quedó en classic_prestige: %', v_resolved ->> 'layout_variant';
   END IF;
   IF (SELECT plan_code FROM public.businesses WHERE id = v_legacy) <> 'premium'
      OR EXISTS (SELECT 1 FROM jsonb_each(v_resolved -> 'active_features') e WHERE e.value <> 'true'::jsonb)

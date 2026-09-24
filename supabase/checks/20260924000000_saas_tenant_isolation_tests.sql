@@ -1,4 +1,4 @@
--- Tests de aislamiento multi-tenant (Paso 4). No persiste nada: los datos de prueba
+-- Tests de aislamiento multi-tenant (Paso 4, actualizados en los pasos 8 y del motor de temas). No persiste nada: los datos de prueba
 -- se crean en una subtransacción que siempre se deshace. Devuelve una fila por test.
 -- Con SET app.tenant_tests_strict = 'on' aborta la transacción si algún test falla.
 
@@ -12,6 +12,7 @@ DECLARE
   v_admin_a text := 'adrian.millan.peguero@hotmail.com';
   v_barber_a text := '19lorenvazquez@gmail.com';
   v_admin_b text := 'admin-b@tenant-test.invalid';
+  v_platform text := 'franciscojavierfarinapadilla@gmail.com';
   v_customer uuid;
   v_booking_a uuid;
   v_booking_b uuid;
@@ -64,8 +65,8 @@ BEGIN
     UPDATE public.bookings SET comments = comments WHERE id = v_booking_b;
     GET DIAGNOSTICS v_n = ROW_COUNT;
     r_test := r_test || text 'A-admin no modifica reserva de B'; r_ok := r_ok || (v_n = 0); r_detail := r_detail || v_n::text;
-    v_j := public.get_my_role();
-    r_test := r_test || text 'A-admin get_my_role() = admin'; r_ok := r_ok || (v_j->>'role' = 'admin'); r_detail := r_detail || v_j::text;
+    v_j := public.get_my_role(v_a);
+    r_test := r_test || text 'A-admin get_my_role(A) = admin'; r_ok := r_ok || (v_j->>'role' = 'admin'); r_detail := r_detail || v_j::text;
     r_test := r_test || text 'A-admin escribe en raíz de Storage (legacy)';
     r_ok := r_ok || public.can_write_storage_object('legacy.png', ARRAY['admin']); r_detail := r_detail || text '';
     r_test := r_test || text 'A-admin no escribe en carpeta de B';
@@ -119,11 +120,23 @@ BEGIN
     EXCEPTION WHEN OTHERS THEN v_ok := true; v_t := SQLERRM; END;
     r_test := r_test || text 'B-admin no edita perfil de A vía RPC'; r_ok := r_ok || v_ok; r_detail := r_detail || v_t;
 
-    v_j := public.get_my_role();
-    r_test := r_test || text 'B-admin get_my_role() heredado = sin rol'; r_ok := r_ok || (v_j->>'role' IS NULL); r_detail := r_detail || v_j::text;
+    v_j := public.get_my_role(v_a);
+    r_test := r_test || text 'B-admin get_my_role(A) = sin rol'; r_ok := r_ok || (v_j->>'role' IS NULL); r_detail := r_detail || v_j::text;
     v_j := public.get_my_role(v_b);
     r_test := r_test || text 'B-admin get_my_role(B) = admin'; r_ok := r_ok || (v_j->>'role' = 'admin'); r_detail := r_detail || v_j::text;
-    r_test := r_test || text 'B-admin is_admin() heredado = false'; r_ok := r_ok || NOT public.is_admin(); r_detail := r_detail || text '';
+    r_test := r_test || text 'B-admin no es admin de A'; r_ok := r_ok || NOT public.has_business_role(v_a, ARRAY['admin']); r_detail := r_detail || text '';
+
+    BEGIN
+      UPDATE public.staff SET role = 'barber', is_owner = false WHERE business_id = v_b AND email = v_platform;
+      v_ok := false; v_t := 'degradó a la plataforma';
+    EXCEPTION WHEN OTHERS THEN v_ok := true; v_t := SQLERRM; END;
+    r_test := r_test || text 'B-admin no degrada a la plataforma'; r_ok := r_ok || v_ok; r_detail := r_detail || v_t;
+
+    BEGIN
+      PERFORM public.platform_grant_business_admin(v_a, 'intruso@tenant-test.invalid');
+      v_ok := false; v_t := 'dio de alta un admin';
+    EXCEPTION WHEN OTHERS THEN v_ok := true; v_t := SQLERRM; END;
+    r_test := r_test || text 'B-admin no usa el onboarding de plataforma'; r_ok := r_ok || v_ok; r_detail := r_detail || v_t;
     r_test := r_test || text 'B-admin escribe en su carpeta de Storage';
     r_ok := r_ok || public.can_write_storage_object('businesses/' || v_b || '/x.png', ARRAY['admin']); r_detail := r_detail || text '';
     r_test := r_test || text 'B-admin no escribe en carpeta de A';
@@ -160,8 +173,8 @@ BEGIN
     EXCEPTION WHEN OTHERS THEN v_ok := true; v_t := SQLERRM; END;
     r_test := r_test || text 'Barbero no edita perfil ajeno vía RPC'; r_ok := r_ok || v_ok; r_detail := r_detail || v_t;
 
-    v_j := public.get_my_role();
-    r_test := r_test || text 'Barbero get_my_role() = barber/loren';
+    v_j := public.get_my_role(v_a);
+    r_test := r_test || text 'Barbero get_my_role(A) = barber/loren';
     r_ok := r_ok || (v_j->>'role' = 'barber' AND v_j->>'barber_id' = 'loren'); r_detail := r_detail || v_j::text;
     RESET ROLE;
 
@@ -195,9 +208,18 @@ BEGIN
     v_j := public.get_booked_intervals('tt-barber-b', current_date + 5, v_b);
     r_test := r_test || text 'Disponibilidad de B muestra su hueco'; r_ok := r_ok || (jsonb_array_length(v_j) = 1); r_detail := r_detail || v_j::text;
     v_j := public.get_booked_intervals('tt-barber-b', current_date + 5);
-    r_test := r_test || text 'Disponibilidad sin tenant no cruza a B'; r_ok := r_ok || (jsonb_array_length(v_j) = 0); r_detail := r_detail || v_j::text;
+    r_test := r_test || text 'Disponibilidad sin negocio vacía'; r_ok := r_ok || (jsonb_array_length(v_j) = 0); r_detail := r_detail || v_j::text;
     v_j := public.get_booked_intervals('tt-barber-c', current_date + 5, v_c);
     r_test := r_test || text 'Disponibilidad de negocio en borrador vacía'; r_ok := r_ok || (jsonb_array_length(v_j) = 0); r_detail := r_detail || v_j::text;
+    SELECT count(*) INTO v_n FROM public.store_products WHERE business_id = v_b;
+    r_test := r_test || text 'Anon no ve tienda de un plan sin has_store'; r_ok := r_ok || (v_n = 0); r_detail := r_detail || v_n::text;
+    SELECT count(*) INTO v_n FROM public.layout_variants;
+    r_test := r_test || text 'Anon lee el catálogo de variantes'; r_ok := r_ok || (v_n = 20); r_detail := r_detail || v_n::text;
+    BEGIN
+      SELECT count(*) INTO v_n FROM public.plans;
+      v_ok := false; v_t := v_n::text;
+    EXCEPTION WHEN OTHERS THEN v_ok := true; v_t := SQLERRM; END;
+    r_test := r_test || text 'Anon no lee planes'; r_ok := r_ok || v_ok; r_detail := r_detail || v_t;
     RESET ROLE;
 
     -- ── T5: cliente autenticado ──
@@ -222,8 +244,14 @@ BEGIN
       EXCEPTION WHEN OTHERS THEN v_ok := true; v_t := SQLERRM; END;
       r_test := r_test || text 'create_booking rechaza negocio en borrador'; r_ok := r_ok || v_ok; r_detail := r_detail || v_t;
 
-      v_j := public.create_booking(v_service_a, v_price_a, 'adrian', current_date + 50, '21:40', 'Cliente Test', '+34633445566');
-      r_test := r_test || text 'create_booking sin tenant (frontend actual) queda en A'; r_ok := r_ok || ((v_j->>'business_id')::uuid = v_a); r_detail := r_detail || (v_j->>'business_id');
+      BEGIN
+        PERFORM public.create_booking(v_service_a, v_price_a, 'adrian', current_date + 50, '10:10', 'Cliente Test', '+34633445566');
+        v_ok := false; v_t := 'reservó sin negocio';
+      EXCEPTION WHEN OTHERS THEN v_ok := (SQLERRM = 'Falta el negocio de la reserva'); v_t := SQLERRM; END;
+      r_test := r_test || text 'create_booking sin negocio rechazado'; r_ok := r_ok || v_ok; r_detail := r_detail || v_t;
+
+      v_j := public.create_booking(v_service_a, v_price_a, 'adrian', current_date + 50, '10:10', 'Cliente Test', '+34633445566', '', v_a);
+      r_test := r_test || text 'create_booking en A queda en A'; r_ok := r_ok || ((v_j->>'business_id')::uuid = v_a); r_detail := r_detail || (v_j->>'business_id');
 
       SELECT count(*) INTO v_n FROM public.bookings WHERE user_id IS DISTINCT FROM v_customer;
       r_test := r_test || text 'Cliente no ve reservas ajenas'; r_ok := r_ok || (v_n = 0); r_detail := r_detail || v_n::text;
@@ -256,6 +284,11 @@ BEGIN
       VALUES (v_booking_b, 'created', 't', 'm', 'c', 'tt-barber-b')
       RETURNING business_id::text INTO v_t;
     r_test := r_test || text 'Notificación hereda el negocio de su reserva'; r_ok := r_ok || (v_t = v_b::text); r_detail := r_detail || v_t;
+
+    SELECT count(*) INTO v_n FROM public.staff WHERE business_id = v_b AND email = v_platform AND role = 'admin' AND is_owner;
+    r_test := r_test || text 'Negocio nuevo incluye a la plataforma como titular'; r_ok := r_ok || (v_n = 1); r_detail := r_detail || v_n::text;
+    SELECT plan_code || ' ' || (active_features->>'has_store') INTO v_t FROM public.businesses WHERE id = v_b;
+    r_test := r_test || text 'Negocio nuevo nace en plan basic sin tienda'; r_ok := r_ok || (v_t = 'basic false'); r_detail := r_detail || v_t;
 
     RAISE EXCEPTION 'TENANT_TESTS_ROLLBACK';
   EXCEPTION WHEN OTHERS THEN

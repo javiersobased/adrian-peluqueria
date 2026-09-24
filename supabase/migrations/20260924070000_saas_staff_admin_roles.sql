@@ -1,17 +1,19 @@
--- Gestión dinámica de administradores (co-propietarios).
+-- Gestión dinámica de administradores (co-propietarios) y cuenta raíz de la plataforma.
 --
 -- Fuente de verdad: public.staff (has_business_role la usa en todas las RLS). business_members sigue
 -- sin uso y no se toca aquí.
 --
--- 1. staff.is_owner: titulares del negocio. Solo service_role (soporte) cambia la titularidad y
---    un admin que no es titular no puede retirar el acceso de un titular.
--- 2. Invariante: todo negocio conserva al menos un administrador verificado (cualquier vía: RPC,
---    UPDATE/DELETE directo por RLS o la sincronización desde barbers).
--- 3. staff_role_events: auditoría de todos los cambios de rol, sea cual sea la vía.
--- 4. RPC set_barber_admin(p_business_id, p_barber_id, p_is_admin): el interruptor de AdminStaff.
---    Valida en servidor que quien llama es admin verificado de ESE negocio.
--- 5. sync_barber_staff_access: altas antes que bajas (no rompe el invariante al cambiar correos) y
---    un admin ascendido conserva el rol si cambia el email de Google de su ficha.
+-- 1. platform_admins: cuentas raíz de la plataforma (desarrollador). Están en staff de TODOS los
+--    negocios como titulares, se añaden solas a cada negocio nuevo y ningún usuario del cliente
+--    puede degradarlas ni borrarlas.
+-- 2. staff.is_owner: titulares del negocio. Solo la plataforma cambia la titularidad y un admin que
+--    no es titular no puede retirar el acceso de un titular.
+-- 3. Invariante: todo negocio conserva al menos un administrador verificado (cualquier vía).
+-- 4. staff_role_events: auditoría de todos los cambios de rol, sea cual sea la vía.
+-- 5. RPC set_barber_admin: el interruptor de AdminStaff (valida que quien llama es admin del negocio).
+-- 6. RPC platform_grant_business_admin: onboarding de los primeros administradores de un cliente.
+-- 7. sync_barber_staff_access: altas antes que bajas y un admin ascendido conserva el rol si cambia
+--    el email de Google de su ficha.
 --
 -- Rollback: supabase/rollback/20260924070000_saas_staff_admin_roles_down.sql
 
@@ -25,7 +27,30 @@ WHERE p.pronamespace = 'public'::regnamespace
   AND p.proname IN ('sync_barber_staff_access');
 REVOKE ALL ON SCHEMA backup_20260924_pre_staff_roles FROM PUBLIC, anon, authenticated;
 
--- 1. Titularidad ------------------------------------------------------------------------------
+-- 1. Cuentas raíz de la plataforma -------------------------------------------------------------
+
+CREATE TABLE public.platform_admins (
+  email text PRIMARY KEY CHECK (email = lower(btrim(email)) AND email LIKE '%@%'),
+  full_name text,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+ALTER TABLE public.platform_admins ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON public.platform_admins FROM anon, authenticated;
+
+INSERT INTO public.platform_admins (email, full_name)
+VALUES ('franciscojavierfarinapadilla@gmail.com', 'Plataforma');
+
+CREATE OR REPLACE FUNCTION public.is_platform_admin()
+RETURNS boolean
+LANGUAGE sql
+STABLE SECURITY DEFINER
+SET search_path TO ''
+AS $function$
+  SELECT public.current_user_email() <> ''
+     AND EXISTS (SELECT 1 FROM public.platform_admins p WHERE p.email = public.current_user_email())
+$function$;
+
+-- 2. Titularidad ------------------------------------------------------------------------------
 
 ALTER TABLE public.staff
   ADD COLUMN is_owner boolean NOT NULL DEFAULT false;
@@ -46,6 +71,46 @@ WHERE s.business_id = b.business_id
 ALTER TABLE public.staff
   ADD CONSTRAINT staff_owner_is_admin_check CHECK (NOT is_owner OR role = 'admin');
 
+-- La plataforma es titular en todos los negocios existentes (conserva su vínculo de barbero si lo tenía).
+INSERT INTO public.staff (business_id, email, full_name, role, barber_id, status, is_owner)
+SELECT b.id, p.email, p.full_name, 'admin', NULL, 'verified', true
+FROM public.businesses b CROSS JOIN public.platform_admins p
+ON CONFLICT (business_id, email) DO UPDATE
+  SET role = 'admin', status = 'verified', is_owner = true;
+
+CREATE OR REPLACE FUNCTION public.add_platform_admins_to_business()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path TO ''
+AS $function$
+BEGIN
+  IF TG_TABLE_NAME = 'businesses' THEN
+    INSERT INTO public.staff (business_id, email, full_name, role, barber_id, status, is_owner)
+    SELECT NEW.id, p.email, p.full_name, 'admin', NULL, 'verified', true
+    FROM public.platform_admins p
+    ON CONFLICT (business_id, email) DO UPDATE
+      SET role = 'admin', status = 'verified', is_owner = true;
+  ELSE
+    INSERT INTO public.staff (business_id, email, full_name, role, barber_id, status, is_owner)
+    SELECT b.id, NEW.email, NEW.full_name, 'admin', NULL, 'verified', true
+    FROM public.businesses b
+    ON CONFLICT (business_id, email) DO UPDATE
+      SET role = 'admin', status = 'verified', is_owner = true;
+  END IF;
+  RETURN NEW;
+END;
+$function$;
+
+REVOKE ALL ON FUNCTION public.add_platform_admins_to_business() FROM PUBLIC, anon, authenticated;
+
+CREATE TRIGGER trg_add_platform_admins
+  AFTER INSERT ON public.businesses
+  FOR EACH ROW EXECUTE FUNCTION public.add_platform_admins_to_business();
+CREATE TRIGGER trg_add_platform_admin_to_businesses
+  AFTER INSERT ON public.platform_admins
+  FOR EACH ROW EXECUTE FUNCTION public.add_platform_admins_to_business();
+
 CREATE OR REPLACE FUNCTION public.is_business_owner(p_business_id uuid)
 RETURNS boolean
 LANGUAGE sql
@@ -63,7 +128,7 @@ AS $function$
      )
 $function$;
 
--- 2. Invariantes de roles ------------------------------------------------------------------------
+-- 3. Invariantes de roles ------------------------------------------------------------------------
 
 CREATE OR REPLACE FUNCTION public.guard_staff_roles()
 RETURNS trigger
@@ -73,13 +138,26 @@ SET search_path TO ''
 AS $function$
 DECLARE
   v_end_user boolean := coalesce(auth.jwt() ->> 'role', '') = 'authenticated';
+  v_platform boolean := public.is_platform_admin();
   v_loses_admin boolean;
 BEGIN
-  IF v_end_user AND (
+  IF v_end_user AND NOT v_platform AND (
        (TG_OP = 'INSERT' AND NEW.is_owner)
     OR (TG_OP = 'UPDATE' AND NEW.is_owner IS DISTINCT FROM OLD.is_owner)
   ) THEN
-    RAISE EXCEPTION 'La titularidad del negocio solo la puede cambiar el soporte de la plataforma'
+    RAISE EXCEPTION 'La titularidad del negocio solo la puede cambiar la plataforma'
+      USING ERRCODE = '42501';
+  END IF;
+
+  -- Las cuentas raíz de la plataforma solo las toca la propia plataforma.
+  IF TG_OP IN ('UPDATE', 'DELETE') AND v_end_user AND NOT v_platform
+     AND EXISTS (SELECT 1 FROM public.platform_admins p WHERE p.email = lower(OLD.email))
+     AND (TG_OP = 'DELETE'
+          OR NEW.role IS DISTINCT FROM OLD.role
+          OR NEW.status IS DISTINCT FROM OLD.status
+          OR NEW.is_owner IS DISTINCT FROM OLD.is_owner
+          OR NEW.email IS DISTINCT FROM OLD.email) THEN
+    RAISE EXCEPTION 'La cuenta de la plataforma no se puede modificar desde el panel del negocio'
       USING ERRCODE = '42501';
   END IF;
 
@@ -90,7 +168,7 @@ BEGIN
       OR NEW.email IS DISTINCT FROM OLD.email;
 
     IF v_loses_admin THEN
-      IF OLD.is_owner AND v_end_user AND NOT public.is_business_owner(OLD.business_id) THEN
+      IF OLD.is_owner AND v_end_user AND NOT v_platform AND NOT public.is_business_owner(OLD.business_id) THEN
         RAISE EXCEPTION 'Solo un titular puede retirar el acceso de administración a otro titular'
           USING ERRCODE = '42501';
       END IF;
@@ -120,7 +198,7 @@ CREATE TRIGGER trg_guard_staff_roles
   BEFORE INSERT OR UPDATE OR DELETE ON public.staff
   FOR EACH ROW EXECUTE FUNCTION public.guard_staff_roles();
 
--- 3. Auditoría ----------------------------------------------------------------------------------
+-- 4. Auditoría ----------------------------------------------------------------------------------
 
 CREATE TABLE public.staff_role_events (
   id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
@@ -168,7 +246,7 @@ CREATE TRIGGER trg_log_staff_role_change
   AFTER INSERT OR UPDATE OF role OR DELETE ON public.staff
   FOR EACH ROW EXECUTE FUNCTION public.log_staff_role_change();
 
--- 4. Interruptor de administrador --------------------------------------------------------------
+-- 5. Interruptor de administrador --------------------------------------------------------------
 
 -- Opera sobre la ficha del profesional: su cuenta es barbers.google_email. Al retirar el rol, la
 -- cuenta vuelve a ser barbero de SU propia ficha.
@@ -246,7 +324,51 @@ $function$;
 REVOKE ALL ON FUNCTION public.set_barber_admin(uuid, text, boolean) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.set_barber_admin(uuid, text, boolean) TO authenticated;
 
--- 5. Sincronización desde barbers (altas antes que bajas) -----------------------------------------
+-- 6. Onboarding de clientes desde la cuenta de plataforma ---------------------------------------
+
+-- Da acceso de administración (titular por defecto) a una cuenta de Google en un negocio. Al
+-- iniciar sesión con esa cuenta, el cliente entra directamente al panel.
+CREATE OR REPLACE FUNCTION public.platform_grant_business_admin(
+  p_business_id uuid, p_email text, p_full_name text DEFAULT NULL, p_is_owner boolean DEFAULT true
+)
+RETURNS jsonb
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path TO ''
+AS $function$
+DECLARE
+  v_email text := lower(btrim(coalesce(p_email, '')));
+  v_row public.staff;
+BEGIN
+  IF NOT public.is_platform_admin() THEN
+    RAISE EXCEPTION 'Solo la plataforma puede dar de alta administradores de un negocio'
+      USING ERRCODE = '42501';
+  END IF;
+  IF v_email !~ '^[^@\s]+@[^@\s]+\.[^@\s]+$' THEN
+    RAISE EXCEPTION 'Email no válido';
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM public.businesses b WHERE b.id = p_business_id) THEN
+    RAISE EXCEPTION 'Negocio inexistente';
+  END IF;
+
+  INSERT INTO public.staff (business_id, email, full_name, role, barber_id, status, is_owner)
+  VALUES (p_business_id, v_email, nullif(btrim(p_full_name), ''), 'admin', NULL, 'verified', coalesce(p_is_owner, true))
+  ON CONFLICT (business_id, email) DO UPDATE
+    SET role = 'admin',
+        status = 'verified',
+        is_owner = coalesce(p_is_owner, true),
+        full_name = coalesce(nullif(btrim(p_full_name), ''), staff.full_name)
+  RETURNING * INTO v_row;
+
+  RETURN jsonb_build_object('business_id', v_row.business_id, 'email', v_row.email,
+                            'role', v_row.role, 'is_owner', v_row.is_owner);
+END;
+$function$;
+
+REVOKE ALL ON FUNCTION public.platform_grant_business_admin(uuid, text, text, boolean) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.platform_grant_business_admin(uuid, text, text, boolean) TO authenticated;
+
+-- 7. Sincronización desde barbers (altas antes que bajas) -----------------------------------------
 
 CREATE OR REPLACE FUNCTION public.sync_barber_staff_access()
 RETURNS trigger
@@ -362,30 +484,41 @@ END;
 $function$;
 
 -- Pruebas de puerta ---------------------------------------------------------------------------
--- Se simulan sesiones reales fijando request.jwt.claims; cada escenario se deshace con un error
--- centinela, así que la migración no altera datos más allá del esquema.
+-- Se simulan sesiones reales fijando request.jwt.claims; cada escenario que escribe se deshace con
+-- un error centinela, así que la migración no altera datos más allá del esquema y la titularidad.
 
 DO $gate$
 DECLARE
   v_legacy uuid := 'f67af497-5e58-48a2-8bea-022c4f1d7e1a';
-  v_admin_dev text;
+  v_platform text := 'franciscojavierfarinapadilla@gmail.com';
+  v_owner text;
   v_barber_email text;
   v_barber_id text;
+  v_other_email text;
+  v_other_id text;
   v_owner_barber text;
+  v_new_business uuid;
   v_result jsonb;
   v_msg text;
   v_state text;
 BEGIN
-  SELECT email INTO v_admin_dev FROM public.staff
-  WHERE business_id = v_legacy AND role = 'admin' AND NOT is_owner AND status = 'verified' LIMIT 1;
+  SELECT email, barber_id INTO v_owner, v_owner_barber FROM public.staff
+  WHERE business_id = v_legacy AND is_owner AND email <> v_platform ORDER BY email LIMIT 1;
   SELECT s.email, s.barber_id INTO v_barber_email, v_barber_id FROM public.staff s
   JOIN public.barbers b ON b.business_id = s.business_id AND b.id = s.barber_id AND lower(b.google_email) = s.email
-  WHERE s.business_id = v_legacy AND s.role = 'barber' AND s.status = 'verified' LIMIT 1;
-  SELECT s.barber_id INTO v_owner_barber FROM public.staff s WHERE s.business_id = v_legacy AND s.is_owner LIMIT 1;
+  WHERE s.business_id = v_legacy AND s.role = 'barber' AND s.status = 'verified' ORDER BY s.email LIMIT 1;
+  SELECT s.email, s.barber_id INTO v_other_email, v_other_id FROM public.staff s
+  JOIN public.barbers b ON b.business_id = s.business_id AND b.id = s.barber_id AND lower(b.google_email) = s.email
+  WHERE s.business_id = v_legacy AND s.role = 'barber' AND s.status = 'verified' AND s.email <> v_barber_email
+  ORDER BY s.email LIMIT 1;
 
-  IF (SELECT count(*) FROM public.staff WHERE business_id = v_legacy AND is_owner) < 1
-     OR v_admin_dev IS NULL OR v_barber_email IS NULL OR v_owner_barber IS NULL THEN
-    RAISE EXCEPTION 'gate: datos de partida inesperados (titulares/admin/barbero)';
+  IF v_owner IS NULL OR v_barber_email IS NULL OR v_other_email IS NULL
+     OR EXISTS (
+       SELECT 1 FROM public.businesses b
+       WHERE NOT EXISTS (SELECT 1 FROM public.staff s WHERE s.business_id = b.id AND s.email = v_platform
+                         AND s.role = 'admin' AND s.is_owner AND s.status = 'verified')
+     ) THEN
+    RAISE EXCEPTION 'gate: la plataforma no es titular en todos los negocios o faltan datos de partida';
   END IF;
 
   -- a) Un barbero no puede conceder permisos.
@@ -396,19 +529,17 @@ BEGIN
   EXCEPTION WHEN insufficient_privilege THEN NULL;
   END;
 
-  -- b) Un admin asciende y degrada a un barbero; queda auditado.
+  -- b) Un titular asciende y degrada a un barbero; queda auditado.
   BEGIN
-    PERFORM set_config('request.jwt.claims', jsonb_build_object('role', 'authenticated', 'email', v_admin_dev)::text, true);
+    PERFORM set_config('request.jwt.claims', jsonb_build_object('role', 'authenticated', 'email', v_owner)::text, true);
     v_result := public.set_barber_admin(v_legacy, v_barber_id, true);
-    IF v_result ->> 'role' <> 'admin' OR NOT public.has_business_role(v_legacy, ARRAY['admin']) THEN
-      RAISE EXCEPTION 'gate: el ascenso no se aplicó: %', v_result;
-    END IF;
+    IF v_result ->> 'role' <> 'admin' THEN RAISE EXCEPTION 'gate: el ascenso no se aplicó: %', v_result; END IF;
     v_result := public.set_barber_admin(v_legacy, v_barber_id, false);
     IF v_result ->> 'role' <> 'barber' OR v_result ->> 'barber_id' <> v_barber_id THEN
       RAISE EXCEPTION 'gate: la degradación no se aplicó: %', v_result;
     END IF;
-    IF (SELECT count(*) FROM public.staff_role_events WHERE business_id = v_legacy AND email = v_barber_email
-        AND changed_by = v_admin_dev) <> 2 THEN
+    IF (SELECT count(*) FROM public.staff_role_events
+        WHERE business_id = v_legacy AND email = v_barber_email AND changed_by = v_owner) <> 2 THEN
       RAISE EXCEPTION 'gate: los cambios de rol no quedaron auditados';
     END IF;
     RAISE EXCEPTION 'gate_rollback_ok';
@@ -417,21 +548,47 @@ BEGIN
     IF v_msg <> 'gate_rollback_ok' THEN RAISE EXCEPTION '%', v_msg; END IF;
   END;
 
-  -- c) Un admin no titular no puede quitar el rol a un titular, ni por RPC ni por UPDATE directo.
+  -- c) Un admin ascendido (no titular) no puede tocar titulares ni la cuenta de la plataforma.
   BEGIN
-    PERFORM set_config('request.jwt.claims', jsonb_build_object('role', 'authenticated', 'email', v_admin_dev)::text, true);
-    UPDATE public.staff SET role = 'barber' WHERE business_id = v_legacy AND is_owner;
-    RAISE EXCEPTION 'gate: un admin degradó a un titular';
-  EXCEPTION WHEN insufficient_privilege THEN NULL;
+    PERFORM set_config('request.jwt.claims', jsonb_build_object('role', 'authenticated', 'email', v_owner)::text, true);
+    PERFORM public.set_barber_admin(v_legacy, v_barber_id, true);
+    PERFORM set_config('request.jwt.claims', jsonb_build_object('role', 'authenticated', 'email', v_barber_email)::text, true);
+
+    BEGIN
+      UPDATE public.staff SET role = 'barber' WHERE business_id = v_legacy AND email = v_owner;
+      RAISE EXCEPTION 'gate: un admin degradó a un titular';
+    EXCEPTION WHEN insufficient_privilege THEN NULL;
+    END;
+    BEGIN
+      UPDATE public.staff SET is_owner = true WHERE business_id = v_legacy AND email = v_barber_email;
+      RAISE EXCEPTION 'gate: un admin se nombró titular';
+    EXCEPTION WHEN insufficient_privilege THEN NULL;
+    END;
+    BEGIN
+      DELETE FROM public.staff WHERE business_id = v_legacy AND email = v_platform;
+      RAISE EXCEPTION 'gate: un admin borró la cuenta de la plataforma';
+    EXCEPTION WHEN insufficient_privilege THEN NULL;
+    END;
+    BEGIN
+      PERFORM public.platform_grant_business_admin(v_legacy, 'intruso@example.com');
+      RAISE EXCEPTION 'gate: un admin de negocio usó el onboarding de plataforma';
+    EXCEPTION WHEN insufficient_privilege THEN NULL;
+    END;
+    RAISE EXCEPTION 'gate_rollback_ok';
+  EXCEPTION WHEN raise_exception THEN
+    GET STACKED DIAGNOSTICS v_msg = MESSAGE_TEXT;
+    IF v_msg <> 'gate_rollback_ok' THEN RAISE EXCEPTION '%', v_msg; END IF;
   END;
+
+  -- d) Un titular tampoco puede degradar ni borrar la cuenta de la plataforma.
   BEGIN
-    PERFORM set_config('request.jwt.claims', jsonb_build_object('role', 'authenticated', 'email', v_admin_dev)::text, true);
-    UPDATE public.staff SET is_owner = true WHERE business_id = v_legacy AND email = v_admin_dev;
-    RAISE EXCEPTION 'gate: un admin se nombró titular';
+    PERFORM set_config('request.jwt.claims', jsonb_build_object('role', 'authenticated', 'email', v_owner)::text, true);
+    UPDATE public.staff SET role = 'barber', is_owner = false WHERE business_id = v_legacy AND email = v_platform;
+    RAISE EXCEPTION 'gate: un titular degradó a la plataforma';
   EXCEPTION WHEN insufficient_privilege THEN NULL;
   END;
 
-  -- d) Nunca queda un negocio sin administradores.
+  -- e) Nunca queda un negocio sin administradores.
   BEGIN
     PERFORM set_config('request.jwt.claims', '', true);
     DELETE FROM public.staff WHERE business_id = v_legacy AND role = 'admin';
@@ -441,15 +598,15 @@ BEGIN
     IF v_msg <> 'El negocio debe conservar al menos un administrador' THEN RAISE EXCEPTION '%', v_msg; END IF;
   END;
 
-  -- e) Un admin ascendido conserva el rol si cambia el email de Google de su ficha.
+  -- f) Un admin ascendido conserva el rol si cambia el email de Google de su ficha.
   BEGIN
-    PERFORM set_config('request.jwt.claims', jsonb_build_object('role', 'authenticated', 'email', v_admin_dev)::text, true);
-    PERFORM public.set_barber_admin(v_legacy, v_barber_id, true);
+    PERFORM set_config('request.jwt.claims', jsonb_build_object('role', 'authenticated', 'email', v_owner)::text, true);
+    PERFORM public.set_barber_admin(v_legacy, v_other_id, true);
     PERFORM set_config('request.jwt.claims', '', true);
-    UPDATE public.barbers SET google_email = 'gate.' || v_barber_email WHERE business_id = v_legacy AND id = v_barber_id;
+    UPDATE public.barbers SET google_email = 'gate.' || v_other_email WHERE business_id = v_legacy AND id = v_other_id;
     SELECT string_agg(email || ':' || role, ',' ORDER BY email) INTO v_state
-    FROM public.staff WHERE business_id = v_legacy AND barber_id = v_barber_id;
-    IF v_state <> 'gate.' || v_barber_email || ':admin' THEN
+    FROM public.staff WHERE business_id = v_legacy AND barber_id = v_other_id;
+    IF v_state <> 'gate.' || v_other_email || ':admin' THEN
       RAISE EXCEPTION 'gate: el cambio de email no conservó el rol: %', v_state;
     END IF;
     RAISE EXCEPTION 'gate_rollback_ok';
@@ -458,17 +615,38 @@ BEGIN
     IF v_msg <> 'gate_rollback_ok' THEN RAISE EXCEPTION '%', v_msg; END IF;
   END;
 
-  -- f) Guardar la ficha del titular sin cambios no altera los administradores.
-  UPDATE public.barbers SET name = name WHERE business_id = v_legacy AND id = v_owner_barber;
-  IF (SELECT count(*) FROM public.staff WHERE business_id = v_legacy AND role = 'admin') <> 3 THEN
-    RAISE EXCEPTION 'gate: la sincronización alteró los administradores';
-  END IF;
+  -- g) Un negocio nuevo nace con la plataforma como titular, que puede dar de alta a su cliente.
+  BEGIN
+    PERFORM set_config('request.jwt.claims', '', true);
+    INSERT INTO public.businesses (slug, name) VALUES ('gate-onboarding', 'Gate Onboarding') RETURNING id INTO v_new_business;
+    IF NOT EXISTS (SELECT 1 FROM public.staff WHERE business_id = v_new_business AND email = v_platform
+                   AND role = 'admin' AND is_owner AND status = 'verified') THEN
+      RAISE EXCEPTION 'gate: el negocio nuevo no incluye a la plataforma';
+    END IF;
+    PERFORM set_config('request.jwt.claims', jsonb_build_object('role', 'authenticated', 'email', v_platform)::text, true);
+    v_result := public.platform_grant_business_admin(v_new_business, 'Cliente.Gate@Example.com', 'Cliente Gate');
+    IF v_result ->> 'email' <> 'cliente.gate@example.com' OR NOT (v_result ->> 'is_owner')::boolean THEN
+      RAISE EXCEPTION 'gate: el onboarding no creó al titular: %', v_result;
+    END IF;
+    RAISE EXCEPTION 'gate_rollback_ok';
+  EXCEPTION WHEN raise_exception THEN
+    GET STACKED DIAGNOSTICS v_msg = MESSAGE_TEXT;
+    IF v_msg <> 'gate_rollback_ok' THEN RAISE EXCEPTION '%', v_msg; END IF;
+  END;
 
+  -- h) Guardar la ficha del titular sin cambios no altera los administradores.
   PERFORM set_config('request.jwt.claims', '', true);
+  v_state := (SELECT string_agg(email || ':' || role || ':' || is_owner, ',' ORDER BY email)
+              FROM public.staff WHERE business_id = v_legacy);
+  UPDATE public.barbers SET name = name WHERE business_id = v_legacy AND id = v_owner_barber;
+  IF v_state <> (SELECT string_agg(email || ':' || role || ':' || is_owner, ',' ORDER BY email)
+                 FROM public.staff WHERE business_id = v_legacy) THEN
+    RAISE EXCEPTION 'gate: la sincronización alteró el personal';
+  END IF;
 END;
 $gate$;
 
--- La propia migración no debe dejar eventos de auditoría de las pruebas ni del backfill.
+-- La propia migración no deja eventos de auditoría de las pruebas ni del alta inicial.
 DELETE FROM public.staff_role_events;
 
 INSERT INTO supabase_migrations.schema_migrations (version, name)

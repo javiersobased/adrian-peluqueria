@@ -253,8 +253,16 @@ export default async function middleware(request: Request) {
   if (business.id === LEGACY_BUSINESS_ID) return next();
 
   try {
-    const page = await fetch(new URL('/index.html', url));
-    if (!page.ok) return next();
+    // Reenvía la cookie para que la petición interna pase la protección de las previews.
+    const cookie = request.headers.get('cookie');
+    const page = await fetch(new URL('/index.html', url), {
+      headers: cookie ? { cookie } : undefined,
+      redirect: 'manual',
+    });
+    if (!page.ok) {
+      console.error('[middleware] index.html', page.status);
+      return next();
+    }
     const html = rewriteIndexHtml(await page.text(), business, `https://${business.hostname ?? host}`);
     if (!html) return next();
     return new Response(html, {

@@ -163,23 +163,24 @@ function buildNoscript(business: Business): string {
     .filter((p): p is string => !!p)
     .map((p) => (p.startsWith('<h1>') ? p : `<p>${esc(p)}</p>`));
   return [
-    '      <!-- tenant-noscript:start -->',
+    '      <!-- tenant-body:start -->',
     '      <noscript>',
     `        <div style="padding:2rem;max-width:800px;margin:0 auto;text-align:center;font-family:sans-serif;">${parts.join('')}</div>`,
     '      </noscript>',
-    '      <!-- tenant-noscript:end -->',
+    '      <!-- tenant-body:end -->',
   ].join('\n');
 }
 
 // Sustituye los bloques marcados de index.html. Devuelve null si faltan marcadores.
 function rewriteIndexHtml(html: string, business: Business, origin: string): string | null {
   const head = /[ \t]*<!-- tenant-head:start -->[\s\S]*?<!-- tenant-head:end -->/;
-  const noscript = /[ \t]*<!-- tenant-noscript:start -->[\s\S]*?<!-- tenant-noscript:end -->/;
-  if (!head.test(html) || !noscript.test(html)) return null;
+  // Incluye el <noscript> y el contenido SEO prerenderizado del tenant heredado dentro de #root.
+  const body = /[ \t]*<!-- tenant-body:start -->[\s\S]*?<!-- tenant-body:end -->/;
+  if (!head.test(html) || !body.test(html)) return null;
   const lang = esc(business.locale.split('-')[0] || 'es');
   return html
     .replace(head, () => buildHead(business, origin))
-    .replace(noscript, () => buildNoscript(business))
+    .replace(body, () => buildNoscript(business))
     .replace(/<html\b[^>]*>/, `<html lang="${lang}" data-business="${esc(business.slug)}" data-layout="${business.layoutKey}">`);
 }
 

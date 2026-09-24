@@ -304,10 +304,10 @@ export function AdminToday({
   const dateLabel = `${WEEKDAY_SHORT[now.getDay()]} ${now.getDate()} ${MONTH_SHORT[now.getMonth()]}`;
 
   return (
-    <div className="mx-auto max-w-6xl w-full min-w-0 flex-1 min-h-0 flex flex-col space-y-3 sm:space-y-4">
-      {/* Barber Scope Selector Bar */}
+    <div className="mx-auto max-w-6xl w-full min-w-0 flex-1 min-h-0 flex flex-col space-y-3 sm:space-y-4 pb-8">
+      {/* Barber Scope Selector Bar (Mobile only, on desktop it's in the top header) */}
       {barbers.length > 0 && (
-        <div className="flex flex-wrap items-center justify-between gap-2 p-2 rounded-2xl bg-zinc-900/60 border border-white/5 shadow-sm">
+        <div className="md:hidden flex flex-wrap items-center justify-between gap-2 p-2 rounded-2xl bg-zinc-900/60 border border-white/5 shadow-sm">
           <div className="flex flex-wrap items-center gap-1.5">
             <span className="text-[0.68rem] font-bold uppercase tracking-wider text-zinc-400 px-1.5 flex items-center gap-1.5">
               <Filter className="h-3 w-3 text-gold" />
@@ -491,7 +491,7 @@ export function AdminToday({
                   <div className="flex items-center gap-2 flex-wrap">
                     <p className="truncate text-sm font-bold text-white">{b.full_name}</p>
                     {barber && (
-                      <span className="inline-flex items-center gap-1.5 rounded-md bg-white/5 px-2 py-0.5 text-xs font-medium text-zinc-300 border border-white/5">
+                      <span className="shrink-0 inline-flex items-center gap-1.5 rounded-md bg-white/5 px-2 py-0.5 text-xs font-medium text-zinc-300 border border-white/5">
                         <span className="text-zinc-400 font-normal">Con</span>
                         {barber.photo_url ? (
                           <img src={barber.photo_url} alt="" className="h-4 w-4 rounded-full object-cover shrink-0" />
@@ -504,7 +504,7 @@ export function AdminToday({
                       </span>
                     )}
                     {!b.user_id && (
-                      <span className="inline-flex items-center gap-1 rounded-full bg-blue-500/15 px-2 py-0.5 text-[0.65rem] font-semibold text-blue-400 border border-blue-500/20">
+                      <span className="shrink-0 inline-flex items-center gap-1 rounded-full bg-blue-500/15 px-2 py-0.5 text-[0.65rem] font-semibold text-blue-400 border border-blue-500/20">
                         <CalendarPlus className="h-2.5 w-2.5" /> Manual
                       </span>
                     )}
@@ -601,7 +601,7 @@ export function AdminToday({
                       <div className="flex items-center gap-1.5 flex-wrap">
                         <p className="truncate text-xs font-medium text-zinc-300">{b.full_name}</p>
                         {barber && (
-                          <span className="inline-flex items-center gap-1 text-[0.68rem] text-zinc-400">
+                          <span className="shrink-0 inline-flex items-center gap-1 text-[0.68rem] text-zinc-400">
                             <span className="text-zinc-500 font-normal">Con</span>
                             {barber.photo_url ? (
                               <img src={barber.photo_url} alt="" className="h-3.5 w-3.5 rounded-full object-cover shrink-0" />
@@ -614,7 +614,7 @@ export function AdminToday({
                           </span>
                         )}
                         {!b.user_id && (
-                          <span className="inline-flex items-center gap-0.5 rounded-full bg-blue-500/15 px-1.5 py-0.2 text-[0.6rem] font-semibold text-blue-400 border border-blue-500/20">
+                          <span className="shrink-0 inline-flex items-center gap-0.5 rounded-full bg-blue-500/15 px-1.5 py-0.2 text-[0.6rem] font-semibold text-blue-400 border border-blue-500/20">
                             <CalendarPlus className="h-2 w-2" /> Manual
                           </span>
                         )}

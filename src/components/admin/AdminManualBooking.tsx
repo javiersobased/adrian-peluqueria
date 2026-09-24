@@ -206,7 +206,7 @@ export function AdminManualBooking({ onCreated }: AdminManualBookingProps) {
   }, [valid, barber, service, date, time, fullName, phone, email, comments, services, selectedBarberObj, loadAvailableSlots, onCreated]);
 
   return (
-    <div className="mx-auto max-w-4xl w-full min-w-0">
+    <div className="mx-auto max-w-4xl w-full min-w-0 pb-8">
       <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-4 items-start">
         {/* Columna Izquierda: Barbero, Servicio, Fecha y Hora */}
         <div className="space-y-4">

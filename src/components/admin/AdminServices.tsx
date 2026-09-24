@@ -59,7 +59,7 @@ export function AdminServices() {
   }
 
   return (
-    <div className="mx-auto max-w-6xl w-full min-w-0 space-y-4">
+    <div className="mx-auto max-w-6xl w-full min-w-0 space-y-4 pb-8">
       <button
         onClick={() => {
           setCreating(true);

@@ -4,13 +4,9 @@
     <meta charset="UTF-8" />
     <script>
       try {
-        var savedTheme = localStorage.getItem('adrian_theme');
-        if (savedTheme === 'light') {
-          document.documentElement.classList.add('light-mode');
-        }
-      } catch (e) {
-        // default dark — no class needed
-      }
+        localStorage.removeItem('adrian_theme');
+        document.documentElement.classList.remove('light-mode');
+      } catch (e) {}
     </script>
     <!-- Anti-cache meta headers for HTML document -->
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />

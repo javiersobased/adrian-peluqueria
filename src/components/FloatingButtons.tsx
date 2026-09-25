@@ -1,13 +1,9 @@
 import { WhatsAppIcon, InstagramIcon } from '@/components/icons';
 import { WHATSAPP_URL, INSTAGRAM_URL } from '@/data/services';
-import { ThemeToggle } from '@/components/ThemeToggle';
 
 export function FloatingButtons() {
   return (
     <div className="fixed bottom-5 right-4 z-50 flex flex-col items-center gap-3">
-      {/* Discreet theme toggle directly above WhatsApp */}
-      <ThemeToggle />
-
       {/* WhatsApp Floating Button */}
       <a
         href={WHATSAPP_URL}

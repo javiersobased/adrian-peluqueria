@@ -34,8 +34,6 @@ import {
   PanelLeftClose,
   PanelLeft,
   Sparkles,
-  Sun,
-  Moon,
   Globe,
   Plus,
   Check,
@@ -118,13 +116,6 @@ export function AdminPanel({ userRole, onSignOut, onGoPublic }: AdminPanelProps)
     }
   });
 
-  const [isLightMode, setIsLightMode] = useState<boolean>(() => {
-    if (typeof window !== 'undefined') {
-      return document.documentElement.classList.contains('light-mode');
-    }
-    return false;
-  });
-
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [showMobileProfileMenu, setShowMobileProfileMenu] = useState(false);
 
@@ -140,17 +131,6 @@ export function AdminPanel({ userRole, onSignOut, onGoPublic }: AdminPanelProps)
       const next = !prev;
       try {
         localStorage.setItem('admin_sidebar_collapsed', next ? 'true' : 'false');
-      } catch {}
-      return next;
-    });
-  }, []);
-
-  const toggleTheme = useCallback(() => {
-    setIsLightMode((prev) => {
-      const next = !prev;
-      document.documentElement.classList.toggle('light-mode', next);
-      try {
-        localStorage.setItem('adrian_theme', next ? 'light' : 'dark');
       } catch {}
       return next;
     });
@@ -670,26 +650,6 @@ export function AdminPanel({ userRole, onSignOut, onGoPublic }: AdminPanelProps)
             ========================================================================= */}
         <div className="shrink-0 p-1.5 border-t border-white/5 bg-zinc-950/40">
           <div className="space-y-0.5">
-            {/* Dark mode / Light mode toggle */}
-            <button
-              onClick={toggleTheme}
-              title={isCollapsed ? (isLightMode ? 'Modo Oscuro' : 'Modo Claro') : undefined}
-              className={`flex w-full items-center gap-2.5 rounded-lg px-2 py-1 text-[0.72rem] text-zinc-400 hover:bg-white/5 hover:text-zinc-200 transition-colors ${
-                isCollapsed ? 'justify-center px-0' : ''
-              }`}
-            >
-              {isLightMode ? (
-                <Moon className="h-3.5 w-3.5 shrink-0" />
-              ) : (
-                <Sun className="h-3.5 w-3.5 shrink-0" />
-              )}
-              {!isCollapsed && (
-                <span className="flex-1 text-left">
-                  {isLightMode ? 'Modo oscuro' : 'Modo claro'}
-                </span>
-              )}
-            </button>
-
             {/* Reload page */}
             <button
               onClick={handleManualRefresh}
@@ -1009,13 +969,6 @@ export function AdminPanel({ userRole, onSignOut, onGoPublic }: AdminPanelProps)
 
               {/* Mobile Secondary Utilities (Doble fila limpia al final del menú scrolleable) */}
               <div className="pt-2 border-t border-white/5 space-y-0.5">
-                <button
-                  onClick={toggleTheme}
-                  className="flex w-full items-center gap-3 rounded-xl px-3 py-2 text-xs text-zinc-400 hover:bg-white/5 hover:text-zinc-200 transition-colors"
-                >
-                  {isLightMode ? <Moon className="h-4 w-4 shrink-0" /> : <Sun className="h-4 w-4 shrink-0" />}
-                  <span className="flex-1 text-left">{isLightMode ? 'Modo oscuro' : 'Modo claro'}</span>
-                </button>
                 <button
                   onClick={() => {
                     handleManualRefresh();
